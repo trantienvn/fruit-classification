@@ -1,0 +1,9 @@
+# Python 3.11; install PyTorch/torchvision from the official selector if a specific CUDA build is needed.
+torch>=2.2,<3.0
+torchvision>=0.17,<1.0
+Pillow>=10.0,<13.0
+opencv-python-headless>=4.9,<5.0
+scikit-learn>=1.4,<2.0
+streamlit>=1.32,<2.0
+pytest>=8.0,<9.0
+

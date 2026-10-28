@@ -5,12 +5,4 @@ venv/
 .env
 .pytest_cache/
 .streamlit/secrets.toml
-data/raw/**
-!data/raw/.gitkeep
-data/processed/**
-!data/processed/.gitkeep
-models/*
-!models/.gitkeep
-reports/*
-!reports/.gitkeep
 

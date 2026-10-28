@@ -1,0 +1,4 @@
+Raw_Banana
+Raw_Mango
+Ripe_Banana
+Ripe_Mango

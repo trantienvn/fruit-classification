@@ -1,0 +1,152 @@
+{
+  "source_classes": {
+    "0": "Apple Overripe",
+    "1": "Apple Ripe",
+    "2": "Apple Rotten",
+    "3": "Apple Unripe",
+    "4": "Banana Overripe",
+    "5": "Banana Ripe",
+    "6": "Banana Rotten",
+    "7": "Banana Unripe",
+    "8": "Grape Overripe",
+    "9": "Grape Ripe",
+    "10": "Grape Rotten",
+    "11": "Grape Unripe",
+    "12": "Mango Overripe",
+    "13": "Mango Ripe",
+    "14": "Mango Rotten",
+    "15": "Mango Unripe",
+    "16": "Melon Overripe",
+    "17": "Melon Ripe",
+    "18": "Melon Rotten",
+    "19": "Melon Unripe",
+    "20": "Orange Overripe",
+    "21": "Orange Ripe",
+    "22": "Orange Rotten",
+    "23": "Orange Unripe",
+    "24": "Peach Overripe",
+    "25": "Peach Ripe",
+    "26": "Peach Rotten",
+    "27": "Peach Unripe",
+    "28": "Pear Overripe",
+    "29": "Pear Ripe",
+    "30": "Pear Rotten",
+    "31": "Pear Unripe"
+  },
+  "target_classes": {
+    "0": "Apple Unripe",
+    "1": "Apple Ripe",
+    "2": "Apple Overripe",
+    "3": "Banana Unripe",
+    "4": "Banana Ripe",
+    "5": "Banana Overripe",
+    "6": "Mango Unripe",
+    "7": "Mango Ripe",
+    "8": "Mango Overripe"
+  },
+  "source_to_target_mapping": {
+    "0": 2,
+    "1": 1,
+    "3": 0,
+    "4": 5,
+    "5": 4,
+    "7": 3,
+    "12": 8,
+    "13": 7,
+    "15": 6
+  },
+  "unmapped_source_classes": [
+    {
+      "source_id": 2,
+      "source_name": "Apple Rotten"
+    },
+    {
+      "source_id": 6,
+      "source_name": "Banana Rotten"
+    },
+    {
+      "source_id": 8,
+      "source_name": "Grape Overripe"
+    },
+    {
+      "source_id": 9,
+      "source_name": "Grape Ripe"
+    },
+    {
+      "source_id": 10,
+      "source_name": "Grape Rotten"
+    },
+    {
+      "source_id": 11,
+      "source_name": "Grape Unripe"
+    },
+    {
+      "source_id": 14,
+      "source_name": "Mango Rotten"
+    },
+    {
+      "source_id": 16,
+      "source_name": "Melon Overripe"
+    },
+    {
+      "source_id": 17,
+      "source_name": "Melon Ripe"
+    },
+    {
+      "source_id": 18,
+      "source_name": "Melon Rotten"
+    },
+    {
+      "source_id": 19,
+      "source_name": "Melon Unripe"
+    },
+    {
+      "source_id": 20,
+      "source_name": "Orange Overripe"
+    },
+    {
+      "source_id": 21,
+      "source_name": "Orange Ripe"
+    },
+    {
+      "source_id": 22,
+      "source_name": "Orange Rotten"
+    },
+    {
+      "source_id": 23,
+      "source_name": "Orange Unripe"
+    },
+    {
+      "source_id": 24,
+      "source_name": "Peach Overripe"
+    },
+    {
+      "source_id": 25,
+      "source_name": "Peach Ripe"
+    },
+    {
+      "source_id": 26,
+      "source_name": "Peach Rotten"
+    },
+    {
+      "source_id": 27,
+      "source_name": "Peach Unripe"
+    },
+    {
+      "source_id": 28,
+      "source_name": "Pear Overripe"
+    },
+    {
+      "source_id": 29,
+      "source_name": "Pear Ripe"
+    },
+    {
+      "source_id": 30,
+      "source_name": "Pear Rotten"
+    },
+    {
+      "source_id": 31,
+      "source_name": "Pear Unripe"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+path: .
+train: images/train
+val: images/val
+test: images/test
+
+nc: 9
+names:
+  0: Apple Unripe
+  1: Apple Ripe
+  2: Apple Overripe
+  3: Banana Unripe
+  4: Banana Ripe
+  5: Banana Overripe
+  6: Mango Unripe
+  7: Mango Ripe
+  8: Mango Overripe

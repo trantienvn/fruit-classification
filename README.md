@@ -1,48 +1,87 @@
-# Phân loại chất lượng và độ chín của trái cây
+# Phân loại độ chín của trái cây
 
-Dự án khung dùng PyTorch/torchvision và MobileNetV3 pretrained để dự đoán **loại trái cây**, **độ chín** và **chất lượng** từ ảnh. Hiện workspace chưa có dataset hoặc trọng số mô hình; vì vậy chưa thể huấn luyện hay đưa ra dự đoán thực tế. Không có kết quả giả được tạo.
+Dự án phân loại ảnh trái cây thành 9 lớp kết hợp loại trái cây và độ chín:
+Táo, Chuối, Xoài; mỗi loại có các mức Chưa chín (Unripe), Chín (Ripe) và Quá
+chín (Overripe). Dataset đầu vào là ảnh phát hiện đối tượng theo định dạng
+YOLO; pipeline cắt từng bounding box thành ảnh mẫu, trích xuất đặc trưng ảnh
+và huấn luyện các mô hình machine learning truyền thống.
+
+## Dataset
+
+Dataset **Fruit Ripeness** do Huzaifa công bố trên
+[Roboflow Universe](https://universe.roboflow.com/huzaifa-qgpco/fruit-ripeness-unjex-xsudt),
+sử dụng theo giấy phép
+[Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
+Giấy phép cho phép sử dụng, chia sẻ và chỉnh sửa, kể cả cho mục đích thương
+mại, với điều kiện ghi công phù hợp, dẫn nguồn, liên kết giấy phép và nêu rõ
+các thay đổi.
+
+Bản dữ liệu trong dự án được lọc về 9 lớp mục tiêu: các lớp `Rotten` và các
+loại trái cây ngoài Táo, Chuối, Xoài không nằm trong ánh xạ đích. Khi sử dụng
+lại hoặc phân phối dữ liệu/bản phái sinh, hãy ghi công tác giả Huzaifa, dẫn
+[nguồn dataset](https://universe.roboflow.com/huzaifa-qgpco/fruit-ripeness-unjex-xsudt),
+liên kết [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) và nêu các
+thay đổi này cùng mọi thay đổi khác.
+
+Dataset hiện có 1.559 ảnh train, 445 validation và 223 test. Cấu trúc, nhãn,
+ánh xạ lớp và số lượng mẫu được mô tả trong [data/README.md](data/README.md).
 
 ## Yêu cầu
 
-- Windows 10/11, Python 3.11 và `pip`.
-- Có kết nối mạng khi cài thư viện. Không cần GPU; để dùng CUDA, cài đúng bản PyTorch theo hướng dẫn chính thức tại <https://pytorch.org/get-started/locally/>.
+- Windows 10/11, Python 3.14 và `pip`.
+- Không bắt buộc GPU hoặc tải trọng số pretrained.
+- Có kết nối mạng để cài các thư viện trong `requirements.txt`.
 
 ## Cài đặt trên Windows
 
 Mở PowerShell tại thư mục dự án:
 
 ```powershell
-py -3.11 -m venv .venv
+py -3.14 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-Nếu PowerShell chặn kích hoạt môi trường, chạy `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` một lần rồi kích hoạt lại.
+Nếu PowerShell chặn kích hoạt môi trường, chạy
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` một lần rồi kích hoạt
+lại.
 
-## Chuẩn bị dữ liệu
+## Huấn luyện
 
-Đưa ảnh vào `data/raw/` theo quy ước thư mục được ghi trong [data/README.md](data/README.md). Mỗi ảnh cần có đủ ba nhãn. Chia tập train/validation/test theo nguồn thu hoặc mẫu vật để tránh rò rỉ ảnh gần trùng giữa các tập. Không đưa dữ liệu riêng tư hoặc ảnh không được phép sử dụng.
-
-## Lệnh dự kiến
+Dataset đã được đặt tại `data/raw/`. Chạy pipeline từ thư mục gốc:
 
 ```powershell
-# Kiểm tra khung và các bài kiểm thử không cần dataset
-python -m pytest
+python -m src.train --data-dir data/raw --model-dir models
+```
 
-# Giai đoạn dữ liệu/mô hình chưa được triển khai trong bộ khung này.
-# Sau khi có dữ liệu thực tế, tiếp tục triển khai và chạy pipeline train/evaluate.
+Pipeline đọc ba split YOLO, cắt ảnh theo bounding box, trích xuất đặc trưng,
+so sánh các mô hình và đánh giá mô hình đã chọn trên tập test. Mặc định pipeline
+có chạy GridSearch; để bỏ qua bước này:
+
+```powershell
+python -m src.train --data-dir data/raw --model-dir models --no-gridsearch
+```
+
+Không dùng tập test để chọn mô hình hoặc điều chỉnh tham số. Kết quả huấn luyện
+và các báo cáo được ghi vào `models/` và `reports/`; hiện hai thư mục này chưa
+có checkpoint hay kết quả huấn luyện.
+
+## Chạy giao diện
+
+Sau khi huấn luyện và tạo checkpoint:
+
+```powershell
 streamlit run app/streamlit_app.py
 ```
 
-Streamlit hiện chỉ kiểm tra sự có mặt của checkpoint và hướng dẫn chuẩn bị dữ liệu; chưa có checkpoint thì không hiển thị dự đoán.
+Ứng dụng cho phép tải ảnh để dự đoán lớp trái cây/độ chín và xem lịch sử dự
+đoán. Nếu chưa có checkpoint trong `models/`, cần chạy huấn luyện trước.
 
-## Thiết kế pipeline
+## Kiểm thử
 
-MobileNetV3 pretrained làm backbone ảnh. Với dữ liệu đủ nhãn, có thể dùng một backbone và ba đầu ra phân loại (loại trái cây, độ chín, chất lượng), tối ưu tổng loss có trọng số; nếu nhãn bị thiếu hoặc phân phối/tập dữ liệu khác nhau, huấn luyện ba bộ phân loại riêng sẽ phù hợp hơn. Quyết định cuối cùng cần dựa trên thống kê dữ liệu và đánh giá trên tập test độc lập. `src/data.py`, `train.py`, `evaluate.py`, `predict.py` là các điểm mở rộng; giai đoạn khung chưa tải trọng số hay huấn luyện.
+Các bài kiểm thử không yêu cầu tải dataset hoặc mô hình:
 
-## Trạng thái
-
-- Dataset: **chưa có** (`data/raw/` trống).
-- Checkpoint: **chưa có** (`models/` trống).
-- Huấn luyện/đánh giá: chưa chạy; cần dữ liệu thật trước.
+```powershell
+python -m pytest
+```

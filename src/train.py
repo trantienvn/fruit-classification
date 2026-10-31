@@ -11,6 +11,9 @@ Quy trình:
   8. Đánh giá cuối trên tập test
   9. Lưu model tốt nhất + preprocessing pipeline + metadata
 
+Chế độ GPU tùy chọn: `--device cuda` huấn luyện TorchMLP trên vector đặc trưng.
+PyTorch phải được cài riêng với bản CUDA tương thích.
+
 Chạy:
   python -m src.train --data-dir data/raw --model-dir models
 """
@@ -271,12 +274,26 @@ def train(
     model_dir: Path = Path("models"),
     use_pca: bool = USE_PCA,
     run_gridsearch: bool = True,
+    device: str = "cpu",
+    epochs: int = 100,
+    batch_size: int = 64,
 ) -> dict:
-    """Chạy toàn bộ pipeline huấn luyện. Trả về test metrics."""
+    """Chạy pipeline scikit-learn hiện có hoặc backend PyTorch CUDA."""
+    if device not in {"cpu", "cuda"}:
+        raise ValueError("device phải là 'cpu' hoặc 'cuda'.")
     print("=" * 60)
     print("PIPELINE HUẤN LUYỆN — PHÂN LOẠI ĐỘ CHÍN TRÁI CÂY")
     print(f"Dataset: {data_dir}")
     print(f"Model dir: {model_dir}")
+    print(f"Thiết bị huấn luyện: {device}")
+    gpu_name = None
+    if device == "cuda":
+        from src.torch_model import TorchMLPClassifier, ensure_cuda_available
+
+        gpu_name = ensure_cuda_available()
+        print(f"GPU: {gpu_name}")
+        if epochs < 1 or batch_size < 1:
+            raise ValueError("epochs và batch_size phải lớn hơn 0.")
     print("=" * 60)
 
     # 1. Nạp và trích xuất features
@@ -286,10 +303,47 @@ def train(
     X_tr, X_va, X_te, scaler, pca = _preprocess(X_train, X_val, X_test, use_pca)
 
     # 3. Huấn luyện tất cả mô hình
-    val_results, best_name = _train_all(X_tr, y_train, X_va, y_val)
+    if device == "cuda":
+        model = TorchMLPClassifier(
+            device="cuda",
+            epochs=epochs,
+            batch_size=batch_size,
+            random_state=42,
+        )
+        t0 = time.perf_counter()
+        model.fit(X_tr, y_train, validation_data=(X_va, y_val))
+        train_time = time.perf_counter() - t0
+        t0 = time.perf_counter()
+        y_pred_val = model.predict(X_va)
+        infer_time = time.perf_counter() - t0
+        val_metrics = evaluate_predictions(
+            y_val.tolist(), y_pred_val.tolist(), class_names=CLASS_NAMES
+        )
+        val_results = {
+            "TorchMLP": {
+                **val_metrics,
+                "train_time_s": round(train_time, 3),
+                "infer_time_ms": round(infer_time * 1000, 2),
+                "epochs_trained": model.n_epochs_trained_,
+            }
+        }
+        best_name = "TorchMLP"
+        available_models = {best_name: model}
+        if run_gridsearch:
+            print("Bỏ qua GridSearchCV trong chế độ CUDA (TorchMLP không dùng GridSearchCV).")
+        use_gridsearch = False
+        print(
+            f"  TorchMLP (CUDA)  acc={val_metrics['accuracy']:.4f}  "
+            f"f1={val_metrics['macro_f1']:.4f}  train={train_time:.1f}s  "
+            f"epochs={model.n_epochs_trained_}"
+        )
+    else:
+        val_results, best_name = _train_all(X_tr, y_train, X_va, y_val)
+        available_models = MODELS
+        use_gridsearch = run_gridsearch
 
     # 4. GridSearch cho top-3 mô hình tốt nhất
-    if run_gridsearch:
+    if use_gridsearch:
         top3 = sorted(val_results, key=lambda n: val_results[n]["macro_f1"], reverse=True)[:3]
         top3_eligible = [n for n in top3 if n in GRID_PARAMS]
         best_f1 = val_results[best_name]["macro_f1"]
@@ -309,13 +363,13 @@ def train(
 
         if best_tuned is not None:
             best_name = tuned_best_name
-            MODELS[best_name] = best_tuned  # type: ignore[assignment]
+            available_models[best_name] = best_tuned  # type: ignore[assignment]
             print(f"\nMô hình tốt nhất sau GridSearch: {best_name} — val F1 = {best_f1:.4f}")
         else:
             print(f"\nGiữ nguyên mô hình ban đầu: {best_name} — val F1 = {best_f1:.4f}")
 
     # 5. Đánh giá cuối trên test (chỉ lần này)
-    best_model = MODELS[best_name]
+    best_model = available_models[best_name]
     y_pred_test = best_model.predict(X_te)  # type: ignore[union-attr]
     test_metrics = evaluate_predictions(y_test.tolist(), y_pred_test.tolist(), class_names=CLASS_NAMES)
     print("\n── Kết quả test ──")
@@ -323,7 +377,7 @@ def train(
     print(f"  Macro F1 : {test_metrics['macro_f1']:.4f}")
 
     # 6. Xuất biểu đồ và báo cáo
-    reports_dir = model_dir.parent / "reports"
+    reports_dir = model_dir.parent / ("reports-gpu" if device == "cuda" else "reports")
     full_report(
         y_test.tolist(), y_pred_test.tolist(),
         class_names=CLASS_NAMES,
@@ -346,7 +400,19 @@ def train(
             "n_val": int(len(y_val)),
             "n_test": int(len(y_test)),
             "use_pca": use_pca,
-            "gridsearch": run_gridsearch,
+            "gridsearch": use_gridsearch,
+            "backend": "pytorch" if device == "cuda" else "scikit-learn",
+            "device": device,
+            **({"gpu_name": gpu_name} if gpu_name is not None else {}),
+            **(
+                {
+                    "epochs_requested": epochs,
+                    "epochs_trained": best_model.n_epochs_trained_,
+                    "batch_size": batch_size,
+                }
+                if device == "cuda"
+                else {}
+            ),
         },
     )
 
@@ -359,18 +425,33 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--model-dir", type=Path, default=Path("models"))
     parser.add_argument("--pca", action="store_true", help="Bật PCA giảm chiều")
     parser.add_argument("--no-gridsearch", action="store_true", help="Tắt GridSearch")
+    parser.add_argument(
+        "--device",
+        choices=("cpu", "cuda"),
+        default="cpu",
+        help="cpu: pipeline scikit-learn; cuda: MLP PyTorch trên GPU NVIDIA",
+    )
+    parser.add_argument("--epochs", type=int, default=100, help="Số epoch cho MLP CUDA")
+    parser.add_argument("--batch-size", type=int, default=64, help="Batch size cho MLP CUDA")
     args = parser.parse_args(argv)
 
     if not (args.data_dir / "images" / "train").is_dir():
         print(f"LỖI: Không tìm thấy data/raw/images/train trong {args.data_dir}")
         return 2
 
-    test_metrics = train(
-        data_dir=args.data_dir,
-        model_dir=args.model_dir,
-        use_pca=args.pca,
-        run_gridsearch=not args.no_gridsearch,
-    )
+    try:
+        test_metrics = train(
+            data_dir=args.data_dir,
+            model_dir=args.model_dir,
+            use_pca=args.pca,
+            run_gridsearch=not args.no_gridsearch,
+            device=args.device,
+            epochs=args.epochs,
+            batch_size=args.batch_size,
+        )
+    except RuntimeError as exc:
+        print(f"LỖI: {exc}")
+        return 2
     print(f"\nTest accuracy: {test_metrics['accuracy']:.4f}")
     return 0
 

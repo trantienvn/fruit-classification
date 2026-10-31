@@ -88,9 +88,43 @@ python -m src.train --data-dir data/raw --model-dir models --no-gridsearch
 python -m src.train --data-dir data/raw --model-dir models --pca
 ```
 
+## 6. Huấn luyện tùy chọn trên GPU CUDA
+
+Pipeline scikit-learn gồm 7 mô hình vẫn là mặc định và chạy trên CPU. Để chọn
+GPU NVIDIA, dự án có backend PyTorch: nó huấn luyện một MLP trên cùng 51 đặc trưng
+ảnh. PyTorch được khai báo trong `requirements.txt`; cài dependencies (hoặc cập nhật
+môi trường hiện tại) bằng `uv pip install -r requirements.txt`. Wheel PyTorch đi
+kèm CUDA runtime 12.6 để khớp driver 566.07 (CUDA 12.7) trên máy hiện tại; requirements
+không cài driver NVIDIA. NVIDIA yêu cầu driver Windows 560.76 trở lên cho CUDA 12.6,
+nên driver 566.07 đáp ứng điều kiện này. Wheel CUDA 12.6 có sẵn cho Windows/Python 3.14.
+Nếu dùng máy khác, chọn wheel tương ứng trong [PyTorch Local](https://pytorch.org/get-started/locally/).
+
+Kiểm tra PyTorch nhận CUDA:
+
+```powershell
+.\.venv\Scripts\python.exe -c "import torch; print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CUDA chưa sẵn sàng')"
+```
+
+Chạy huấn luyện vào thư mục riêng để giữ nguyên model scikit-learn trong `models/`:
+
+```powershell
+.\.venv\Scripts\python.exe -m src.train --device cuda --no-gridsearch --data-dir data/raw --model-dir models-gpu --epochs 100 --batch-size 64
+```
+
+`--device cuda` yêu cầu CUDA sẵn sàng; nếu không, chương trình báo lỗi thay vì
+âm thầm chuyển sang CPU. MLP có early stopping dựa trên validation loss. Tùy chọn này huấn luyện riêng `TorchMLP`, không chạy 7
+mô hình scikit-learn. Đọc ảnh, trích xuất 51 đặc trưng, chuẩn hóa và PCA (nếu bật)
+vẫn chạy trên CPU; chỉ bước huấn luyện MLP chạy trên GPU. Tập dữ liệu hiện tại nhỏ,
+nên GPU không nhất thiết nhanh hơn CPU.
+
+Artifact trong `models-gpu/` có thể nạp bằng `FruitClassifier(model_dir="models-gpu")`.
+Môi trường suy luận cần cài PyTorch; model dùng CUDA nếu có, nếu không sẽ suy luận
+bằng CPU. Biểu đồ và classification report của lượt train CUDA được lưu riêng trong
+`reports-gpu/`.
+
 ---
 
-## 6. Kết quả đầu ra
+## 7. Kết quả đầu ra
 
 Sau khi chạy thành công, hệ thống tự động sinh:
 - **Thư mục `models/`:**

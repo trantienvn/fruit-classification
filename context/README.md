@@ -13,7 +13,7 @@ Thư mục này lưu trữ toàn bộ ngữ cảnh, quyết định kiến trúc
 |---|---|
 | [`project-overview.md`](project-overview.md) | Mục tiêu, công nghệ, phạm vi 9 lớp, thành phần cốt lõi của đề tài |
 | [`architecture.md`](architecture.md) | Cấu trúc thư mục, luồng dữ liệu (Data Pipeline, Feature Extraction, Inference), UI |
-| [`decisions.md`](decisions.md) | Các quyết định kỹ thuật đã chốt (Python 3.14, 9 lớp kết hợp, crop bbox YOLO, bỏ DL) |
+| [`decisions.md`](decisions.md) | Các quyết định kỹ thuật đã chốt (Python 3.14, 9 lớp kết hợp, crop bbox YOLO, backend ML mặc định và CUDA tùy chọn) |
 | [`progress.md`](progress.md) | Trạng thái từng giai đoạn (Đã hoàn thành, đang làm dở, việc tiếp theo) |
 | [`issues.md`](issues.md) | Lỗi gặp phải, nguyên nhân, cách xử lý và bài học kinh nghiệm |
 | [`changelog.md`](changelog.md) | Nhật ký thay đổi mã nguồn chi tiết theo thời gian |

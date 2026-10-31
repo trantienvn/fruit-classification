@@ -1,0 +1,41 @@
+{
+  "model_name": "TorchMLP",
+  "n_classes": 9,
+  "class_names": [
+    "Apple Unripe",
+    "Apple Ripe",
+    "Apple Overripe",
+    "Banana Unripe",
+    "Banana Ripe",
+    "Banana Overripe",
+    "Mango Unripe",
+    "Mango Ripe",
+    "Mango Overripe"
+  ],
+  "n_features": 51,
+  "use_pca": false,
+  "crop_size": [
+    128,
+    128
+  ],
+  "val_metrics": {
+    "TorchMLP": {
+      "accuracy": 0.9368635437881874,
+      "macro_f1": 0.9377692672753665
+    }
+  },
+  "test_metrics": {
+    "accuracy": 0.8902439024390244,
+    "macro_f1": 0.8925056301279467
+  },
+  "n_train": 1770,
+  "n_val": 491,
+  "n_test": 246,
+  "gridsearch": false,
+  "backend": "pytorch",
+  "device": "cuda",
+  "gpu_name": "NVIDIA GeForce RTX 3050 Laptop GPU",
+  "epochs_requested": 100,
+  "epochs_trained": 72,
+  "batch_size": 64
+}

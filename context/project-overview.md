@@ -39,7 +39,7 @@ Bài toán được xác định là **Phân loại 9 lớp kết hợp (Loại 
 ## 5. Các thành phần chính của hệ thống
 1. **Dataset Pipeline (`src/dataset.py`)**: Đọc dữ liệu ảnh và nhãn bounding box YOLO từ `data/raw/`, crop theo vùng trái cây và chuẩn hóa kích thước 128×128.
 2. **Feature Extractor (`src/features.py`)**: Trích xuất 51 đặc trưng thủ công (Color Histogram RGB, Color Stats RGB & HSV, LBP Texture, GLCM Texture, Shape Features từ Otsu mask).
-3. **Training & Model Selection (`src/train.py`)**: Huấn luyện 7 thuật toán học máy truyền thống (KNN, Naive Bayes, Logistic Regression, SVM, Decision Tree, Random Forest, Gradient Boosting), áp dụng GridSearch và đánh giá trên tập kiểm tra độc lập.
+3. **Training & Model Selection (`src/train.py`)**: Mặc định huấn luyện 7 thuật toán học máy truyền thống trên CPU; backend PyTorch MLP/CUDA là tùy chọn, dùng cùng 51 đặc trưng và đánh giá trên tập kiểm tra độc lập.
 4. **Evaluation & Visualization (`src/evaluate.py`)**: Tính toán Accuracy, Macro/Weighted F1, Confusion Matrix, ROC-AUC Curves, biểu đồ so sánh mô hình, Feature Importance.
 5. **Inference Engine (`src/predict.py`)**: Class `FruitClassifier` nạp model, scaler và config từ `models/`, tiền xử lý ảnh đầu vào và trả về dự đoán cùng độ tin cậy.
 6. **Web Application (`app/web/`)**: FastAPI phục vụ dashboard HTML/CSS/JS, nhận diện ảnh, lịch sử SQLite, thống kê và thông tin model; dùng trực tiếp `src/predict.py`. `app/streamlit_app.py` được giữ làm bản đối chiếu.

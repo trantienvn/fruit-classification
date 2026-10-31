@@ -134,6 +134,8 @@ TASK-F01 [DONE]
 TASK-G01 [DONE]
     ↓
 TASK-H01 [DONE]
+    ↓
+TASK-I01 [IN_PROGRESS]
 ```
 
 ---
@@ -144,7 +146,7 @@ TASK-H01 [DONE]
 |---|---|---|---|
 | `Main Agent` | Primary Developer | 2026-10-30 → nay | Không có task đang chạy |
 | `Copilot Session 0bc66139` | Copilot SDK session | 2026-10-31 | Hoàn thành TASK-G01 |
-| `CODEX` | OpenAI Codex | 2026-10-31 | Hoàn thành TASK-H01 |
+| `CODEX` | OpenAI Codex | 2026-10-31 | Đang thực hiện TASK-I01 |
 
 ---
 
@@ -166,3 +168,28 @@ TASK-H01 [DONE]
 | 2026-10-31 13:30 | Hoàn thành TASK-G01: xác thực import và nạp model khi chạy từ `app/` | Copilot Session 0bc66139 |
 | 2026-10-31 13:38 | Đăng ký TASK-H01 `IN_PROGRESS` — Thay UI Streamlit bằng FastAPI và HTML/CSS/JavaScript | CODEX |
 | 2026-10-31 13:54 | Hoàn thành TASK-H01: FastAPI, frontend HTML/CSS/JavaScript, OpenAPI, tài liệu; 24/24 tests và HTTP smoke đạt | CODEX |
+
+## 🔵 NHÓM I — Huấn luyện tùy chọn trên GPU
+
+### TASK-I01: Thêm backend PyTorch CUDA tùy chọn cho pipeline huấn luyện
+
+- Agent: `CODEX`
+- Status: IN_PROGRESS
+- Priority: MEDIUM
+- Started: 2026-10-31
+- Scope: `src/train.py`, `src/torch_model.py`, `requirements.txt`, `docs/`, `README.md`, `context/`
+- Depends on: TASK-B02, TASK-C01
+
+### Expected Result
+- Giữ pipeline scikit-learn làm mặc định; thêm lựa chọn PyTorch chạy trên CUDA.
+- PyTorch được khai báo trong `requirements.txt`; GPU vẫn chỉ được dùng khi chọn `--device cuda`.
+- Artifact GPU có thể được `FruitClassifier` nạp để suy luận.
+
+### Verification
+- Đã hoàn thiện thay đổi mã/tài liệu/context; chưa chạy test/runtime trong phiên này.
+- Cần xác nhận bằng PyTorch CUDA trên máy có GPU NVIDIA trước khi đánh dấu DONE.
+
+### Activity
+- 2026-10-31: Đăng ký TASK-I01 `IN_PROGRESS` — Thêm backend huấn luyện PyTorch CUDA tùy chọn.
+- 2026-10-31: Theo yêu cầu người dùng, thêm PyTorch vào `requirements.txt`; wheel cung cấp CUDA runtime nhưng không cài NVIDIA driver.
+- 2026-10-31: Khóa PyTorch 2.14.1 + CUDA 12.6 sau khi đối chiếu RTX 3050/driver 566.07 và wheel Windows/Python 3.14.

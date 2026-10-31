@@ -91,3 +91,8 @@
 - Kiểm tra live Uvicorn: health `ready`, trang gốc, partial nhận diện, CSS và OpenAPI trả HTTP 200.
 - Bổ sung hướng dẫn ở README, `docs/inference.md`, `context/contracts/api-contract.md`.
 - `app/streamlit_app.py` và chức năng Streamlit cũ vẫn được giữ lại để đối chiếu.
+
+### Backend huấn luyện CUDA tùy chọn (2026-10-31)
+- Đang hoàn thiện TASK-I01: `--device cuda` huấn luyện TorchMLP trên vector 51 đặc trưng; pipeline 7 mô hình scikit-learn tiếp tục là mặc định CPU.
+- `requirements.txt` khóa PyTorch `2.14.1+cu126` theo GPU RTX 3050/driver 566.07; đọc ảnh, trích xuất đặc trưng, chuẩn hóa và PCA vẫn chạy trên CPU.
+- Chưa chạy test hoặc huấn luyện GPU trong phiên này; cần môi trường PyTorch CUDA và GPU NVIDIA để xác nhận runtime.

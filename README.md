@@ -30,7 +30,8 @@ Dataset hiện có 1.559 ảnh train, 445 validation và 223 test. Cấu trúc, 
 ## Yêu cầu
 
 - Windows 10/11, Python 3.14 và [`uv`](https://github.com/astral-sh/uv).
-- Không bắt buộc GPU hoặc tải trọng số pretrained.
+- Pipeline scikit-learn mặc định không cần GPU và không dùng trọng số pretrained;
+  `requirements.txt` cài PyTorch để có thể huấn luyện MLP trên GPU NVIDIA.
 - Có kết nối mạng để cài các thư viện trong `requirements.txt`.
 
 ## Cài đặt trên Windows
@@ -73,6 +74,13 @@ Mặc định pipeline có chạy GridSearch; để bỏ qua bước này để 
 ```powershell
 python -m src.train --data-dir data/raw --model-dir models --no-gridsearch
 ```
+
+Muốn huấn luyện MLP bằng GPU NVIDIA, cài dependencies bằng `uv pip install -r requirements.txt`
+rồi chạy `python -m src.train --device cuda --no-gridsearch --model-dir models-gpu`.
+Requirements khóa PyTorch ở wheel CUDA 12.6 tương thích driver NVIDIA 566.07 của máy.
+Máy vẫn cần NVIDIA driver tương thích.
+Xem [hướng dẫn huấn luyện](docs/training.md#6-huấn-luyện-tùy-chọn-trên-gpu-cuda)
+để biết cách kiểm tra CUDA và nạp artifact.
 
 Không dùng tập test để chọn mô hình hoặc điều chỉnh tham số. Kết quả huấn luyện
 và các báo cáo được ghi vào `models/` và `reports/`.

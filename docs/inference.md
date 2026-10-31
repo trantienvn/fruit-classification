@@ -8,6 +8,11 @@ Tài liệu hướng dẫn sử dụng bộ máy suy luận (Inference Engine) v
 
 Lớp `FruitClassifier` (trong `src/predict.py`) là lớp đóng gói chuẩn mực phục vụ suy luận độc lập, không phụ thuộc vào dữ liệu huấn luyện.
 
+Nếu model được huấn luyện bằng `--device cuda`, môi trường suy luận cần có PyTorch.
+Model sẽ dùng CUDA nếu khả dụng và tự suy luận trên CPU nếu không có CUDA. Model
+scikit-learn hiện có không cần GPU; cài đặt PyTorch trong requirements không làm
+thay đổi backend suy luận của model đó.
+
 ### Khởi tạo và nạp mô hình
 
 ```python

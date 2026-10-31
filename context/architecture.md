@@ -51,7 +51,8 @@ fruit-classification/
 │   ├── data.py                       # Tiện ích đọc & kiểm tra tính hợp lệ của ảnh
 │   ├── dataset.py                    # Parser YOLO & Bounding box cropper
 │   ├── features.py                   # Trích xuất 51 đặc trưng (Color, Texture, Shape)
-│   ├── train.py                      # Pipeline huấn luyện 7 mô hình + GridSearch + Export
+│   ├── train.py                      # Pipeline scikit-learn CPU và backend CUDA tùy chọn
+│   ├── torch_model.py                # MLP PyTorch tùy chọn; chỉ import PyTorch khi dùng
 │   ├── evaluate.py                   # Đánh giá metrics & xuất biểu đồ
 │   ├── predict.py                    # Inference engine FruitClassifier
 │   └── filter_dataset.py             # Script lọc và đồng bộ dataset YOLO
@@ -84,13 +85,20 @@ flowchart TD
     
     FeatureSet --> TrainPipeline["src/train.py"]
     TrainPipeline --> Scaler["StandardScaler.fit() (Tập Train)"]
-    Scaler --> ModelTrain["Huấn luyện 7 mô hình<br/>KNN, NB, LR, SVM, DT, RF, GBM"]
+    Scaler --> ModelTrain["CPU: 7 mô hình scikit-learn<br/>KNN, NB, LR, SVM, DT, RF, GBM"]
     ModelTrain --> Tuning["GridSearchCV cho Top-3 Models"]
     Tuning --> BestModel["Chọn Best Model (Val Macro F1)"]
+    Scaler --> TorchGPU["Tùy chọn --device cuda:<br/>TorchMLP trên GPU"]
+    TorchGPU --> BestModel
     BestModel --> TestEval["Đánh giá độc lập trên Test<br/>src/evaluate.py"]
     BestModel --> SaveArtifacts["Lưu models/<br/>classifier, scaler, config.json"]
     TestEval --> SaveReports["Xuất biểu đồ reports/<br/>Confusion Matrix, ROC, etc."]
 ```
+
+Backend CUDA trong `src/torch_model.py` là tùy chọn và không được import bởi
+pipeline mặc định. Nó chỉ đưa bước MLP lên GPU; đọc ảnh, trích xuất đặc trưng,
+chuẩn hóa và PCA vẫn chạy trên CPU. Artifact chứa trọng số NumPy và có thể suy
+luận CPU khi CUDA không khả dụng; môi trường nạp artifact này vẫn cần PyTorch.
 
 ## 3. Luồng dự đoán thời gian thực (Inference Flow)
 

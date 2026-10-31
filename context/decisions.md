@@ -61,3 +61,10 @@ Tài liệu này ghi lại các quyết định kỹ thuật cốt lõi đã đ�
 - **Xác suất**: API chỉ gửi `confidence` và `probabilities` khi classifier có `predict_proba`; UI có trạng thái khi trường này vắng mặt.
 - **Tương thích**: Giữ `app/streamlit_app.py` và dependency Streamlit để chạy bản cũ khi cần đối chiếu.
 
+## 7. Backend huấn luyện GPU tùy chọn (Q7, CONFIRMED 2026-10-31)
+- **Quyết định**: Giữ pipeline scikit-learn bảy mô hình làm mặc định; bổ sung `--device cuda` để huấn luyện `TorchMLP` bằng PyTorch trên GPU NVIDIA.
+- **Phạm vi**: MLP dùng các vector 51 đặc trưng hiện tại. Đọc/crop ảnh, trích xuất đặc trưng, StandardScaler và PCA vẫn chạy trên CPU. Chế độ CUDA không chạy GridSearchCV.
+- **Dependency**: Khai báo `torch==2.14.1+cu126` trong `requirements.txt` theo yêu cầu mới và driver NVIDIA 566.07; CUDA runtime đi kèm wheel. Driver NVIDIA vẫn được cài riêng trên Windows.
+- **Tương thích artifact**: Lưu trọng số dưới dạng NumPy; artifact GPU có thể suy luận CPU nếu CUDA không khả dụng, nhưng môi trường suy luận vẫn cần PyTorch.
+- **Quan hệ với Q4**: Q4 tiếp tục áp dụng cho pipeline mặc định; yêu cầu mới cho phép thêm backend Deep Learning tùy chọn và cài PyTorch cùng dependencies.
+

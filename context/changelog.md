@@ -4,6 +4,14 @@ Toàn bộ các thay đổi mã nguồn và tài liệu của dự án được 
 
 ## [2026-10-31]
 
+### Thêm backend huấn luyện CUDA tùy chọn
+- Thêm `src/torch_model.py` với MLP PyTorch, early stopping theo validation loss và lưu trọng số dạng NumPy.
+- Thêm `--device cuda`, `--epochs`, `--batch-size`; pipeline scikit-learn CPU vẫn là mặc định.
+- Thêm `torch==2.14.1+cu126` vào `requirements.txt` để khớp driver NVIDIA 566.07; driver NVIDIA cài riêng.
+- Ghi hướng dẫn kiểm tra GPU, chọn bản CUDA trong PyTorch selector nếu cần và nạp artifact.
+- Tách báo cáo CUDA vào `reports-gpu/` để không ghi đè báo cáo CPU.
+- Chưa chạy test hoặc huấn luyện CUDA trong phiên này.
+
 ### Chuyển sang Web Application HTML/CSS/JavaScript
 - Thêm `app/web/`: FastAPI routers/services, validation upload, model startup một lần, static frontend và OpenAPI snapshot.
 - Thêm năm màn hình responsive cho tổng quan, nhận diện, lịch sử, thống kê và model info; chart lấy từ API history/config thật.

@@ -1,0 +1,71 @@
+{
+  "model_name": "SVM",
+  "n_classes": 9,
+  "class_names": [
+    "Apple Unripe",
+    "Apple Ripe",
+    "Apple Overripe",
+    "Banana Unripe",
+    "Banana Ripe",
+    "Banana Overripe",
+    "Mango Unripe",
+    "Mango Ripe",
+    "Mango Overripe"
+  ],
+  "n_features": 51,
+  "use_pca": false,
+  "crop_size": [
+    128,
+    128
+  ],
+  "val_metrics": {
+    "KNN": {
+      "accuracy": 0.8961303462321792,
+      "macro_f1": 0.8976410591711306
+    },
+    "NaiveBayes": {
+      "accuracy": 0.6782077393075356,
+      "macro_f1": 0.6713900805984674
+    },
+    "LogisticRegression": {
+      "accuracy": 0.8472505091649695,
+      "macro_f1": 0.8454764427086598
+    },
+    "SVM": {
+      "accuracy": 0.9490835030549898,
+      "macro_f1": 0.9494077423077891
+    },
+    "DecisionTree": {
+      "accuracy": 0.8329938900203666,
+      "macro_f1": 0.8364907925818906
+    },
+    "RandomForest": {
+      "accuracy": 0.9429735234215886,
+      "macro_f1": 0.9440852282521417
+    },
+    "GradientBoosting": {
+      "accuracy": 0.9287169042769857,
+      "macro_f1": 0.9316313244183496
+    },
+    "SVM_tuned": {
+      "accuracy": 0.9531568228105907,
+      "macro_f1": 0.9546335231899589
+    },
+    "RandomForest_tuned": {
+      "accuracy": 0.945010183299389,
+      "macro_f1": 0.9459162735927256
+    },
+    "GradientBoosting_tuned": {
+      "accuracy": 0.9429735234215886,
+      "macro_f1": 0.9443137057066744
+    }
+  },
+  "test_metrics": {
+    "accuracy": 0.9349593495934959,
+    "macro_f1": 0.9370830904821668
+  },
+  "n_train": 1770,
+  "n_val": 491,
+  "n_test": 246,
+  "gridsearch": true
+}

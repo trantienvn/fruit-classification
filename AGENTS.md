@@ -1,6 +1,6 @@
 # Hướng dẫn làm việc trong dự án
 
-- Dùng Python 3.11 và giữ mã nguồn, tài liệu bằng tiếng Việt khi phù hợp.
+- Dùng Python 3.14 và giữ mã nguồn, tài liệu bằng tiếng Việt khi phù hợp.
 - Không thêm dataset, trọng số mô hình, hoặc kết quả huấn luyện giả vào repository.
 - Dữ liệu thật đặt dưới `data/raw/`; cấu trúc nhãn được mô tả trong `data/README.md`.
 - Tách tiền xử lý, huấn luyện, đánh giá và dự đoán thành các mô-đun trong `src/`.

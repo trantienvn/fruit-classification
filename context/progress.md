@@ -1,67 +1,72 @@
 # Tiến độ dự án (Project Progress)
 
+> Cập nhật lần cuối: 2026-10-31
+
 ## 1. Trạng thái tổng quan
 
 | Giai đoạn | Mô tả | Trạng thái |
 |---|---|---|
-| **Giai đoạn 1** | Khảo sát repository, thống nhất yêu cầu, thiết lập môi trường | **Hoàn thành 100%** |
-| **Giai đoạn 2** | Hoàn thiện Dataset pipeline & Crop Bounding Box | **Hoàn thành 100%** |
+| **Giai đoạn 1** | Khảo sát repository, thống nhất yêu cầu, thiết lập môi trường Python 3.14 + uv | **Hoàn thành 100%** |
+| **Giai đoạn 2** | Hoàn thiện Dataset pipeline & Crop Bounding Box YOLO (2.507 mẫu) | **Hoàn thành 100%** |
 | **Giai đoạn 3** | Trích xuất đặc trưng (Feature Extraction - 51 features) | **Hoàn thành 100%** |
-| **Giai đoạn 4** | Huấn luyện mô hình (7 thuật toán + GridSearch + Model Saving) | **Hoàn thành 90%** (Code sẵn sàng, chờ kích hoạt train full) |
+| **Giai đoạn 4** | Huấn luyện mô hình (7 thuật toán + GridSearchCV + Lưu checkpoint) | **Hoàn thành 100%** (SVM Test Acc: 93.5%, F1: 93.71%) |
 | **Giai đoạn 5** | Hoàn thiện Backend & Inference Engine (`FruitClassifier`) | **Hoàn thành 100%** |
-| **Giai đoạn 6** | Hoàn thiện Frontend Web App (Streamlit UI theo `frontend-design`) | **Hoàn thành 100%** |
-| **Giai đoạn 7** | Tích hợp End-to-End & Testing | **Hoàn thành 85%** (16/17 unit tests passed) |
-| **Giai đoạn 8** | Tài liệu hóa & Báo cáo học phần | **Đang tiến hành** |
+| **Giai đoạn 6** | Hoàn thiện Frontend Web App (Streamlit UI đầy đủ 3 tabs) | **Hoàn thành 100%** |
+| **Giai đoạn 7** | Tích hợp End-to-End & Testing (17/17 tests passed) | **Hoàn thành 100%** |
+| **Giai đoạn 8** | Tài liệu hóa đầy đủ (`docs/`, `README.md`, `context/`) | **Hoàn thành 100%** |
 
 ---
 
-## 2. Chi tiết các chức năng đã hoàn thành
+## 2. Chi tiết các thành phần hệ thống
 
-### Dữ liệu & Tiền xử lý
-- [x] Khảo sát và thống kê 2 227 ảnh thật chia theo 3 tập (`train`: 1 559, `val`: 445, `test`: 223).
-- [x] Viết `src/dataset.py`: Parser YOLO format, tính tọa độ và crop ảnh bounding box, resize 128×128.
-- [x] Lưu trữ cấu hình ánh xạ 9 nhãn trong `data/raw/data.yaml` và `src/dataset.py`.
+### Dữ liệu & Tiền xử lý (`src/dataset.py`)
+- [x] Khảo sát và xử lý toàn bộ 2.227 ảnh và 2.507 mẫu gán nhãn theo 3 split:
+  - Train: 1.559 ảnh (1.770 mẫu đối tượng sau crop)
+  - Val: 445 ảnh (491 mẫu đối tượng sau crop)
+  - Test: 223 ảnh (246 mẫu đối tượng sau crop)
+- [x] Khắc phục lỗi đọc tên file chứa nhiều dấu chấm (`.with_suffix`) trong định dạng UUID của Roboflow.
+- [x] Crop ảnh chính xác theo bounding box YOLO, chuẩn hóa về kích thước 128×128 pixel.
 
-### Đặc trưng học máy (Feature Engineering)
-- [x] Viết `src/features.py`: Trích xuất vector 51 đặc trưng bao gồm:
+### Trích xuất đặc trưng (`src/features.py`)
+- [x] Vector 51 đặc trưng vật lý kết hợp:
   - 24 histogram RGB chuẩn hóa.
-  - 9 chỉ số thống kê màu (RGB Mean/Std, HSV Mean/Std).
+  - 9 chỉ số thống kê màu (RGB Mean/Std, HSV Mean).
   - 10 đặc trưng kết cấu LBP (Local Binary Patterns).
-  - 4 đặc trưng kết cấu GLCM (Contrast, Dissimilarity, Homogeneity, Energy).
-  - 4 đặc trưng hình dạng trích từ Otsu mask (Area ratio, Aspect ratio, Extent, Eq diameter).
-- [x] Đảm bảo tính nhất quán: Hàm trích xuất dùng chung 100% giữa Training và Inference.
+  - 4 đặc trưng kết cấu ma trận đồng mức xám GLCM.
+  - 4 đặc trưng hình dạng Otsu mask.
+- [x] Đảm bảo tính nhất quán 100% giữa quá trình Training và Inference.
 
-### Huấn luyện & Đánh giá
-- [x] Viết `src/train.py`:
-  - Nạp 3 tập dữ liệu độc lập (`train`, `val`, `test`).
-  - Fit `StandardScaler` trên tập train, transform sang val và test (chống data leakage).
-  - Khung huấn luyện và so sánh 7 thuật toán: KNN, Naive Bayes, Logistic Regression, SVM (RBF), Decision Tree, Random Forest, Gradient Boosting.
-  - Tinh chỉnh tham số tự động bằng `GridSearchCV` trên tập val cho top model.
-  - Lưu trữ artifact: `classifier.joblib`, `scaler.joblib`, `config.json`.
-- [x] Viết `src/evaluate.py`:
-  - Tính Accuracy, Precision, Recall, Macro F1, Weighted F1.
-  - Vẽ và xuất biểu đồ `reports/confusion_matrix.png`.
-  - Vẽ và xuất đường cong `reports/roc_curves.png` (One-vs-Rest ROC/AUC).
-  - Vẽ biểu đồ so sánh `reports/model_comparison.png`.
-  - Vẽ `reports/feature_importance.png` cho các mô hình hỗ trợ.
+### Huấn luyện & Đánh giá (`src/train.py`, `src/evaluate.py`)
+- [x] Huấn luyện và so sánh 7 thuật toán học máy:
+  - **SVM (RBF):** Val F1 = 0.9494 $\rightarrow$ sau GridSearchCV ($C=50$): **Val F1 = 0.9546**
+  - **Random Forest:** Val F1 = 0.9441 $\rightarrow$ sau GridSearchCV: **Val F1 = 0.9459**
+  - **Gradient Boosting:** Val F1 = 0.9316 $\rightarrow$ sau GridSearchCV: **Val F1 = 0.9443**
+  - **KNN:** Val F1 = 0.8976
+  - **Logistic Regression:** Val F1 = 0.8455
+  - **Decision Tree:** Val F1 = 0.8365
+  - **Naive Bayes:** Val F1 = 0.6714
+- [x] Đánh giá trên tập Test độc lập (246 mẫu):
+  - **Test Accuracy:** **93.50%**
+  - **Macro F1:** **0.9371**
+  - **Macro AUC:** **0.9985**
+- [x] Xuất đầy đủ biểu đồ thực nghiệm vào `reports/`:
+  - `confusion_matrix.png`
+  - `roc_curves.png`
+  - `model_comparison.png`
+  - `classification_report_SVM.txt`
+- [x] Lưu trữ trọng số và cấu hình vào `models/`:
+  - `classifier.joblib`, `scaler.joblib`, `config.json`.
 
-### Suy luận & Giao diện người dùng
-- [x] Viết `src/predict.py`: Lớp `FruitClassifier` quản lý vòng đời model, kiểm tra định dạng và dung lượng ảnh tải lên (<10MB), dự đoán xác suất và đo thời gian xử lý (ms).
-- [x] Viết `app/streamlit_app.py`: Giao diện chuyên nghiệp, tuân thủ `frontend-design`:
-  - Tab Dự đoán: Kéo thả ảnh, hiển thị ảnh gốc, kết quả phân loại (tiếng Việt & tiếng Anh), độ tin cậy, phân bố xác suất 9 lớp.
-  - Tab Lịch sử: Lưu trữ và hiển thị 20 lần dự đoán gần nhất trong phiên.
-  - Tab Thông tin Model: Hiển thị các chỉ số thực tế (Test Accuracy, Macro F1, số mẫu, đặc trưng) và các biểu đồ thực nghiệm.
+### Suy luận & Ứng dụng Web (`src/predict.py`, `app/streamlit_app.py`)
+- [x] Lớp `FruitClassifier` nạp mô hình đã huấn luyện, tiền xử lý và suy luận trong ~10 ms.
+- [x] Giao diện Streamlit hoạt động hoàn chỉnh với 3 tabs:
+  - **Dự đoán:** Tải ảnh, phân loại độ chín, thẻ độ tin cậy, phân bố xác suất 9 lớp.
+  - **Lịch sử:** Lưu lại các lượt phân loại trong phiên kèm ảnh thu nhỏ.
+  - **Thông tin model:** Hiển thị thông số kỹ thuật thực tế và biểu đồ thực nghiệm.
 
 ---
 
-### Trạng thái kiểm thử (Testing Status)
-- Đã chạy `pytest tests/ -v`: **17/17 passed (100%)**.
-- Tất cả unit test cho file handling, parse bounding box, feature extraction (51 features), metrics evaluation và inference engine đều vượt qua.
-
----
-
-## 4. Công việc tiếp theo
-1. Sửa lỗi làm tròn trong `test_parse_yolo_box_valid` để đạt 17/17 tests passed (100%).
-2. Chạy huấn luyện chính thức `python -m src.train` trên tập dữ liệu thật để sinh `models/classifier.joblib` và các biểu đồ thực nghiệm trong `reports/`.
-3. Kiểm thử ứng dụng Streamlit end-to-end với ảnh tải lên thực tế.
-4. Cập nhật `README.md` và `docs/AGENT_PROJECT_SPEC.md` với số liệu thực tế thu được.
+## 3. Trạng thái kiểm thử
+- `pytest tests/ -v`: **17/17 passed (100%)**.
+- `py_compile`: Tất cả module trong `src/`, `app/`, `tests/` biên dịch sạch sẽ không lỗi.
+- Kiểm thử end-to-end máy chủ web Streamlit: Phản hồi mã HTTP `200`.

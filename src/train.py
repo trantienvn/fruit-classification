@@ -19,8 +19,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 from pathlib import Path
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 import joblib
 import numpy as np
@@ -43,7 +49,7 @@ from src.features import N_FEATURES, build_feature_matrix
 MODELS: dict[str, object] = {
     "KNN": KNeighborsClassifier(n_neighbors=5, n_jobs=-1),
     "NaiveBayes": GaussianNB(),
-    "LogisticRegression": LogisticRegression(max_iter=1000, random_state=42, n_jobs=-1),
+    "LogisticRegression": LogisticRegression(max_iter=1000, random_state=42),
     "SVM": SVC(kernel="rbf", C=10, gamma="scale", probability=True, random_state=42),
     "DecisionTree": DecisionTreeClassifier(max_depth=15, random_state=42),
     "RandomForest": RandomForestClassifier(n_estimators=200, random_state=42, n_jobs=-1),
@@ -211,13 +217,13 @@ def _grid_search_best(
     gs.fit(X_all, y_all)
     print(f"  Xong — {time.perf_counter()-t0:.1f}s | best params: {gs.best_params_}")
 
-    best_model = MODELS[name].__class__(**gs.best_params__)
+    best_model = MODELS[name].__class__(**gs.best_params_)
     try:
         best_model.set_params(random_state=42)
     except ValueError:
         pass
     if name == "SVM":
-        best_model.set_params(probability=True, n_jobs=None)
+        best_model.set_params(probability=True)
 
     best_model.fit(X_tr, y_tr)
     return best_model
@@ -286,23 +292,27 @@ def train(
     if run_gridsearch:
         top3 = sorted(val_results, key=lambda n: val_results[n]["macro_f1"], reverse=True)[:3]
         top3_eligible = [n for n in top3 if n in GRID_PARAMS]
+        best_f1 = val_results[best_name]["macro_f1"]
         best_tuned = None
-        best_f1 = -1.0
+        tuned_best_name = best_name
 
         for name in top3_eligible:
             tuned = _grid_search_best(name, X_tr, y_train, X_va, y_val)
             y_pred_va = tuned.predict(X_va)  # type: ignore[union-attr]
             m = evaluate_predictions(y_val.tolist(), y_pred_va.tolist(), class_names=CLASS_NAMES)
             print(f"  {name} (tuned): val F1 = {m['macro_f1']:.4f}")
+            val_results[name + "_tuned"] = m
             if m["macro_f1"] > best_f1:
                 best_f1 = m["macro_f1"]
                 best_tuned = tuned
-                best_name = name
-                val_results[name + "_tuned"] = m
+                tuned_best_name = name
 
         if best_tuned is not None:
+            best_name = tuned_best_name
             MODELS[best_name] = best_tuned  # type: ignore[assignment]
             print(f"\nMô hình tốt nhất sau GridSearch: {best_name} — val F1 = {best_f1:.4f}")
+        else:
+            print(f"\nGiữ nguyên mô hình ban đầu: {best_name} — val F1 = {best_f1:.4f}")
 
     # 5. Đánh giá cuối trên test (chỉ lần này)
     best_model = MODELS[best_name]
@@ -321,7 +331,7 @@ def train(
         all_val_results=val_results,
         save_dir=reports_dir,
         model=best_model,
-        X_val=X_va,
+        X_test=X_te,
     )
 
     # 7. Lưu pipeline

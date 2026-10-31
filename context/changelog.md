@@ -2,6 +2,39 @@
 
 Toàn bộ các thay đổi mã nguồn và tài liệu của dự án được ghi nhận theo chuẩn [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-31]
+
+### Đã thêm (Added)
+- Bảng quản lý nhiệm vụ đa tác tử `context/task-board.md` theo skill `multi-agent-coordinator`.
+- Tài liệu kỹ thuật chi tiết trong `docs/`:
+  - `docs/installation.md`: Hướng dẫn cài đặt chi tiết trên Windows với `uv` và Python 3.14.
+  - `docs/training.md`: Chi tiết pipeline ML, trích xuất 51 đặc trưng, 7 thuật toán và GridSearchCV.
+  - `docs/inference.md`: Hướng dẫn sử dụng `FruitClassifier` Python API và ứng dụng Web Streamlit.
+  - `docs/results.md`: Báo cáo kết quả thực nghiệm với số liệu thật từ huấn luyện trên 2.507 mẫu.
+- Đối chiếu và sửa mô tả HSV, GLCM, đặc trưng hình dạng trong `docs/training.md` để khớp với `src/features.py`.
+- Mô hình và artifact đã huấn luyện trong `models/`:
+  - `models/classifier.joblib`: Mô hình SVM tối ưu ($C=50$, RBF).
+  - `models/scaler.joblib`: Bộ chuẩn hóa `StandardScaler` 51 chiều.
+  - `models/config.json`: Toàn bộ siêu tham số và kết quả đánh giá.
+- Các biểu đồ thực nghiệm trực quan trong `reports/`:
+  - `reports/confusion_matrix.png`: Ma trận nhầm lẫn 9 lớp trên tập test.
+  - `reports/roc_curves.png`: Đường cong ROC One-vs-Rest (Macro AUC: 0.9985).
+  - `reports/model_comparison.png`: So sánh Accuracy và Macro F1 của 7 thuật toán.
+  - `reports/classification_report_SVM.txt`: Bảng chi tiết Precision, Recall, F1 theo từng lớp.
+
+### Đã thay đổi (Changed)
+- `README.md`: Cập nhật toàn diện hướng dẫn cài đặt với `uv`, các tùy chọn huấn luyện, chạy Streamlit và kiểm thử.
+- `context/progress.md`: Cập nhật tiến độ hoàn thành 100% tất cả 8 giai đoạn của dự án.
+- `context/task-board.md`: Cập nhật tất cả các task đã hoàn thành (`[x] DONE`).
+
+### Đã sửa (Fixed)
+- Sửa lỗi `(label_dir / img_path.stem).with_suffix(".txt")` trong `src/dataset.py`: chuyển thành `label_dir / f"{img_path.stem}.txt"` để nạp chính xác tên file Roboflow có nhiều dấu chấm.
+- Sửa lỗi `UnicodeEncodeError: 'charmap'` khi in console tiếng Việt trên Windows trong `src/train.py`.
+- Sửa lỗi gõ nhầm thuộc tính `gs.best_params__` trong GridSearchCV (`src/train.py`).
+- Sửa lỗi truyền ma trận đặc trưng lệch kích thước `X_val` thay vì `X_test` trong hàm `full_report` (`src/evaluate.py`).
+
+---
+
 ## [2026-10-30]
 
 ### Đã thêm (Added)
@@ -21,4 +54,3 @@ Toàn bộ các thay đổi mã nguồn và tài liệu của dự án được 
 ### Đã sửa (Fixed)
 - Phát hiện lỗi làm tròn số thực trong việc chuyển đổi tọa độ YOLO pixel (`int()` gây mất số liệu, sửa bằng `int(round(...))`).
 - Xử lý vấn đề môi trường sandbox chặn truy cập Python 3.14 của hệ thống bằng việc tạo venv nội bộ trong thư mục dự án.
-

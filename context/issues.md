@@ -40,3 +40,44 @@
   - Dọn dẹp sạch sẽ `requirements.txt`: Bỏ `torch`, thêm `scikit-learn`, `scikit-image`, `opencv-python-headless`, `scipy`.
   - Khảo sát và đối chiếu với `docs/AGENT_PROJECT_SPEC.md` để xác nhận và tuân thủ đúng yêu cầu học phần.
 
+---
+
+### Issue #5: Source chưa đạt kiểm tra lint/style của Ruff
+- **Phát hiện (2026-10-31)**: Chạy Ruff với các nhóm quy tắc `E,F,I` trên `src/` có 67 diagnostics: 59 dòng vượt giới hạn 88 ký tự (`E501`), 6 import không dùng (`F401`) và 2 import block sai thứ tự (`I001`). Ruff formatter báo 8 module cần định dạng lại.
+- **Ảnh hưởng**: Vấn đề định dạng mã nguồn; không ảnh hưởng runtime hoặc kiểm thử.
+
+---
+
+### Issue #6: Lỗi `UnicodeEncodeError: 'charmap'` khi in tiếng Việt trên console Windows
+- **Hiện tượng**: Lệnh `python -m src.train` văng lỗi:
+  `UnicodeEncodeError: 'charmap' codec can't encode character '\u1ea4' in position 11: character maps to <undefined>`.
+- **Nguyên nhân**: PowerShell/CMD trên Windows mặc định mã hóa ngõ ra theo mã trang ANSI `cp1252` thay vì UTF-8, nên các ký tự tiếng Việt có dấu trong `print()` không thể mã hóa được.
+- **Giải pháp**:
+  - Bổ sung cấu hình tự động nhận diện và tái cấu hình luồng xuất chuẩn tại đầu các file chạy chính:
+    ```python
+    import sys
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    ```
+  - Thiết lập biến môi trường `$env:PYTHONUTF8="1"` khi chạy lệnh PowerShell.
+
+---
+
+### Issue #7: Lỗi `with_suffix` khi đọc nhãn Roboflow có nhiều dấu chấm trong tên file
+- **Hiện tượng**: `load_split` tải được 0 mẫu đối tượng trên dataset thật (`0 mẫu — 0.0s`), gây ra lỗi `ValueError: Expected 2D array, got 1D array instead: array=[]`.
+- **Nguyên nhân**: Tên file xuất từ Roboflow Universe có định dạng `tên_ảnh.rf.UUID.jpg` (ví dụ: `-1_jpg.rf.56ecaa8de6a86784bf5b0e11af267026.jpg`). Trong Python `pathlib`, `img_path.stem` là `-1_jpg.rf.56ecaa8de6a86784bf5b0e11af267026`. Khi gọi `(label_dir / img_path.stem).with_suffix(".txt")`, phương thức `with_suffix` coi chuỗi sau dấu chấm cuối cùng (`.56ecaa8...`) là phần mở rộng cũ và thay thế nó bằng `.txt`, tạo thành `label_dir / -1_jpg.rf.txt` (sai lệch hoàn toàn so với tệp nhãn thật).
+- **Giải pháp**:
+  - Thay đổi cách nối đuôi tệp nhãn: `label_path = label_dir / f"{img_path.stem}.txt"`.
+  - Sau khi sửa, toàn bộ 2.507 mẫu gán nhãn được nạp chính xác 100%.
+
+---
+
+### Issue #8: Lệch kích thước mẫu trong hàm vẽ biểu đồ ROC (`full_report`)
+- **Hiện tượng**: `full_report` nhận `y_true` là nhãn test (246 mẫu) nhưng lại nhận ma trận đặc trưng tập val `X_val` (491 mẫu), dẫn đến nguy cơ lỗi `ValueError: Found input variables with inconsistent numbers of samples`.
+- **Giải pháp**: Cập nhật hàm `full_report` nhận tham số `X_test=X_te` khớp với `y_test`, đảm bảo kích thước đồng nhất khi vẽ 9 đường cong ROC One-vs-Rest.
+
+---
+
+### Issue #9: Lỗi thuộc tính `gs.best_params__` trong GridSearchCV
+- **Hiện tượng**: Thuộc tính của `GridSearchCV` bị gõ nhầm thành 2 dấu gạch dưới `best_params__` thay vì 1 dấu gạch dưới `best_params_`.
+- **Giải pháp**: Sửa lại thành `gs.best_params_` và đảm bảo chỉ thay thế mô hình tốt nhất nếu điểm F1 của mô hình tinh chỉnh thực sự vượt qua mô hình ban đầu.

@@ -73,15 +73,15 @@ def _plot_confusion_matrix(
     save_path: Path,
 ) -> None:
     """Vẽ và lưu confusion matrix."""
-    short_names = [n.split()[-1][:3] + n.split()[0][0] for n in class_names]
+    labels = [n.replace(" ", "\n") for n in class_names]
     disp = ConfusionMatrixDisplay.from_predictions(
-        y_true, y_pred, display_labels=short_names, colorbar=False
+        y_true, y_pred, display_labels=labels, colorbar=False
     )
     fig, ax = plt.subplots(figsize=(10, 8))
     disp.plot(ax=ax, colorbar=False, cmap="Blues")
     ax.set_title("Confusion Matrix — Tập Test", fontsize=13, fontweight="bold")
-    plt.xticks(rotation=45, ha="right", fontsize=8)
-    plt.yticks(fontsize=8)
+    plt.xticks(rotation=45, ha="right", fontsize=9)
+    plt.yticks(fontsize=9)
     plt.tight_layout()
     fig.savefig(save_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -97,12 +97,13 @@ def _plot_roc_curves(
     """Vẽ ROC curves (OvR) và lưu. Trả về dict AUC theo class."""
     n_classes = len(class_names)
     y_bin = label_binarize(y_true, classes=list(range(n_classes)))
-
     fig, ax = plt.subplots(figsize=(10, 7))
     aucs: dict[str, float] = {}
 
     colors = plt.cm.tab10(np.linspace(0, 1, n_classes))  # type: ignore[attr-defined]
     for i, (name, color) in enumerate(zip(class_names, colors)):
+        if np.sum(y_bin[:, i]) == 0:
+            continue
         fpr, tpr, _ = roc_curve(y_bin[:, i], y_score[:, i])
         roc_auc = auc(fpr, tpr)
         aucs[name] = float(roc_auc)
@@ -191,6 +192,7 @@ def full_report(
     all_val_results: dict[str, dict],
     save_dir: Path,
     model: object | None = None,
+    X_test: np.ndarray | None = None,
     X_val: np.ndarray | None = None,
 ) -> None:
     """Tạo toàn bộ biểu đồ và in classification report."""
@@ -206,13 +208,15 @@ def full_report(
     # Confusion matrix
     _plot_confusion_matrix(y_t, y_p, class_list, save_dir / "confusion_matrix.png")
 
-    # ROC curves (nếu model hỗ trợ)
-    if model is not None and X_val is not None and hasattr(model, "predict_proba"):
-        y_score = model.predict_proba(X_val)  # type: ignore[union-attr]
+    # ROC curves (nếu model hỗ trợ predict_proba)
+    X_eval = X_test if X_test is not None else X_val
+    if model is not None and X_eval is not None and hasattr(model, "predict_proba"):
+        y_score = model.predict_proba(X_eval)  # type: ignore[union-attr]
         aucs = _plot_roc_curves(
             np.array(y_true), y_score, class_list, save_dir / "roc_curves.png"
         )
-        print(f"  Macro AUC: {np.mean(list(aucs.values())):.4f}")
+        if aucs:
+            print(f"  Macro AUC: {np.mean(list(aucs.values())):.4f}")
 
     # So sánh models
     _plot_model_comparison(all_val_results, save_dir / "model_comparison.png")

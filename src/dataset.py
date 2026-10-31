@@ -98,7 +98,7 @@ def iter_samples(
     )
 
     for img_path in image_paths:
-        label_path = (label_dir / img_path.stem).with_suffix(".txt")
+        label_path = label_dir / f"{img_path.stem}.txt"
         if not label_path.is_file():
             continue
 
@@ -147,4 +147,3 @@ def class_distribution(labels: list[int]) -> dict[str, int]:
     from collections import Counter
     counts = Counter(labels)
     return {CLASS_NAMES[i]: counts.get(i, 0) for i in range(len(CLASS_NAMES))}
-

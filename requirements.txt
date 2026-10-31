@@ -18,10 +18,14 @@ seaborn>=0.13,<1.0
 
 # Giao diện
 streamlit>=1.32,<2.0
+fastapi>=0.115,<1.0
+uvicorn>=0.30,<1.0
+python-multipart>=0.0.12,<1.0
 
 # Cấu hình
 PyYAML>=6.0,<7.0
 
 # Kiểm thử
 pytest>=8.0,<9.0
+httpx>=0.27,<1.0
 

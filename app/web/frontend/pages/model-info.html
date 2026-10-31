@@ -1,0 +1,23 @@
+<section class="page-heading-block">
+  <p class="eyebrow">Thông tin kỹ thuật</p>
+  <h1>Mô hình đang phân loại.</h1>
+  <p>Thông tin và metrics được đọc từ cấu hình đã lưu cùng model. Metrics kiểm thử là kết quả đánh giá độc lập, không phải thống kê các ảnh bạn tải lên.</p>
+</section>
+
+<div class="model-warning is-hidden" id="model-warning" role="status"></div>
+<section class="metric-grid model-metrics" id="model-metrics">
+  <article class="metric-tile metric-featured"><span class="metric-label">Độ chính xác test</span><strong class="metric-value" id="model-accuracy">—</strong><span class="metric-caption">Tập kiểm thử độc lập</span></article>
+  <article class="metric-tile"><span class="metric-label">Macro F1</span><strong class="metric-value" id="model-f1">—</strong><span class="metric-caption">Trung bình đều giữa các lớp</span></article>
+  <article class="metric-tile"><span class="metric-label">Mẫu huấn luyện</span><strong class="metric-value" id="model-train-count">—</strong><span class="metric-caption">Theo config.json</span></article>
+  <article class="metric-tile"><span class="metric-label">Đặc trưng</span><strong class="metric-value" id="model-feature-count">—</strong><span class="metric-caption">Color · Texture · Shape</span></article>
+</section>
+
+<section class="model-details-grid">
+  <article class="panel model-config-panel"><div class="panel-heading"><div><p class="eyebrow">Cấu hình</p><h2>Pipeline hiện tại</h2></div></div><dl class="detail-list" id="model-config"><div><dt>Thuật toán</dt><dd>Đang tải…</dd></div></dl></article>
+  <article class="panel class-panel"><div class="panel-heading"><div><p class="eyebrow">Nhãn đã huấn luyện</p><h2>Chín lớp kết hợp</h2></div></div><ol class="class-list" id="model-classes"></ol></article>
+</section>
+
+<section class="section-block report-section">
+  <div class="section-heading"><div><p class="eyebrow">Kết quả thực nghiệm</p><h2>Biểu đồ đánh giá</h2></div><span class="section-note">Ảnh lấy từ thư mục reports/</span></div>
+  <div class="report-grid" id="model-reports"></div>
+</section>

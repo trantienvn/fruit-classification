@@ -1,0 +1,694 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Vườn chín API",
+    "summary": "API phân loại độ chín trái cây bằng model học máy hiện có.",
+    "description": "Nhận ảnh JPG, PNG, BMP hoặc WEBP; dùng trực tiếp FruitClassifier. Lịch sử chỉ lưu metadata, không lưu ảnh tải lên.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Kiểm tra trạng thái API",
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/predict": {
+      "post": {
+        "tags": [
+          "prediction"
+        ],
+        "summary": "Phân loại ảnh trái cây",
+        "operationId": "predict_api_predict_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_predict_api_predict_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PredictionResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Ảnh vượt quá giới hạn dung lượng",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Định dạng ảnh không được hỗ trợ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Tệp ảnh không hợp lệ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Model chưa sẵn sàng",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/model-info": {
+      "get": {
+        "tags": [
+          "model"
+        ],
+        "summary": "Thông tin model hiện tại",
+        "operationId": "model_info_api_model_info_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelInfoResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Model chưa sẵn sàng",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/history": {
+      "get": {
+        "tags": [
+          "history"
+        ],
+        "summary": "Đọc lịch sử dự đoán",
+        "operationId": "get_history_api_history_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 120
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Tìm theo tên tệp",
+              "title": "Q"
+            },
+            "description": "Tìm theo tên tệp"
+          },
+          {
+            "name": "class_name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 80
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Class Name"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistoryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "history"
+        ],
+        "summary": "Xóa lịch sử dự đoán",
+        "operationId": "delete_history_api_history_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteHistoryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/statistics": {
+      "get": {
+        "tags": [
+          "statistics"
+        ],
+        "summary": "Thống kê lịch sử thật",
+        "operationId": "get_statistics_api_statistics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatisticsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ApiError": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ApiError"
+      },
+      "Body_predict_api_predict_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_predict_api_predict_post"
+      },
+      "DeleteHistoryData": {
+        "properties": {
+          "deleted": {
+            "type": "integer",
+            "title": "Deleted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "deleted"
+        ],
+        "title": "DeleteHistoryData"
+      },
+      "DeleteHistoryResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/DeleteHistoryData"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "DeleteHistoryResponse"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": false
+          },
+          "error": {
+            "$ref": "#/components/schemas/ApiError"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "title": "ErrorResponse"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthData": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "model_ready": {
+            "type": "boolean",
+            "title": "Model Ready"
+          },
+          "history_ready": {
+            "type": "boolean",
+            "title": "History Ready"
+          },
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "model_ready",
+          "history_ready"
+        ],
+        "title": "HealthData"
+      },
+      "HealthResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/HealthData"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "HealthResponse"
+      },
+      "HistoryData": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PredictionData"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "HistoryData"
+      },
+      "HistoryResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/HistoryData"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "HistoryResponse"
+      },
+      "ModelInfoResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "ModelInfoResponse"
+      },
+      "PredictionData": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "fruit_type": {
+            "type": "string",
+            "title": "Fruit Type"
+          },
+          "ripeness": {
+            "type": "string",
+            "title": "Ripeness"
+          },
+          "predicted_class": {
+            "type": "integer",
+            "title": "Predicted Class"
+          },
+          "class_name": {
+            "type": "string",
+            "title": "Class Name"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence",
+            "description": "Chỉ có khi model cung cấp xác suất dự đoán thật."
+          },
+          "processing_time_ms": {
+            "type": "number",
+            "title": "Processing Time Ms"
+          },
+          "probabilities": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Probabilities",
+            "description": "Chỉ có khi classifier hỗ trợ predict_proba."
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "filename",
+          "fruit_type",
+          "ripeness",
+          "predicted_class",
+          "class_name",
+          "processing_time_ms",
+          "created_at"
+        ],
+        "title": "PredictionData"
+      },
+      "PredictionResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/PredictionData"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "PredictionResponse"
+      },
+      "StatisticsData": {
+        "properties": {
+          "total_predictions": {
+            "type": "integer",
+            "title": "Total Predictions"
+          },
+          "unique_classes": {
+            "type": "integer",
+            "title": "Unique Classes"
+          },
+          "latest_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest At"
+          },
+          "by_class": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "By Class"
+          },
+          "by_fruit": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "By Fruit"
+          },
+          "by_ripeness": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "By Ripeness"
+          },
+          "by_day": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "By Day"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_predictions",
+          "unique_classes",
+          "by_class",
+          "by_fruit",
+          "by_ripeness",
+          "by_day"
+        ],
+        "title": "StatisticsData"
+      },
+      "StatisticsResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/StatisticsData"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "StatisticsResponse"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

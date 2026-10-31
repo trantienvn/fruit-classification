@@ -77,21 +77,21 @@ python -m src.train --data-dir data/raw --model-dir models --no-gridsearch
 Không dùng tập test để chọn mô hình hoặc điều chỉnh tham số. Kết quả huấn luyện
 và các báo cáo được ghi vào `models/` và `reports/`.
 
-## Chạy giao diện
+## Chạy Web Application
 
-Sau khi huấn luyện và tạo checkpoint:
+Sau khi có model trong `models/`, chạy FastAPI từ thư mục gốc:
+
+```powershell
+.\.venv\Scripts\python.exe -m app.web
+```
+
+Mở `http://127.0.0.1:8000`. API docs có tại `/docs`. Web mới dùng HTML/CSS/JavaScript, không dùng Streamlit để render. Dashboard, lịch sử và thống kê chỉ hiển thị dữ liệu thực từ model hoặc SQLite; ảnh upload không được lưu.
+
+Giao diện Streamlit cũ vẫn được giữ để tham khảo và có thể chạy riêng:
 
 ```powershell
 streamlit run app/streamlit_app.py
 ```
-
-Ứng dụng tự xác định thư mục dự án từ vị trí tệp nên cũng có thể chạy từ
-thư mục `app/` bằng lệnh `streamlit run streamlit_app.py`.
-
-Ứng dụng cung cấp 3 tab:
-1. **Dự đoán**: Tải ảnh (hoặc kéo thả), crop trái cây hoặc dự đoán toàn ảnh, hiển thị nhãn và phân bố xác suất các lớp.
-2. **Lịch sử**: Xem lại các lượt dự đoán trước đó kèm ảnh thu nhỏ và mốc thời gian.
-3. **Thông tin mô hình**: Xem cấu hình mô hình hiện tại, các chỉ số đánh giá thực tế và các biểu đồ thực nghiệm (Confusion Matrix, ROC Curves, Model Comparison).
 
 ## Kiểm thử
 

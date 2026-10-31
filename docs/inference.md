@@ -91,35 +91,55 @@ Dict kết quả trả về từ `predict()` chứa đầy đủ các thông tin
 
 ---
 
-## 3. Khởi chạy Giao diện Web (Streamlit UI)
+## 3. Chạy Web Application HTML/CSS/JavaScript
 
-Ứng dụng web được xây dựng tại `app/streamlit_app.py`, thiết kế chuyên biệt theo phong cách trực quan cho hệ thống phân loại nông sản AI.
+Ứng dụng mới dùng FastAPI để phục vụ HTML/CSS/JavaScript và API cùng origin. Backend nạp `FruitClassifier` một lần khi khởi động; các request ảnh gọi trực tiếp `predict_from_bytes()`.
 
-### Lệnh khởi chạy
+### Khởi chạy
+
+Từ thư mục gốc repository:
+
+```powershell
+.\.venv\Scripts\python.exe -m app.web
+```
+
+Hoặc chạy Uvicorn trực tiếp:
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn app.web.main:app --host 127.0.0.1 --port 8000
+```
+
+Mở `http://127.0.0.1:8000`. Tài liệu Swagger UI ở `/docs`; OpenAPI JSON được phục vụ tại `/openapi.json`. Snapshot contract trong `app/web/openapi.json` được tạo từ khai báo FastAPI bằng `python -m app.web.export_openapi` và được kiểm thử để không lệch với schema runtime.
+
+### REST API
+
+| Endpoint | Hành vi |
+|---|---|
+| `GET /api/health` | Trạng thái API, model và kho SQLite (`ready` hoặc `degraded`). |
+| `POST /api/predict` | Nhận multipart field `file`, phân loại ảnh và ghi metadata vào lịch sử. |
+| `GET /api/model-info` | Đọc tên model, nhãn, đặc trưng, PCA và metrics từ model/config hiện có. |
+| `GET /api/history` | Đọc lịch sử; hỗ trợ `q`, `class_name`, `limit` (1–100) và `offset`. |
+| `DELETE /api/history` | Xóa metadata lịch sử trên máy đang chạy backend. |
+| `GET /api/statistics` | Thống kê thật từ các lượt đã ghi trong SQLite. |
+
+`POST /api/predict` hỗ trợ JPG, JPEG, PNG, BMP và WEBP, tối đa 10 MB. API kiểm tra nội dung ảnh bằng Pillow; đổi tên file hoặc `Content-Type` không làm một file không phải ảnh trở thành hợp lệ. Response gồm `predicted_class`, `class_name`, `fruit_type`, `ripeness`, `processing_time_ms` và metadata lịch sử. Trường `confidence`/`probabilities` chỉ được gửi khi model thực sự có `predict_proba`; model hiện tại là SVM đã bật xác suất. API không ánh xạ kết quả thành hạng chất lượng thương mại vì dataset chỉ có 9 lớp loại quả × độ chín.
+
+Ảnh upload chỉ được dùng cho inference và không lưu xuống đĩa. SQLite lưu tên file, nhãn, độ tin cậy nếu có, thời gian xử lý và timestamp UTC tại `app/web/data/history.sqlite3` (đường dẫn này bị Git bỏ qua). Thống kê dashboard lấy từ lịch sử cục bộ; metrics kiểm thử trên trang mô hình lấy từ `models/config.json` và có ý nghĩa khác với thống kê sử dụng.
+
+Có thể đổi cấu hình mà không sửa code bằng các biến `FRUIT_MODEL_DIR`, `FRUIT_HISTORY_DB`, `FRUIT_FRONTEND_DIR`, `FRUIT_REPORTS_DIR` và `FRUIT_MAX_UPLOAD_BYTES`. Nếu model chưa tồn tại, API vẫn phục vụ giao diện và `/api/health` báo `degraded`; endpoint dự đoán trả HTTP 503.
+
+### Các màn hình giao diện
+
+- **Tổng quan:** trạng thái dịch vụ, metrics của model và lịch sử phân loại thực tế.
+- **Nhận diện ảnh:** kéo-thả/chọn ảnh, xem trước, trạng thái xử lý, nhãn và xác suất nếu model hỗ trợ.
+- **Lịch sử:** tìm, lọc nhãn, phân trang và xóa metadata đã lưu.
+- **Thống kê:** phân bố lớp, nhóm trái cây, mức độ chín và hoạt động 7 ngày từ SQLite.
+- **Thông tin mô hình:** cấu hình, 9 lớp, metrics test và các báo cáo có sẵn trong `reports/`.
+
+## 4. Giao diện Streamlit cũ
+
+`app/streamlit_app.py` được giữ lại để đối chiếu. Ứng dụng HTML/CSS/JavaScript không dùng Streamlit để render. Có thể chạy bản cũ bằng:
 
 ```powershell
 streamlit run app/streamlit_app.py
 ```
-
-Ứng dụng sẽ tự động mở trên trình duyệt tại địa chỉ mặc định `http://localhost:8501`.
-Ứng dụng tự tìm thư mục dự án từ vị trí tệp, vì vậy cũng có thể chạy lệnh
-`streamlit run streamlit_app.py` sau khi chuyển vào thư mục `app/`.
-
-### Các chức năng trên giao diện:
-
-1. **Tab 1: Dự đoán (Prediction)**
-   - Kéo và thả hoặc tải lên các tệp ảnh (`JPG`, `PNG`, `BMP`, `WEBP`, tối đa 10 MB).
-   - Xem trước hình ảnh tải lên và thông tin kích thước.
-   - Hiển thị kết quả: Loại trái cây (tiếng Việt), Mức độ chín, Thẻ độ tin cậy.
-   - Biểu đồ thanh phần trăm xác suất phân bố trên toàn bộ 9 lớp.
-   - Đo thời gian xử lý thực tế tính theo mili-giây.
-
-2. **Tab 2: Lịch sử (History)**
-   - Lưu trữ danh sách 20 lần dự đoán gần nhất trong phiên làm việc.
-   - Hiển thị ảnh thu nhỏ, thời điểm dự đoán, nhãn lớp và độ tin cậy.
-   - Nút xóa lịch sử linh hoạt.
-
-3. **Tab 3: Thông tin mô hình (Model Info)**
-   - Các thẻ KPI tổng quan: Test Accuracy (93.5%), Macro F1 (0.9371), Số mẫu huấn luyện (1.770) và Số đặc trưng (51).
-   - Bảng thông tin thuật toán chi tiết và danh mục 9 lớp mục tiêu.
-   - Trực quan hóa các biểu đồ thực nghiệm lấy trực tiếp từ thư mục `reports/` (Confusion Matrix, ROC Curves, So sánh mô hình).

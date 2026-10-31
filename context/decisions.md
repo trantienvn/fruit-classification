@@ -44,10 +44,20 @@ Tài liệu này ghi lại các quyết định kỹ thuật cốt lõi đã đ�
 
 ---
 
-## 5. Quyết định kiến trúc giao diện người dùng
+## 5. Quyết định kiến trúc giao diện người dùng (DEPRECATED ngày 2026-10-31)
 - **Quyết định**: Sử dụng **Streamlit** làm Web Dashboard tích hợp cả Frontend & Backend.
 - **Lý do**:
   - Phù hợp với đồ án học thuật/Data Science: Dễ triển khai, demo trực tiếp trên laptop, có sẵn cơ chế cache model (`@st.cache_resource`).
   - Tích hợp phong cách giao diện tự thiết kế theo `frontend-design` (màu sắc chủ đạo xanh lá sẫm `#2D6A4F`, xanh lá tươi `#52B788`, nền kem `#FAF7F2`, typography rõ ràng, không dùng template SaaS đại trà).
   - Cung cấp đầy đủ: Upload & dự đoán, độ tin cậy theo lớp, lịch sử dự đoán cục bộ và tab thông tin mô hình kèm biểu đồ thực nghiệm.
+
+---
+
+## 6. Chuyển Streamlit sang Web Application (Q6, CONFIRMED 2026-10-31)
+- **Quyết định**: Dùng FastAPI làm backend, HTML5/CSS3/JavaScript ES6+ làm frontend; phục vụ giao diện và REST API cùng origin. FastAPI/Uvicorn nạp `FruitClassifier` một lần trong startup.
+- **Lý do**: Đáp ứng yêu cầu tách UI khỏi Streamlit trong khi vẫn dùng pipeline suy luận Python đã có.
+- **Bảo toàn pipeline**: Không sửa `src/`, model, scaler, PCA, đặc trưng, thứ tự 51 feature hoặc nhãn 9 lớp. Không huấn luyện lại.
+- **Ảnh và lịch sử**: Ảnh chỉ được dùng khi suy luận; SQLite lưu metadata dự đoán, không lưu ảnh. Thống kê người dùng lấy từ lịch sử này, còn metrics đánh giá lấy từ `models/config.json`.
+- **Xác suất**: API chỉ gửi `confidence` và `probabilities` khi classifier có `predict_proba`; UI có trạng thái khi trường này vắng mặt.
+- **Tương thích**: Giữ `app/streamlit_app.py` và dependency Streamlit để chạy bản cũ khi cần đối chiếu.
 

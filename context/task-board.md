@@ -81,6 +81,39 @@
 |---|---|---|---|---|
 | TASK-G01 | Sửa import `src` và đường dẫn tài nguyên khi chạy Streamlit từ thư mục khác | `Copilot Session 0bc66139` | `[x] DONE` | Hoàn thành 2026-10-31 13:30 · Đã xác thực từ `app/`; 17/17 test đạt |
 
+## 🟢 NHÓM H — Chuyển đổi Web Application
+
+### TASK-H01: Thay giao diện Streamlit bằng Web Application HTML/CSS/JavaScript
+
+- Agent: `CODEX`
+- Status: DONE
+- Priority: HIGH
+- Started: 2026-10-31
+- Depends on: TASK-C01 (FruitClassifier), TASK-C02 (giao diện hiện có làm tài liệu tham chiếu); cả hai đã DONE
+
+#### Scope
+- `app/web/`
+- `requirements.txt`
+- `README.md`
+- `docs/inference.md`
+- `tests/test_web_api.py`
+- Các tài liệu liên quan trong `context/`
+
+#### Expected Result
+- FastAPI dùng `src/predict.py` để cung cấp health, prediction, model info, history và statistics.
+- Giao diện HTML/CSS/JavaScript responsive với các màn hình dashboard, nhận diện, lịch sử, thống kê và thông tin mô hình.
+- Lịch sử lưu metadata dự đoán thật trong SQLite; không lưu ảnh hoặc tạo số liệu minh họa.
+- Giữ nguyên `app/streamlit_app.py`, `src/`, dataset và model artifacts.
+
+#### Verification
+- Kiểm thử API bằng ảnh/bytes tổng hợp hoặc dependency injection; không yêu cầu dataset.
+- Chạy lại `pytest tests/` hiện có và kiểm tra frontend/API phục vụ qua HTTP nếu môi trường hỗ trợ.
+- Biên dịch Python và rà `git diff --check`.
+- Kết quả: `24 passed`; Python compile và JavaScript syntax đều đạt; OpenAPI snapshot khớp.
+- Smoke test model SVM thật: `Mango Overripe`, confidence 84,18%, 9 xác suất cộng thành 1; chỉ ghi vào SQLite tạm rồi xóa.
+- HTTP smoke: `/api/health`, `/`, trang nhận diện, CSS và `/openapi.json` trả HTTP 200.
+- Postman CLI không khởi động vì policy manifest của môi trường; thay thế bằng FastAPI TestClient và HTTP smoke.
+
 ---
 
 ## Dependency Graph
@@ -99,6 +132,8 @@ TASK-E01,E02,E03 (Done)
 TASK-F01 [DONE]
     ↓
 TASK-G01 [DONE]
+    ↓
+TASK-H01 [DONE]
 ```
 
 ---
@@ -109,6 +144,7 @@ TASK-G01 [DONE]
 |---|---|---|---|
 | `Main Agent` | Primary Developer | 2026-10-30 → nay | Không có task đang chạy |
 | `Copilot Session 0bc66139` | Copilot SDK session | 2026-10-31 | Hoàn thành TASK-G01 |
+| `CODEX` | OpenAI Codex | 2026-10-31 | Hoàn thành TASK-H01 |
 
 ---
 
@@ -128,3 +164,5 @@ TASK-G01 [DONE]
 | 2026-10-31 13:23 | Hoàn thành TASK-F01: demo Streamlit mới, kiểm tra suy luận ảnh thật và responsive mobile | Copilot Session 0bc66139 |
 | 2026-10-31 13:29 | Đăng ký TASK-G01 `IN_PROGRESS` — Sửa lỗi chạy Streamlit ngoài thư mục gốc | Copilot Session 0bc66139 |
 | 2026-10-31 13:30 | Hoàn thành TASK-G01: xác thực import và nạp model khi chạy từ `app/` | Copilot Session 0bc66139 |
+| 2026-10-31 13:38 | Đăng ký TASK-H01 `IN_PROGRESS` — Thay UI Streamlit bằng FastAPI và HTML/CSS/JavaScript | CODEX |
+| 2026-10-31 13:54 | Hoàn thành TASK-H01: FastAPI, frontend HTML/CSS/JavaScript, OpenAPI, tài liệu; 24/24 tests và HTTP smoke đạt | CODEX |

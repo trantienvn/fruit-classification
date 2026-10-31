@@ -4,6 +4,15 @@ Toàn bộ các thay đổi mã nguồn và tài liệu của dự án được 
 
 ## [2026-10-31]
 
+### Chuyển sang Web Application HTML/CSS/JavaScript
+- Thêm `app/web/`: FastAPI routers/services, validation upload, model startup một lần, static frontend và OpenAPI snapshot.
+- Thêm năm màn hình responsive cho tổng quan, nhận diện, lịch sử, thống kê và model info; chart lấy từ API history/config thật.
+- Thêm SQLite metadata history; không lưu ảnh, không tạo số liệu dự đoán minh họa.
+- Bổ sung FastAPI/Uvicorn/multipart và HTTP test dependencies trong `requirements.txt`; bỏ qua database runtime trong Git.
+- Thêm `tests/test_web_api.py`, `tests/conftest.py`; tổng kiểm thử 24/24 đạt.
+- Cập nhật README, `docs/inference.md`, context architecture/decisions/progress/API contract và task board.
+- Giữ `app/streamlit_app.py` làm bản legacy; không sửa `src/`, model artifacts, dataset hoặc reports.
+
 ### Đã thêm (Added)
 - Demo Streamlit tiếng Việt “Vườn chín” với tải ảnh giới hạn 10 MB, kết quả phân loại, xác suất 9 lớp và giao diện responsive.
 - Bảng quản lý nhiệm vụ đa tác tử `context/task-board.md` theo skill `multi-agent-coordinator`.

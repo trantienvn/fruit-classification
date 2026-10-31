@@ -11,9 +11,10 @@
 | **Giai đoạn 3** | Trích xuất đặc trưng (Feature Extraction - 51 features) | **Hoàn thành 100%** |
 | **Giai đoạn 4** | Huấn luyện mô hình (7 thuật toán + GridSearchCV + Lưu checkpoint) | **Hoàn thành 100%** (SVM Test Acc: 93.5%, F1: 93.71%) |
 | **Giai đoạn 5** | Hoàn thiện Backend & Inference Engine (`FruitClassifier`) | **Hoàn thành 100%** |
-| **Giai đoạn 6** | Hoàn thiện Frontend Web App (Streamlit UI đầy đủ 3 tabs) | **Hoàn thành 100%** |
+| **Giai đoạn 6** | Hoàn thiện Frontend Web App (Streamlit UI cũ đầy đủ 3 tabs) | **Hoàn thành 100%** |
 | **Giai đoạn 7** | Tích hợp End-to-End & Testing (17/17 tests passed) | **Hoàn thành 100%** |
 | **Giai đoạn 8** | Tài liệu hóa đầy đủ (`docs/`, `README.md`, `context/`) | **Hoàn thành 100%** |
+| **Giai đoạn 9** | Tách Streamlit thành FastAPI + HTML/CSS/JavaScript, lịch sử SQLite và API contract | **Hoàn thành 100%** |
 
 ---
 
@@ -57,7 +58,7 @@
 - [x] Lưu trữ trọng số và cấu hình vào `models/`:
   - `classifier.joblib`, `scaler.joblib`, `config.json`.
 
-### Suy luận & Ứng dụng Web (`src/predict.py`, `app/streamlit_app.py`)
+### Suy luận & Giao diện cũ (`src/predict.py`, `app/streamlit_app.py`)
 - [x] Lớp `FruitClassifier` nạp mô hình đã huấn luyện, tiền xử lý và suy luận trong ~10 ms.
 - [x] Giao diện Streamlit hoạt động hoàn chỉnh với 3 tabs:
   - **Dự đoán:** Tải ảnh, phân loại độ chín, thẻ độ tin cậy, phân bố xác suất 9 lớp.
@@ -67,9 +68,9 @@
 ---
 
 ## 3. Trạng thái kiểm thử
-- `pytest tests/ -v`: **17/17 passed (100%)**.
+- `pytest tests/`: **24/24 passed** (17 test hiện có + 7 API tests).
 - `py_compile`: Tất cả module trong `src/`, `app/`, `tests/` biên dịch sạch sẽ không lỗi.
-- Kiểm thử end-to-end máy chủ web Streamlit: Phản hồi mã HTTP `200`.
+- FastAPI live smoke: health `ready`; `/`, page HTML và CSS phản hồi HTTP `200`.
 
 ### Demo Streamlit (2026-10-31)
 - Hoàn thành TASK-F01: thiết kế lại `app/streamlit_app.py` theo nhận diện “Vườn chín”, giữ nguyên ba chức năng dự đoán, lịch sử và thông tin mô hình.
@@ -80,3 +81,13 @@
 ### Khắc phục đường dẫn chạy ứng dụng (2026-10-31)
 - Hoàn thành TASK-G01: Streamlit tự xác định gốc repo, nên import `src` và nạp model/báo cáo không phụ thuộc current working directory.
 - Đã kiểm tra AppTest từ thư mục `app/` và toàn bộ 17 bài test.
+
+### Web Application HTML/CSS/JavaScript (2026-10-31)
+- Hoàn thành TASK-H01: FastAPI phục vụ SPA HTML/CSS/JavaScript năm màn hình, cùng REST API tại `/api/`.
+- Backend nạp `FruitClassifier` một lần; endpoint predict xác minh ảnh, giới hạn 10 MB và gọi `predict_from_bytes()`.
+- Lịch sử SQLite lưu metadata, không lưu ảnh; dashboard/statistics lấy số liệu từ lịch sử thực; model metrics lấy từ config.
+- Bổ sung `app/web/openapi.json` sinh từ FastAPI và test so sánh snapshot với OpenAPI runtime.
+- Kiểm tra toàn bộ 24 tests; API tests dùng classifier stub nên không cần dataset/model. Thêm smoke test thủ công với SVM thật và ảnh có sẵn trong test split: HTTP 200, Mango Overripe, 9 xác suất có tổng 1.0.
+- Kiểm tra live Uvicorn: health `ready`, trang gốc, partial nhận diện, CSS và OpenAPI trả HTTP 200.
+- Bổ sung hướng dẫn ở README, `docs/inference.md`, `context/contracts/api-contract.md`.
+- `app/streamlit_app.py` và chức năng Streamlit cũ vẫn được giữ lại để đối chiếu.

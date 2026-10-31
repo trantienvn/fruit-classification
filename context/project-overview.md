@@ -18,7 +18,8 @@ Xây dựng một hệ thống hoàn chỉnh từ dữ liệu ảnh, tiền xử
 - **Thư viện xử lý ảnh**: `opencv-python-headless` (v4.14+), `scikit-image` (v0.26+), `Pillow` (v12.3+).
 - **Thư viện tính toán & dữ liệu**: `numpy`, `pandas`.
 - **Thư viện hiển thị & báo cáo**: `matplotlib`, `seaborn`.
-- **Giao diện người dùng (Frontend & Backend tích hợp)**: `streamlit` (v1.66+).
+- **Web Application hiện tại**: FastAPI (backend), HTML5/CSS3/JavaScript ES6+ (frontend), Uvicorn (server); phục vụ UI và API cùng origin.
+- **Giao diện cũ để đối chiếu**: Streamlit trong `app/streamlit_app.py`.
 - **Kiểm thử tự động**: `pytest` (v8.4+).
 
 ## 4. Phạm vi bài toán
@@ -41,5 +42,5 @@ Bài toán được xác định là **Phân loại 9 lớp kết hợp (Loại 
 3. **Training & Model Selection (`src/train.py`)**: Huấn luyện 7 thuật toán học máy truyền thống (KNN, Naive Bayes, Logistic Regression, SVM, Decision Tree, Random Forest, Gradient Boosting), áp dụng GridSearch và đánh giá trên tập kiểm tra độc lập.
 4. **Evaluation & Visualization (`src/evaluate.py`)**: Tính toán Accuracy, Macro/Weighted F1, Confusion Matrix, ROC-AUC Curves, biểu đồ so sánh mô hình, Feature Importance.
 5. **Inference Engine (`src/predict.py`)**: Class `FruitClassifier` nạp model, scaler và config từ `models/`, tiền xử lý ảnh đầu vào và trả về dự đoán cùng độ tin cậy.
-6. **Web Dashboard (`app/streamlit_app.py`)**: Giao diện Streamlit thiết kế theo `frontend-design`, hỗ trợ Upload & Predict, xem lịch sử dự đoán và kiểm tra thông tin kỹ thuật mô hình.
+6. **Web Application (`app/web/`)**: FastAPI phục vụ dashboard HTML/CSS/JS, nhận diện ảnh, lịch sử SQLite, thống kê và thông tin model; dùng trực tiếp `src/predict.py`. `app/streamlit_app.py` được giữ làm bản đối chiếu.
 

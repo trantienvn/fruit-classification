@@ -7,7 +7,15 @@ fruit-classification/
 ├── .agents/skills/                   # Các skill hướng dẫn agent (frontend-design, fruit-ml-project, context-manager)
 ├── .venv/                            # Virtual environment Python 3.14.7
 ├── app/
-│   └── streamlit_app.py              # Demo Streamlit tiếng Việt: dự đoán, lịch sử, thông tin mô hình
+│   ├── streamlit_app.py              # Bản Streamlit cũ để đối chiếu
+│   └── web/
+│       ├── main.py                   # FastAPI app, nạp model một lần khi startup
+│       ├── config.py                 # Đường dẫn model, frontend, reports, SQLite
+│       ├── schemas.py                # REST response schemas
+│       ├── routes/                   # health, prediction, history, statistics, model-info
+│       ├── services/                 # Inference validation và SQLite history
+│       ├── openapi.json              # Snapshot sinh từ app.openapi()
+│       └── frontend/                 # HTML pages và CSS/JavaScript modules
 ├── context/                          # Lưu trữ context dự án (Context Manager)
 │   ├── README.md
 │   ├── project-overview.md
@@ -48,8 +56,10 @@ fruit-classification/
 │   ├── predict.py                    # Inference engine FruitClassifier
 │   └── filter_dataset.py             # Script lọc và đồng bộ dataset YOLO
 ├── tests/
+│   ├── conftest.py                   # Thư mục tạm trong workspace cho Windows sandbox
 │   ├── test_data.py                  # Unit test cho src/data.py
-│   └── test_pipeline.py              # Unit test cho dataset, feature extraction, predict
+│   ├── test_pipeline.py              # Unit test dataset, feature extraction, predict
+│   └── test_web_api.py               # REST API tests, không cần dataset/model
 ├── AGENTS.md                         # Hướng dẫn quy tắc làm việc cho AI Agent
 ├── README.md                         # Hướng dẫn cài đặt & sử dụng
 └── requirements.txt                  # Danh mục dependencies chuẩn cho Python 3.14
@@ -86,8 +96,9 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    UserImage["Ảnh người dùng upload"] --> Streamlit["Streamlit UI (app/streamlit_app.py)"]
-    Streamlit --> PredictEngine["src/predict.py<br/>FruitClassifier.predict()"]
+    UserImage["Ảnh người dùng upload"] --> WebUI["HTML/CSS/JS (app/web/frontend)"]
+    WebUI --> API["FastAPI POST /api/predict"]
+    API --> PredictEngine["src/predict.py<br/>FruitClassifier.predict_from_bytes()"]
     
     subgraph InferencePipeline ["Pipeline Inference"]
         LoadArt["Nạp models/classifier.joblib<br/>& models/scaler.joblib"]
@@ -100,7 +111,8 @@ flowchart LR
     PredictEngine --> LoadArt
     LoadArt --> Resize --> Extract --> Scale --> Predict
     Predict --> ResultJSON["Kết quả JSON<br/>- Tên lớp & Tiếng Việt<br/>- Độ tin cậy (Confidence)<br/>- Xác suất 9 lớp<br/>- Thời gian xử lý (ms)"]
-    ResultJSON --> StreamlitView["Hiển thị kết quả<br/>Xác suất 9 lớp, Lịch sử, Thông tin mô hình"]
+    ResultJSON --> History["SQLite metadata<br/>không lưu ảnh"]
+    ResultJSON --> WebView["Hiển thị nhãn, độ chín,<br/>confidence/probabilities nếu có"]
 ```
 
 ## 4. Chi tiết các đặc trưng thủ công (Feature Engineering)
@@ -118,3 +130,13 @@ Tổng cộng: **51 chiều (features)**
   - `aspect_ratio`: Chiều rộng bounding box / Chiều cao bounding box.
   - `extent`: Diện tích contour / Diện tích bounding box.
   - `equivalent_diameter`: Đường kính hình tròn tương đương chuẩn hóa.
+
+## 5. Web Application hiện tại (TASK-H01)
+
+`app/web/main.py` tạo FastAPI app và phục vụ `frontend/index.html`, các partial trong `frontend/pages/`, CSS/JS từ `/static/` và reports từ `/reports/`. Router được chia theo health, prediction, model-info, history và statistics. Ứng dụng mặc định cùng origin nên không cần CORS.
+
+Khi startup, app khởi tạo SQLite và nạp một `FruitClassifier` từ `models/`. Nếu model thiếu/lỗi, giao diện vẫn hoạt động và health trả trạng thái `degraded`; endpoint model-info/predict trả 503. Prediction route giới hạn upload ở 10 MB, kiểm tra định dạng và nội dung ảnh, rồi gọi engine hiện có. Response chỉ đưa xác suất khi classifier hỗ trợ `predict_proba`.
+
+SQLite lưu tên file, lớp dự đoán, confidence nếu có, thời gian xử lý và timestamp UTC. Không lưu ảnh hoặc bytes xác suất. `GET /api/statistics` tổng hợp các record thật và trả các lớp không xuất hiện với count bằng 0; metrics train/test vẫn đọc từ config model.
+
+OpenAPI được FastAPI sinh từ route/schema khai báo tại runtime (`/openapi.json`). `app/web/export_openapi.py` xuất snapshot `app/web/openapi.json`; `tests/test_web_api.py` so sánh snapshot với schema runtime để giữ contract đồng bộ.

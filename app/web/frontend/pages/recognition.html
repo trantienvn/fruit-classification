@@ -1,0 +1,45 @@
+<section class="page-heading-block">
+  <p class="eyebrow"><span class="eyebrow-mark"></span> Nhận diện ảnh</p>
+  <h1>Kiểm tra một quả.</h1>
+  <p>Chọn ảnh rõ nét, trong đó loại quả chiếm phần lớn khung hình. Kết quả được tính bằng model đang chạy trên máy chủ.</p>
+</section>
+
+<section class="recognition-layout">
+  <div class="recognition-input panel">
+    <div class="panel-heading"><div><p class="eyebrow">Ảnh đầu vào</p><h2>Chọn ảnh trái cây</h2></div><span class="step-index">JPG · PNG · WEBP</span></div>
+    <label class="drop-zone" id="drop-zone" for="image-file">
+      <input id="image-file" type="file" accept="image/jpeg,image/png,image/webp,image/bmp,.jpg,.jpeg,.png,.webp,.bmp">
+      <span class="upload-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M4 15.5v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></span>
+      <strong>Kéo ảnh vào đây</strong>
+      <span>hoặc <u>chọn từ thiết bị</u></span>
+      <small>JPG, PNG, BMP hoặc WEBP · tối đa 10 MB</small>
+    </label>
+    <div class="image-preview is-hidden" id="image-preview-wrap">
+      <img id="image-preview" alt="Ảnh trái cây đã chọn">
+      <div class="preview-meta"><span id="preview-name"></span><span id="preview-size"></span></div>
+      <button class="button button-quiet" id="clear-image" type="button">Bỏ ảnh</button>
+    </div>
+    <div class="recognition-actions"><button class="button button-primary button-wide" id="predict-button" type="button" disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5M10.8 7.5v6.6m-3.3-3.3h6.6"/></svg>
+      Phân loại ảnh
+    </button></div>
+    <p class="privacy-note"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 1 1 8 0v3m-4 4v2"/></svg> Ảnh không được lưu vào lịch sử; chỉ metadata dự đoán được ghi lại.</p>
+  </div>
+
+  <div class="recognition-result panel" aria-live="polite">
+    <div class="panel-heading"><div><p class="eyebrow">Kết quả</p><h2>Phân loại từ model</h2></div><span class="result-state" id="result-state">Đang chờ ảnh</span></div>
+    <div class="result-empty" id="result-empty"><div class="fruit-outline" aria-hidden="true"><svg viewBox="0 0 120 120" fill="none"><path d="M60 35c-13-14-37-8-43 12-8 27 11 58 29 58 6 0 9-4 15-4s9 4 15 4c18 0 37-31 29-58-6-20-30-26-43-12-1-12 3-20 12-26-13-2-23 7-26 26Z" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M61 35c-1-11 2-20 10-26M73 14c9-3 17-1 23 4-6 7-14 9-23 7" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></div><strong>Kết quả sẽ hiện ở đây</strong><p>Tải ảnh lên rồi chọn “Phân loại ảnh” để xem loại quả và mức độ chín.</p></div>
+    <div class="result-content is-hidden" id="result-content">
+      <p class="result-kicker">Mô hình nhận diện</p>
+      <div class="result-fruit" id="result-fruit">—</div>
+      <div class="result-class" id="result-class"></div>
+      <div class="result-facts">
+        <div><span>Mức độ chín</span><strong id="result-ripeness">—</strong></div>
+        <div><span>Độ tin cậy</span><strong id="result-confidence">—</strong></div>
+        <div><span>Thời gian xử lý</span><strong id="result-time">—</strong></div>
+      </div>
+      <div class="probability-block is-hidden" id="probability-block"><div class="subheading"><strong>Xác suất theo nhãn</strong><span>Model predict_proba</span></div><div id="probability-list" class="probability-list"></div></div>
+    </div>
+    <div class="inline-feedback" id="recognition-feedback" role="status" aria-live="polite"></div>
+  </div>
+</section>

@@ -17,6 +17,7 @@ Thư mục này lưu trữ toàn bộ ngữ cảnh, quyết định kiến trúc
 | [`progress.md`](progress.md) | Trạng thái từng giai đoạn (Đã hoàn thành, đang làm dở, việc tiếp theo) |
 | [`issues.md`](issues.md) | Lỗi gặp phải, nguyên nhân, cách xử lý và bài học kinh nghiệm |
 | [`changelog.md`](changelog.md) | Nhật ký thay đổi mã nguồn chi tiết theo thời gian |
+| [`contracts/api-contract.md`](contracts/api-contract.md) | Contract REST API hiện tại; OpenAPI snapshot sinh từ FastAPI |
 | [`sessions/`](sessions/) | Nhật ký chi tiết của từng phiên làm việc (định dạng `YYYY-MM-DD.md`) |
 
 ## Quy tắc cập nhật

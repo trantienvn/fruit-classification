@@ -70,3 +70,13 @@
 - `pytest tests/ -v`: **17/17 passed (100%)**.
 - `py_compile`: Tất cả module trong `src/`, `app/`, `tests/` biên dịch sạch sẽ không lỗi.
 - Kiểm thử end-to-end máy chủ web Streamlit: Phản hồi mã HTTP `200`.
+
+### Demo Streamlit (2026-10-31)
+- Hoàn thành TASK-F01: thiết kế lại `app/streamlit_app.py` theo nhận diện “Vườn chín”, giữ nguyên ba chức năng dự đoán, lịch sử và thông tin mô hình.
+- Kiểm tra trên trình duyệt bằng ảnh test thật: SVM trả về “Mango Overripe” với confidence 84,2%; lịch sử chỉ ghi một lượt dù Streamlit rerun.
+- Trang thông tin hiển thị test accuracy 93,5%, Macro F1 0,9371 và các biểu đồ báo cáo.
+- Kiểm tra ở viewport rộng 390 px: không xuất hiện tràn ngang.
+
+### Khắc phục đường dẫn chạy ứng dụng (2026-10-31)
+- Hoàn thành TASK-G01: Streamlit tự xác định gốc repo, nên import `src` và nạp model/báo cáo không phụ thuộc current working directory.
+- Đã kiểm tra AppTest từ thư mục `app/` và toàn bộ 17 bài test.

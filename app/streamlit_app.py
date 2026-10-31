@@ -10,177 +10,217 @@ Thiết kế theo fruit-ml-project và frontend-design skill:
 from __future__ import annotations
 
 import io
-import time
+import hashlib
+import sys
+from datetime import datetime
 from pathlib import Path
 
 import streamlit as st
 from PIL import Image
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.predict import FruitClassifier, InvalidImageError, ModelNotReadyError
 
 # ── Cấu hình trang ──────────────────────────────────────────────────────────
 
 st.set_page_config(
-    page_title="FruitScan AI",
+    page_title="Vườn chín · Độ chín trái cây",
     page_icon="🍃",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-MODEL_DIR = Path("models")
+MODEL_DIR = PROJECT_ROOT / "models"
 
 # ── CSS tùy chỉnh ────────────────────────────────────────────────────────────
 
 CUSTOM_CSS = """
 <style>
-/* Palette:
-   --leaf:     #2D6A4F  (xanh lá sẫm)
-   --fresh:    #52B788  (xanh lá tươi)
-   --mist:     #D8F3DC  (xanh nhạt)
-   --soil:     #B7572A  (cam đất — accent)
-   --sand:     #FAF7F2  (nền trắng kem)
-   --ink:      #1B2E25  (chữ tối)
-   --muted:    #6B8F71  (chữ phụ)
-*/
+:root {
+    --paper: #F2EFDF;
+    --leaf: #31523D;
+    --moss: #718354;
+    --banana: #E5BE57;
+    --ink: #25332A;
+    --rule: #D4D4C2;
+}
 
-/* Reset Streamlit defaults */
-[data-testid="stAppViewContainer"] {
-    background-color: #FAF7F2;
-    font-family: 'Inter', 'Segoe UI', sans-serif;
+.stApp, [data-testid="stAppViewContainer"] {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+}
+[data-testid="stAppViewContainer"] .main .block-container {
+    max-width: 1280px;
+    padding: 2.5rem 3.5rem 4rem;
 }
 [data-testid="stSidebar"] {
-    background-color: #1B2E25;
+    background: var(--leaf);
+    border-right: 1px solid #49634E;
 }
-[data-testid="stSidebar"] * {
-    color: #D8F3DC !important;
-}
+[data-testid="stSidebar"] * { color: var(--paper); }
 [data-testid="stSidebar"] .stRadio label {
-    color: #D8F3DC !important;
-    font-size: 0.95rem;
-    padding: 4px 0;
+    font-size: 1rem;
+    padding: 0.25rem 0;
 }
-[data-testid="stSidebar"] hr {
-    border-color: #2D6A4F;
+[data-testid="stSidebar"] hr { border-color: #60725A; }
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.7rem;
+    font-weight: 500;
+    letter-spacing: -0.04em;
 }
 
-/* Header */
-.fs-header {
-    background: linear-gradient(135deg, #2D6A4F 0%, #52B788 100%);
-    color: white;
-    padding: 1.5rem 2rem;
-    border-radius: 12px;
-    margin-bottom: 1.5rem;
+div[data-testid="stMarkdownContainer"] h1,
+div[data-testid="stMarkdownContainer"] h2,
+div[data-testid="stMarkdownContainer"] h3 {
+    color: var(--ink);
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 500;
+    letter-spacing: -0.035em;
 }
-.fs-header h1 {
-    font-size: 1.8rem;
-    font-weight: 700;
+div[data-testid="stMarkdownContainer"] h1 { line-height: 1.05; }
+p, li, label, input, button { line-height: 1.55; }
+*:focus-visible {
+    outline: 3px solid var(--banana) !important;
+    outline-offset: 3px !important;
+}
+input[type="radio"] { accent-color: var(--banana) !important; }
+
+.orchard-hero {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 2rem;
+    padding: 0.25rem 0 1.8rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--rule);
+}
+.orchard-hero h1 {
+    max-width: 760px;
     margin: 0;
-    letter-spacing: -0.5px;
+    font-size: clamp(2.6rem, 5vw, 4.7rem);
 }
-.fs-header p {
+.orchard-hero p {
+    max-width: 590px;
+    margin: 0.9rem 0 0;
+    color: #586458;
+    font-size: 1.05rem;
+}
+.orchard-mark {
+    min-width: 150px;
+    padding: 0.8rem 0 0.2rem 1.2rem;
+    border-left: 3px solid var(--banana);
+    color: var(--leaf);
+}
+.orchard-mark strong {
+    display: block;
+    font: 500 1.65rem Georgia, "Times New Roman", serif;
+}
+.orchard-mark span { color: #586458; font-size: 0.82rem; }
+
+.section-title {
+    margin: 0 0 0.6rem;
+    color: var(--leaf);
+    font: 600 0.9rem "Segoe UI", sans-serif;
+}
+.upload-note {
+    color: #586458;
     font-size: 0.9rem;
-    margin: 0.3rem 0 0;
-    opacity: 0.85;
+}
+[data-testid="stFileUploaderDropzone"] {
+    min-height: 142px;
+    background: rgba(255,255,255,0.28);
+    border: 1px dashed #82917C;
+    border-radius: 3px;
+}
+[data-testid="stFileUploaderDropzone"]:hover {
+    border-color: var(--leaf);
+    background: rgba(229,190,87,0.12);
 }
 
-/* Metric cards */
-.fs-metric {
-    background: white;
-    border: 1px solid #D8F3DC;
-    border-radius: 10px;
-    padding: 1.1rem 1.2rem;
-    text-align: center;
+.result-rule {
+    padding: 0.2rem 0 1.1rem;
+    border-bottom: 1px solid var(--rule);
 }
-.fs-metric-value {
-    font-size: 2rem;
-    font-weight: 700;
-    color: #2D6A4F;
-    line-height: 1.1;
-}
-.fs-metric-label {
-    font-size: 0.78rem;
-    color: #6B8F71;
-    margin-top: 0.2rem;
-    text-transform: none;
-}
-
-/* Result card */
-.fs-result {
-    background: white;
-    border-left: 4px solid #52B788;
-    border-radius: 0 10px 10px 0;
-    padding: 1.2rem 1.4rem;
-    margin: 1rem 0;
-}
-.fs-result-main {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #1B2E25;
-}
-.fs-result-sub {
-    font-size: 0.9rem;
-    color: #6B8F71;
-    margin-top: 0.3rem;
-}
-.fs-confidence {
-    display: inline-block;
-    background: #D8F3DC;
-    color: #2D6A4F;
-    font-weight: 600;
-    font-size: 0.85rem;
-    border-radius: 20px;
-    padding: 0.2rem 0.7rem;
-    margin-top: 0.5rem;
-}
-
-/* Upload zone */
-.fs-upload-hint {
-    font-size: 0.82rem;
-    color: #6B8F71;
-    margin-top: 0.5rem;
-}
-
-/* Empty state */
-.fs-empty {
-    text-align: center;
-    padding: 3rem 1rem;
-    color: #6B8F71;
-}
-.fs-empty-icon { font-size: 3rem; margin-bottom: 0.5rem; }
-.fs-empty-title { font-size: 1.1rem; font-weight: 600; color: #2D6A4F; }
-.fs-empty-body { font-size: 0.85rem; margin-top: 0.4rem; }
-
-/* Model status badges */
-.fs-badge-ok {
-    background: #D8F3DC; color: #2D6A4F;
-    border-radius: 20px; padding: 0.15rem 0.6rem;
-    font-size: 0.78rem; font-weight: 600;
-}
-.fs-badge-warn {
-    background: #FDE8D8; color: #B7572A;
-    border-radius: 20px; padding: 0.15rem 0.6rem;
-    font-size: 0.78rem; font-weight: 600;
-}
-
-/* Probability bar */
-.fs-prob-row { margin: 0.35rem 0; }
-.fs-prob-label { font-size: 0.78rem; color: #1B2E25; margin-bottom: 2px; }
-.fs-prob-bar-bg {
-    background: #F0F0F0; border-radius: 4px; height: 8px; width: 100%;
-}
-.fs-prob-bar-fill {
-    background: #52B788; border-radius: 4px; height: 8px;
-}
-
-/* History table */
-.fs-hist-row {
-    display: flex; align-items: center; gap: 0.8rem;
-    padding: 0.6rem 0; border-bottom: 1px solid #F0EDE8;
+.result-label {
+    margin-bottom: 0.65rem;
+    color: #586458;
     font-size: 0.85rem;
 }
+.result-name {
+    margin: 0;
+    color: var(--leaf);
+    font: 500 clamp(2rem, 3.4vw, 3rem)/1.1 Georgia, "Times New Roman", serif;
+    letter-spacing: -0.04em;
+}
+.result-english {
+    margin-top: 0.45rem;
+    color: #586458;
+    font-size: 0.92rem;
+}
+.confidence-value {
+    margin: 1rem 0 0;
+    color: var(--ink);
+    font: 500 1.1rem Georgia, "Times New Roman", serif;
+}
+.empty-result {
+    min-height: 240px;
+    padding: 1.5rem 0;
+    border-top: 1px solid var(--rule);
+    color: #586458;
+}
+.empty-result strong {
+    display: block;
+    margin-bottom: 0.35rem;
+    color: var(--leaf);
+    font: 500 1.65rem Georgia, "Times New Roman", serif;
+}
+.status-line {
+    padding: 0.5rem 0;
+    color: var(--paper);
+    font-size: 0.84rem;
+}
+.status-dot { color: var(--banana); }
 
-/* Divider */
-.fs-divider { border: none; border-top: 1px solid #E8EDE8; margin: 1.2rem 0; }
+div[data-testid="stMetric"] {
+    padding: 1rem 0;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+}
+div[data-testid="stMetric"] [data-testid="stMetricValue"] {
+    color: var(--leaf);
+    font-family: Georgia, "Times New Roman", serif;
+}
+div[data-testid="stMetric"] [data-testid="stMetricLabel"] { color: #586458; }
+.history-rule { border: 0; border-top: 1px solid var(--rule); margin: 0.75rem 0; }
+
+button[kind="secondary"] {
+    border-radius: 2px;
+    border-color: var(--leaf);
+    color: var(--leaf);
+}
+.stButton > button:focus-visible { box-shadow: 0 0 0 3px var(--banana); }
+div[data-testid="stProgressBar"] > div > div { background: var(--moss); }
+
+@media (max-width: 760px) {
+    [data-testid="stAppViewContainer"] .main .block-container {
+        padding: 1.5rem 1.1rem 3rem;
+    }
+    .orchard-hero { align-items: flex-start; flex-direction: column; gap: 1.1rem; }
+    .orchard-hero h1 { font-size: clamp(2.5rem, 11vw, 3.7rem); }
+    .orchard-mark { min-width: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+    }
+}
 </style>
 """
 
@@ -188,25 +228,30 @@ CUSTOM_CSS = """
 
 def _init_session() -> None:
     if "history" not in st.session_state:
-        st.session_state.history = []  # list of dicts
+        st.session_state.history = []
     if "page" not in st.session_state:
         st.session_state.page = "Dự đoán"
+    if "last_prediction_hash" not in st.session_state:
+        st.session_state.last_prediction_hash = None
 
 
-def _add_to_history(result: dict, image_bytes: bytes) -> None:
-    import datetime
+def _add_to_history(result: dict, image_bytes: bytes, image_hash: str) -> None:
     entry = {
-        "time": datetime.datetime.now().strftime("%H:%M:%S"),
+        "time": datetime.now().strftime("%H:%M:%S"),
         "class_name": result["class_name"],
         "fruit": result["fruit"],
         "ripeness": result["ripeness"],
         "confidence": result["confidence"],
         "processing_time_ms": result.get("processing_time_ms", 0),
         "image_bytes": image_bytes,
+        "image_hash": image_hash,
     }
+    if st.session_state.last_prediction_hash == image_hash:
+        return
     st.session_state.history.insert(0, entry)
     if len(st.session_state.history) > 20:
         st.session_state.history = st.session_state.history[:20]
+    st.session_state.last_prediction_hash = image_hash
 
 
 # ── Model loading (cached) ────────────────────────────────────────────────────
@@ -228,27 +273,34 @@ def _load_classifier() -> FruitClassifier | None:
 
 def _render_sidebar() -> str:
     with st.sidebar:
-        st.markdown("## 🍃 FruitScan AI")
-        st.markdown("Phân loại độ chín trái cây\nbằng học máy truyền thống")
+        st.markdown("## Vườn chín")
+        st.markdown("Trạm đọc độ chín\ncho táo, chuối và xoài")
         st.markdown("---")
 
-        page = st.radio(
-            "Chức năng",
-            ["Dự đoán", "Lịch sử", "Thông tin model"],
-            index=["Dự đoán", "Lịch sử", "Thông tin model"].index(
-                st.session_state.get("page", "Dự đoán")
-            ),
-        )
+        pages = ["Dự đoán", "Lịch sử", "Mô hình"]
+        selected_page = st.session_state.get("page", "Dự đoán")
+        if selected_page == "Thông tin model":
+            selected_page = "Mô hình"
+        if selected_page not in pages:
+            selected_page = "Dự đoán"
+        page = st.radio("Chức năng", pages, index=pages.index(selected_page))
 
         st.markdown("---")
         clf = _load_classifier()
         if clf and clf.is_ready:
-            st.markdown('<span class="fs-badge-ok">● Model sẵn sàng</span>', unsafe_allow_html=True)
             info = clf.get_info()
-            st.caption(f"Thuật toán: {info.get('model_name', 'N/A')}")
+            st.markdown(
+                f'<div class="status-line"><span class="status-dot">●</span> '
+                f'Mô hình {info.get("model_name", "N/A")} đang hoạt động</div>',
+                unsafe_allow_html=True,
+            )
         else:
-            st.markdown('<span class="fs-badge-warn">● Chưa có model</span>', unsafe_allow_html=True)
-            st.caption("Chạy `python -m src.train` để huấn luyện.")
+            st.markdown(
+                '<div class="status-line"><span class="status-dot">●</span> '
+                "Chưa tìm thấy mô hình</div>",
+                unsafe_allow_html=True,
+            )
+            st.caption("Chạy `python -m src.train` để tạo mô hình.")
 
         st.markdown("---")
         st.caption("Nhóm 03 · Học máy 2026")
@@ -270,234 +322,240 @@ def _fruit_label(fruit: str) -> str:
 
 
 def _render_predict_page() -> None:
-    st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
-    st.markdown("""
-    <div class="fs-header">
-      <h1>🔍 Phân loại độ chín trái cây</h1>
-      <p>Tải lên ảnh táo, chuối hoặc xoài — hệ thống sẽ phân loại độ chín tự động.</p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        """
+        <section class="orchard-hero">
+          <div>
+            <h1>Đọc độ chín<br>qua màu vỏ.</h1>
+            <p>
+              Chọn một ảnh trái cây để xem mô hình nhận diện loại quả và
+              mức độ chín. Kết quả được tạo trực tiếp từ ảnh bạn gửi.
+            </p>
+          </div>
+          <div class="orchard-mark">
+            <strong>03 loại quả</strong>
+            <span>Táo · Chuối · Xoài</span>
+          </div>
+        </section>
+        """,
+        unsafe_allow_html=True,
+    )
 
     clf = _load_classifier()
     model_ready = clf is not None and clf.is_ready
 
-    col_upload, col_result = st.columns([1, 1], gap="large")
+    col_upload, col_result = st.columns([1.05, 0.95], gap="large")
 
-    # ── Cột upload ──
     with col_upload:
-        st.subheader("Chọn ảnh")
+        st.markdown('<p class="section-title">Ảnh cần kiểm tra</p>', unsafe_allow_html=True)
         uploaded = st.file_uploader(
-            "Kéo thả hoặc nhấn để chọn",
+            "Thả ảnh vào đây hoặc chọn từ thiết bị",
             type=["jpg", "jpeg", "png", "bmp", "webp"],
-            label_visibility="collapsed",
+            max_upload_size=10,
         )
         st.markdown(
-            '<p class="fs-upload-hint">Định dạng: JPG, PNG, BMP, WEBP · Tối đa 10 MB<br>'
-            'Loại trái cây hỗ trợ: Táo, Chuối, Xoài</p>',
+            '<p class="upload-note">JPG, PNG, BMP hoặc WEBP · tối đa 10 MB</p>',
             unsafe_allow_html=True,
         )
 
+        image_bytes = None
         if uploaded is not None:
-            image_bytes = uploaded.read()
+            image_bytes = uploaded.getvalue()
+            if image_bytes is None:
+                st.error("Không thể đọc nội dung ảnh đã tải lên.")
+                return
             try:
                 img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-                st.image(img, caption="Ảnh đã tải lên", use_container_width=True)
-                st.caption(f"Kích thước: {img.width}×{img.height}px · {len(image_bytes)/1024:.1f} KB")
-            except Exception:
+                st.image(img, width="stretch")
+                st.caption(
+                    f"{img.width} × {img.height} px  |  "
+                    f"{len(image_bytes) / 1024:.1f} KB"
+                )
+            except (OSError, ValueError):
                 st.error("Không thể đọc ảnh. Hãy kiểm tra định dạng file.")
                 return
 
-    # ── Cột kết quả ──
     with col_result:
-        st.subheader("Kết quả dự đoán")
+        st.markdown('<p class="section-title">Kết quả kiểm định</p>', unsafe_allow_html=True)
 
         if uploaded is None:
-            st.markdown("""
-            <div class="fs-empty">
-              <div class="fs-empty-icon">🍎</div>
-              <div class="fs-empty-title">Chưa có ảnh</div>
-              <div class="fs-empty-body">Tải ảnh lên bên trái để bắt đầu phân loại.</div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(
+                """
+                <div class="empty-result">
+                  <strong>Chờ ảnh đầu tiên</strong>
+                  Kết quả phân loại sẽ xuất hiện tại đây sau khi bạn chọn ảnh.
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
             return
 
         if not model_ready:
             st.warning(
-                "⚠️ Model chưa được huấn luyện.\n\n"
-                "Chạy lệnh sau để huấn luyện:\n```\npython -m src.train\n```"
+                "Chưa có mô hình để phân loại. Chạy "
+                "`python -m src.train` để huấn luyện trước."
             )
             return
 
-        # Chạy dự đoán
-        with st.spinner("Đang phân tích ảnh..."):
-            try:
-                result = clf.predict_from_bytes(image_bytes)  # type: ignore[union-attr]
-            except InvalidImageError as e:
-                st.error(f"Ảnh không hợp lệ: {e}")
-                return
-            except ModelNotReadyError as e:
-                st.error(f"Model chưa sẵn sàng: {e}")
-                return
-            except Exception as e:
-                st.error(f"Lỗi không xác định: {e}")
-                return
+        image_hash = hashlib.sha256(image_bytes).hexdigest()
+        cached_hash = st.session_state.get("displayed_prediction_hash")
+        result = st.session_state.get("displayed_prediction")
+        if cached_hash != image_hash or result is None:
+            with st.spinner("Đang đọc màu sắc và kết cấu ảnh..."):
+                try:
+                    result = clf.predict_from_bytes(image_bytes)  # type: ignore[union-attr]
+                except (InvalidImageError, ModelNotReadyError) as error:
+                    st.error(str(error))
+                    return
+                except Exception as error:
+                    st.error(f"Không thể phân loại ảnh: {error}")
+                    return
+            st.session_state.displayed_prediction_hash = image_hash
+            st.session_state.displayed_prediction = result
+            _add_to_history(result, image_bytes, image_hash)
 
-        # Hiển thị kết quả chính
         fruit_vi = _fruit_label(result["fruit"])
         ripeness_vi = _ripeness_label(result["ripeness"])
         confidence_pct = result["confidence"] * 100
 
-        st.markdown(f"""
-        <div class="fs-result">
-          <div class="fs-result-main">🍃 {fruit_vi} — {ripeness_vi}</div>
-          <div class="fs-result-sub">{result['class_name']}</div>
-          <div class="fs-confidence">Độ tin cậy: {confidence_pct:.1f}%</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            f"""
+            <div class="result-rule">
+              <div class="result-label">Mô hình nhận diện</div>
+              <p class="result-name">{fruit_vi}<br>{ripeness_vi}</p>
+              <div class="result-english">{result["class_name"]}</div>
+              <p class="confidence-value">Độ tin cậy: {confidence_pct:.1f}%</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.caption(
+            f"Thời gian xử lý ảnh: {result.get('processing_time_ms', 0):.1f} ms"
+        )
 
-        st.caption(f"⏱ Thời gian xử lý: {result.get('processing_time_ms', 0):.1f} ms")
-
-        # Xác suất từng lớp
         if result.get("probabilities"):
-            st.markdown("**Xác suất theo lớp**")
-            sorted_probs = sorted(
-                result["probabilities"].items(), key=lambda x: x[1], reverse=True
-            )
-            for cls_name, prob in sorted_probs:
-                pct = prob * 100
-                bar_width = int(pct)
-                # Highlight class được chọn
-                style = "background: #2D6A4F;" if cls_name == result["class_name"] else ""
-                st.markdown(f"""
-                <div class="fs-prob-row">
-                  <div class="fs-prob-label">{cls_name}</div>
-                  <div class="fs-prob-bar-bg">
-                    <div class="fs-prob-bar-fill" style="width:{bar_width}%;{style}"></div>
-                  </div>
-                </div>
-                """, unsafe_allow_html=True)
-                st.caption(f"{pct:.1f}%")
+            with st.expander("Xem xác suất của 9 nhãn", expanded=True):
+                sorted_probs = sorted(
+                    result["probabilities"].items(),
+                    key=lambda item: item[1],
+                    reverse=True,
+                )
+                for class_name, probability in sorted_probs:
+                    st.markdown(f"**{class_name}** · {probability * 100:.1f}%")
+                    st.progress(float(probability))
         else:
-            # Không có probabilities — dùng progress bar Streamlit
             st.progress(result["confidence"])
-
-        # Thêm vào lịch sử
-        _add_to_history(result, image_bytes)
-
 
 # ── Trang Lịch sử ─────────────────────────────────────────────────────────────
 
 def _render_history_page() -> None:
-    st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
-    st.subheader("📋 Lịch sử dự đoán")
+    st.markdown(
+        """
+        <section class="orchard-hero">
+          <div>
+            <h1>Những lần kiểm tra</h1>
+            <p>Các ảnh đã phân loại trong phiên làm việc này.</p>
+          </div>
+        </section>
+        """,
+        unsafe_allow_html=True,
+    )
 
     history = st.session_state.get("history", [])
 
     if not history:
-        st.markdown("""
-        <div class="fs-empty">
-          <div class="fs-empty-icon">📂</div>
-          <div class="fs-empty-title">Chưa có lịch sử</div>
-          <div class="fs-empty-body">Hãy thực hiện dự đoán ở tab "Dự đoán" trước.</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            """
+            <div class="empty-result">
+              <strong>Chưa có ảnh nào được kiểm tra</strong>
+              Chọn “Dự đoán” và tải ảnh lên để bắt đầu.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         return
 
     if st.button("Xóa toàn bộ lịch sử", type="secondary"):
         st.session_state.history = []
+        st.session_state.last_prediction_hash = None
+        st.session_state.displayed_prediction_hash = None
+        st.session_state.displayed_prediction = None
         st.rerun()
 
-    st.caption(f"Hiển thị {len(history)} lần dự đoán gần nhất (tối đa 20)")
-    st.divider()
+    st.caption(f"{len(history)} ảnh gần nhất · tối đa 20 ảnh trong một phiên")
 
-    for i, entry in enumerate(history):
-        col_img, col_info = st.columns([1, 3])
+    for entry in history:
+        col_img, col_info = st.columns([0.6, 3.4])
         with col_img:
             try:
-                st.image(Image.open(io.BytesIO(entry["image_bytes"])), width=80)
-            except Exception:
-                st.write("🖼")
+                st.image(Image.open(io.BytesIO(entry["image_bytes"])), width=92)
+            except (OSError, ValueError):
+                st.caption("Không thể hiển thị ảnh")
         with col_info:
             fruit_vi = _fruit_label(entry["fruit"])
             ripeness_vi = _ripeness_label(entry["ripeness"])
-            st.markdown(
-                f"**{fruit_vi} — {ripeness_vi}** &nbsp; "
-                f"<span style='color:#6B8F71'>{entry['class_name']}</span>",
-                unsafe_allow_html=True,
-            )
+            st.markdown(f"**{fruit_vi} · {ripeness_vi}**")
             st.caption(
-                f"🕐 {entry['time']} · "
-                f"Tin cậy: {entry['confidence']*100:.1f}% · "
-                f"⏱ {entry['processing_time_ms']:.1f} ms"
+                f"{entry['class_name']}  |  {entry['time']}  |  "
+                f"Độ tin cậy {entry['confidence'] * 100:.1f}%"
             )
-        st.divider()
+        st.markdown("<hr class='history-rule'>", unsafe_allow_html=True)
 
 
 # ── Trang Thông tin model ─────────────────────────────────────────────────────
 
 def _render_model_info_page() -> None:
-    st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
-    st.subheader("⚙️ Thông tin mô hình")
+    st.markdown(
+        """
+        <section class="orchard-hero">
+          <div>
+            <h1>Bên trong mô hình</h1>
+            <p>Các thông số và kết quả đánh giá trên tập kiểm tra độc lập.</p>
+          </div>
+        </section>
+        """,
+        unsafe_allow_html=True,
+    )
 
     clf = _load_classifier()
     if clf is None or not clf.is_ready:
-        st.markdown("""
-        <div class="fs-empty">
-          <div class="fs-empty-icon">🤖</div>
-          <div class="fs-empty-title">Chưa có model</div>
-          <div class="fs-empty-body">
-            Chạy lệnh sau để huấn luyện:<br>
-            <code>python -m src.train</code>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.info("Chưa có mô hình. Chạy `python -m src.train` để huấn luyện.")
         return
 
     info = clf.get_info()
 
-    # Metrics nổi bật
     test = info.get("test_metrics", {})
     col1, col2, col3, col4 = st.columns(4)
-
     with col1:
         acc = test.get("accuracy", None)
-        val = f"{acc*100:.1f}%" if acc is not None else "N/A"
-        st.markdown(f'<div class="fs-metric"><div class="fs-metric-value">{val}</div><div class="fs-metric-label">Test Accuracy</div></div>', unsafe_allow_html=True)
+        st.metric("Độ chính xác test", f"{acc * 100:.1f}%" if acc is not None else "N/A")
     with col2:
         f1 = test.get("macro_f1", None)
-        val = f"{f1:.4f}" if f1 is not None else "N/A"
-        st.markdown(f'<div class="fs-metric"><div class="fs-metric-value">{val}</div><div class="fs-metric-label">Macro F1</div></div>', unsafe_allow_html=True)
+        st.metric("Macro F1", f"{f1:.4f}" if f1 is not None else "N/A")
     with col3:
-        st.markdown(f'<div class="fs-metric"><div class="fs-metric-value">{info.get("n_train", "N/A")}</div><div class="fs-metric-label">Mẫu huấn luyện</div></div>', unsafe_allow_html=True)
+        st.metric("Ảnh đối tượng huấn luyện", info.get("n_train", "N/A"))
     with col4:
-        st.markdown(f'<div class="fs-metric"><div class="fs-metric-value">{info.get("n_features", "N/A")}</div><div class="fs-metric-label">Đặc trưng</div></div>', unsafe_allow_html=True)
-
-    st.divider()
-
+        st.metric("Đặc trưng", info.get("n_features", "N/A"))
     col_left, col_right = st.columns(2)
     with col_left:
-        st.markdown("**Thông tin kỹ thuật**")
-        st.write(f"- **Thuật toán:** {info.get('model_name', 'N/A')}")
-        st.write(f"- **Số lớp:** {info.get('n_classes', 9)}")
-        st.write(f"- **Dùng PCA:** {'Có' if info.get('use_pca') else 'Không'}")
-        st.write(f"- **Số features:** {info.get('n_features', 'N/A')}")
+        st.markdown("### Cấu hình")
+        st.write(f"Thuật toán: **{info.get('model_name', 'N/A')}**")
+        st.write(f"Số lớp: **{info.get('n_classes', 9)}**")
+        st.write(f"PCA: **{'Có' if info.get('use_pca') else 'Không'}**")
 
     with col_right:
-        st.markdown("**Nhãn dự đoán**")
+        st.markdown("### Chín nhãn")
         classes = info.get("class_names", [])
-        for i, name in enumerate(classes):
-            st.write(f"- **{i}**: {name}")
+        st.write("  ·  ".join(classes))
 
-    # Biểu đồ nếu có
-    st.divider()
-    st.markdown("**Biểu đồ kết quả**")
+    st.markdown("### Đánh giá mô hình")
 
-    reports_dir = Path("reports")
+    reports_dir = PROJECT_ROOT / "reports"
     plots = {
-        "Confusion Matrix": reports_dir / "confusion_matrix.png",
-        "ROC Curves": reports_dir / "roc_curves.png",
+        "Ma trận nhầm lẫn": reports_dir / "confusion_matrix.png",
+        "Đường cong ROC": reports_dir / "roc_curves.png",
         "So sánh mô hình": reports_dir / "model_comparison.png",
-        "Feature Importance": reports_dir / "feature_importance.png",
+        "Mức độ quan trọng của đặc trưng": reports_dir / "feature_importance.png",
     }
 
     available = {name: path for name, path in plots.items() if path.is_file()}
@@ -508,13 +566,14 @@ def _render_model_info_page() -> None:
         tabs = st.tabs(tab_names)
         for tab, (name, path) in zip(tabs, available.items()):
             with tab:
-                st.image(str(path), use_container_width=True)
+                st.image(str(path), width="stretch")
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
     _init_session()
+    st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
     page = _render_sidebar()
     st.session_state.page = page
 
@@ -522,7 +581,7 @@ def main() -> None:
         _render_predict_page()
     elif page == "Lịch sử":
         _render_history_page()
-    elif page == "Thông tin model":
+    elif page == "Mô hình":
         _render_model_info_page()
 
 

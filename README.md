@@ -85,6 +85,9 @@ Sau khi huấn luyện và tạo checkpoint:
 streamlit run app/streamlit_app.py
 ```
 
+Ứng dụng tự xác định thư mục dự án từ vị trí tệp nên cũng có thể chạy từ
+thư mục `app/` bằng lệnh `streamlit run streamlit_app.py`.
+
 Ứng dụng cung cấp 3 tab:
 1. **Dự đoán**: Tải ảnh (hoặc kéo thả), crop trái cây hoặc dự đoán toàn ảnh, hiển thị nhãn và phân bố xác suất các lớp.
 2. **Lịch sử**: Xem lại các lượt dự đoán trước đó kèm ảnh thu nhỏ và mốc thời gian.

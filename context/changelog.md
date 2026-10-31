@@ -5,6 +5,7 @@ Toàn bộ các thay đổi mã nguồn và tài liệu của dự án được 
 ## [2026-10-31]
 
 ### Đã thêm (Added)
+- Demo Streamlit tiếng Việt “Vườn chín” với tải ảnh giới hạn 10 MB, kết quả phân loại, xác suất 9 lớp và giao diện responsive.
 - Bảng quản lý nhiệm vụ đa tác tử `context/task-board.md` theo skill `multi-agent-coordinator`.
 - Tài liệu kỹ thuật chi tiết trong `docs/`:
   - `docs/installation.md`: Hướng dẫn cài đặt chi tiết trên Windows với `uv` và Python 3.14.
@@ -23,11 +24,13 @@ Toàn bộ các thay đổi mã nguồn và tài liệu của dự án được 
   - `reports/classification_report_SVM.txt`: Bảng chi tiết Precision, Recall, F1 theo từng lớp.
 
 ### Đã thay đổi (Changed)
+- Thiết kế lại màn hình dự đoán, lịch sử và thông tin mô hình theo chủ đề kiểm định độ chín trái cây; tránh lặp bản ghi lịch sử khi Streamlit rerun.
 - `README.md`: Cập nhật toàn diện hướng dẫn cài đặt với `uv`, các tùy chọn huấn luyện, chạy Streamlit và kiểm thử.
 - `context/progress.md`: Cập nhật tiến độ hoàn thành 100% tất cả 8 giai đoạn của dự án.
 - `context/task-board.md`: Cập nhật tất cả các task đã hoàn thành (`[x] DONE`).
 
 ### Đã sửa (Fixed)
+- Sửa lỗi `ModuleNotFoundError: No module named 'src'` khi chạy Streamlit từ `app/`; cố định đường dẫn model và báo cáo theo vị trí ứng dụng.
 - Sửa lỗi `(label_dir / img_path.stem).with_suffix(".txt")` trong `src/dataset.py`: chuyển thành `label_dir / f"{img_path.stem}.txt"` để nạp chính xác tên file Roboflow có nhiều dấu chấm.
 - Sửa lỗi `UnicodeEncodeError: 'charmap'` khi in console tiếng Việt trên Windows trong `src/train.py`.
 - Sửa lỗi gõ nhầm thuộc tính `gs.best_params__` trong GridSearchCV (`src/train.py`).

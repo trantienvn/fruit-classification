@@ -102,6 +102,8 @@ streamlit run app/streamlit_app.py
 ```
 
 Ứng dụng sẽ tự động mở trên trình duyệt tại địa chỉ mặc định `http://localhost:8501`.
+Ứng dụng tự tìm thư mục dự án từ vị trí tệp, vì vậy cũng có thể chạy lệnh
+`streamlit run streamlit_app.py` sau khi chuyển vào thư mục `app/`.
 
 ### Các chức năng trên giao diện:
 

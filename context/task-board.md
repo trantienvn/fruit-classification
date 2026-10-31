@@ -69,6 +69,18 @@
 | TASK-E02 | Kiểm tra biên dịch mã nguồn toàn bộ `src/`, `app/`, `tests/` | Main Agent | `[x] DONE` | py_compile thành công 100% |
 | TASK-E03 | Lập báo cáo tiến độ tổng kết và cập nhật toàn bộ context | Main Agent | `[x] DONE` | Hoàn thành 2026-10-31 |
 
+## 🟣 NHÓM F — Demo giao diện
+
+| ID | Nhiệm vụ | Agent | Trạng thái | Ghi chú |
+|---|---|---|---|---|
+| TASK-F01 | Thiết kế lại chương trình demo Streamlit theo frontend-design | `Copilot Session 0bc66139` | `[x] DONE` | Hoàn thành 2026-10-31 13:23 · Giao diện tiếng Việt mới; kiểm thử upload, dự đoán, lịch sử, thông tin mô hình và viewport mobile |
+
+## 🟠 NHÓM G — Sửa lỗi chạy demo
+
+| ID | Nhiệm vụ | Agent | Trạng thái | Ghi chú |
+|---|---|---|---|---|
+| TASK-G01 | Sửa import `src` và đường dẫn tài nguyên khi chạy Streamlit từ thư mục khác | `Copilot Session 0bc66139` | `[x] DONE` | Hoàn thành 2026-10-31 13:30 · Đã xác thực từ `app/`; 17/17 test đạt |
+
 ---
 
 ## Dependency Graph
@@ -83,6 +95,10 @@ TASK-C01,C02,C03,C04 (Done)
 TASK-D01,D02,D03,D04 (Done)
     ↓
 TASK-E01,E02,E03 (Done)
+    ↓
+TASK-F01 [DONE]
+    ↓
+TASK-G01 [DONE]
 ```
 
 ---
@@ -91,7 +107,8 @@ TASK-E01,E02,E03 (Done)
 
 | Agent ID | Vai trò | Phiên làm việc | Nhiệm vụ hiện tại |
 |---|---|---|---|
-| `Main Agent` | Primary Developer | 2026-10-30 → nay | Sẵn sàng (Toàn bộ task DONE) |
+| `Main Agent` | Primary Developer | 2026-10-30 → nay | Không có task đang chạy |
+| `Copilot Session 0bc66139` | Copilot SDK session | 2026-10-31 | Hoàn thành TASK-G01 |
 
 ---
 
@@ -107,3 +124,7 @@ TASK-E01,E02,E03 (Done)
 | 2026-10-31 13:02 | Hoàn thành TASK-C04: Kiểm thử suy luận và web Streamlit HTTP 200 | Main Agent |
 | 2026-10-31 13:03 | Hoàn thành TASK-D03: Viết 4 tài liệu kỹ thuật trong `docs/` | Main Agent |
 | 2026-10-31 13:04 | Hoàn thành TASK-E01, E02, E03: Kiểm thử 17/17 tests passed, cập nhật context hoàn tất | Main Agent |
+| 2026-10-31 13:17 | Đăng ký TASK-F01 `IN_PROGRESS` — Thiết kế lại demo Streamlit theo frontend-design | Copilot Session 0bc66139 |
+| 2026-10-31 13:23 | Hoàn thành TASK-F01: demo Streamlit mới, kiểm tra suy luận ảnh thật và responsive mobile | Copilot Session 0bc66139 |
+| 2026-10-31 13:29 | Đăng ký TASK-G01 `IN_PROGRESS` — Sửa lỗi chạy Streamlit ngoài thư mục gốc | Copilot Session 0bc66139 |
+| 2026-10-31 13:30 | Hoàn thành TASK-G01: xác thực import và nạp model khi chạy từ `app/` | Copilot Session 0bc66139 |

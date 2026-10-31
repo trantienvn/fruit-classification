@@ -7,7 +7,7 @@ fruit-classification/
 ├── .agents/skills/                   # Các skill hướng dẫn agent (frontend-design, fruit-ml-project, context-manager)
 ├── .venv/                            # Virtual environment Python 3.14.7
 ├── app/
-│   └── streamlit_app.py              # Ứng dụng Web UI & Dashboard bằng Streamlit
+│   └── streamlit_app.py              # Demo Streamlit tiếng Việt: dự đoán, lịch sử, thông tin mô hình
 ├── context/                          # Lưu trữ context dự án (Context Manager)
 │   ├── README.md
 │   ├── project-overview.md
@@ -100,7 +100,7 @@ flowchart LR
     PredictEngine --> LoadArt
     LoadArt --> Resize --> Extract --> Scale --> Predict
     Predict --> ResultJSON["Kết quả JSON<br/>- Tên lớp & Tiếng Việt<br/>- Độ tin cậy (Confidence)<br/>- Xác suất 9 lớp<br/>- Thời gian xử lý (ms)"]
-    ResultJSON --> StreamlitView["Hiển thị trực quan<br/>Thẻ kết quả, Biểu đồ xác suất, Lịch sử"]
+    ResultJSON --> StreamlitView["Hiển thị kết quả<br/>Xác suất 9 lớp, Lịch sử, Thông tin mô hình"]
 ```
 
 ## 4. Chi tiết các đặc trưng thủ công (Feature Engineering)
@@ -118,4 +118,3 @@ Tổng cộng: **51 chiều (features)**
   - `aspect_ratio`: Chiều rộng bounding box / Chiều cao bounding box.
   - `extent`: Diện tích contour / Diện tích bounding box.
   - `equivalent_diameter`: Đường kính hình tròn tương đương chuẩn hóa.
-

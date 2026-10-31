@@ -81,3 +81,9 @@
 ### Issue #9: Lỗi thuộc tính `gs.best_params__` trong GridSearchCV
 - **Hiện tượng**: Thuộc tính của `GridSearchCV` bị gõ nhầm thành 2 dấu gạch dưới `best_params__` thay vì 1 dấu gạch dưới `best_params_`.
 - **Giải pháp**: Sửa lại thành `gs.best_params_` và đảm bảo chỉ thay thế mô hình tốt nhất nếu điểm F1 của mô hình tinh chỉnh thực sự vượt qua mô hình ban đầu.
+
+### Issue #10: Không tìm thấy package `src` khi chạy Streamlit từ thư mục `app/`
+- **Hiện tượng**: Chạy `streamlit run streamlit_app.py` sau khi chuyển vào `app/` gây `ModuleNotFoundError: No module named 'src'`.
+- **Nguyên nhân**: Thư mục làm việc hiện tại là `app/`, nên thư mục gốc repository không có trong đường dẫn import; các đường dẫn tương đối đến `models/` và `reports/` cũng phụ thuộc thư mục khởi chạy.
+- **Giải pháp**: Xác định `PROJECT_ROOT` từ `Path(__file__).resolve()`, thêm vào `sys.path` trước khi import `src`, và neo đường dẫn model/báo cáo vào thư mục gốc đó.
+- **Xác minh**: Chạy Streamlit AppTest từ thư mục `app/`, xác nhận import thành công, mô hình được nạp và metric test accuracy 93,5% hiển thị.

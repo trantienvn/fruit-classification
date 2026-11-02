@@ -1,7 +1,7 @@
 # Phân loại độ chín của trái cây
 
 Dự án phân loại ảnh trái cây thành 9 lớp kết hợp loại trái cây và độ chín:
-Táo, Chuối, Xoài; mỗi loại có các mức Chưa chín (Unripe), Chín (Ripe) và Quá
+Cam, Chuối, Xoài; mỗi loại có các mức Chưa chín (Unripe), Chín (Ripe) và Quá
 chín (Overripe). Dataset đầu vào là ảnh phát hiện đối tượng theo định dạng
 YOLO; pipeline cắt từng bounding box thành ảnh mẫu, trích xuất đặc trưng ảnh
 (Màu sắc RGB/HSV, Kết cấu LBP & GLCM, Hình dạng) và huấn luyện các mô hình
@@ -18,7 +18,7 @@ mại, với điều kiện ghi công phù hợp, dẫn nguồn, liên kết gi�
 các thay đổi.
 
 Bản dữ liệu trong dự án được lọc về 9 lớp mục tiêu: các lớp `Rotten` và các
-loại trái cây ngoài Táo, Chuối, Xoài không nằm trong ánh xạ đích. Khi sử dụng
+loại trái cây ngoài Cam, Chuối, Xoài không nằm trong ánh xạ đích. Khi sử dụng
 lại hoặc phân phối dữ liệu/bản phái sinh, hãy ghi công tác giả Huzaifa, dẫn
 [nguồn dataset](https://universe.roboflow.com/huzaifa-qgpco/fruit-ripeness-unjex-xsudt),
 liên kết [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) và nêu các

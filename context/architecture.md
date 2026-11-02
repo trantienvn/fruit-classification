@@ -32,7 +32,9 @@ fruit-classification/
 │   │   ├── images/
 │   │   ├── labels/
 │   │   └── data.yaml                 # Cấu hình 9 lớp
-│   └── processed/                    # Dữ liệu sau lọc / xuất
+│   └── processed/
+│       ├── dataset/              # Dataset classification cục bộ (Cam/Chuối/Xoài)
+│       └── whole-scene/          # Dataset sinh từ YOLO cũ
 ├── docs/
 │   └── AGENT_PROJECT_SPEC.md         # Đặc tả chi tiết dự án từ báo cáo Word
 ├── models/                           # Thư mục lưu trữ artifact mô hình
@@ -49,7 +51,7 @@ fruit-classification/
 ├── src/                              # Mã nguồn nghiệp vụ
 │   ├── __init__.py
 │   ├── data.py                       # Tiện ích đọc & kiểm tra tính hợp lệ của ảnh
-│   ├── dataset.py                    # Parser YOLO, crop bbox và xuất dataset ảnh toàn cảnh
+│   ├── dataset.py                    # Loader classification theo thư mục và parser YOLO cũ
 │   ├── features.py                   # Trích xuất 51 đặc trưng (Color, Texture, Shape)
 │   ├── train.py                      # Pipeline scikit-learn CPU và backend CUDA tùy chọn
 │   ├── torch_model.py                # MLP PyTorch tùy chọn; chỉ import PyTorch khi dùng
@@ -70,11 +72,13 @@ fruit-classification/
 
 ```mermaid
 flowchart TD
-    RawData["Dữ liệu thô (data/raw/)<br/>Ảnh + Nhãn YOLO txt"] --> DatasetParser["src/dataset.py<br/>Parse tọa độ Bounding Box"]
-    DatasetParser --> CropResize["Mode yolo: crop bbox & resize 128x128"]
-    RawData --> SceneExport["Mode whole-scene: giữ ảnh nguyên cảnh,<br/>giữ split gốc, loại ảnh đa class"]
+    FolderData["Dataset mặc định<br/>data/processed/dataset/{train,val,test}/{class}"] --> FolderLoader["src/dataset.py<br/>Ánh xạ tên folder và resize"]
+    RawData["Dataset YOLO cũ (data/raw/)<br/>Apple/Banana/Mango"] --> DatasetParser["src/dataset.py<br/>Parse tọa độ Bounding Box"]
+    DatasetParser --> CropResize["Mode yolo cũ: crop bbox & resize 128x128"]
+    RawData --> SceneExport["Mode whole-scene cũ: giữ ảnh nguyên cảnh,<br/>giữ split gốc, loại ảnh đa class"]
     SceneExport --> SceneResize["Resize ảnh toàn cảnh 128x128"]
-    CropResize --> FeatureExtract["src/features.py<br/>Trích xuất 51 đặc trưng thủ công"]
+    FolderLoader --> FeatureExtract["src/features.py<br/>Trích xuất 51 đặc trưng thủ công"]
+    CropResize --> FeatureExtract
     SceneResize --> FeatureExtract
     
     subgraph FeatureSet ["51 Đặc trưng"]
@@ -98,12 +102,16 @@ flowchart TD
     TestEval --> SaveReports["Xuất báo cáo riêng theo mode<br/>reports/ hoặc reports-whole-scene/"]
 ```
 
-Chế độ `whole-scene` được tạo bằng `python -m src.dataset`; ảnh được sao chép
-không crop vào `data/processed/whole-scene/{train,val,test}/{class}/`. Chỉ ảnh
-có một class duy nhất được giữ lại; manifest lưu số lượng và lý do loại. Khi
-train bằng `--dataset-mode whole-scene`, preprocessing resize 128×128 khớp với
-`FruitClassifier`; CLI mặc định lưu artifact ở `models-whole-scene/` để không
-ghi đè model crop.
+Chế độ mặc định `folder` nạp trực tiếp
+`data/processed/dataset/{train,val,test}/{class}/`, ánh xạ tên folder tiếng
+Việt thành 9 nhãn Orange/Banana/Mango × Unripe/Ripe/Spoiled và resize ảnh
+128×128. Dataset cục bộ không commit vào Git.
+
+Chế độ `whole-scene` chỉ áp dụng cho YOLO cũ: `python -m src.dataset` sao chép
+ảnh không crop vào `data/processed/whole-scene/{train,val,test}/{class}/`, giữ
+ảnh có duy nhất một class và ghi nguyên nhân loại vào manifest. Khi train bằng
+`--dataset-mode whole-scene`, artifact mặc định nằm trong
+`models-whole-scene/`, tách khỏi model hiện hành.
 
 Backend CUDA trong `src/torch_model.py` là tùy chọn và không được import bởi
 pipeline mặc định. Nó chỉ đưa bước MLP lên GPU; đọc ảnh, trích xuất đặc trưng,

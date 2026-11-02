@@ -1,14 +1,11 @@
-"""Đọc dataset YOLO và tạo samples cho phân loại ảnh.
+"""Đọc dataset YOLO và dataset phân loại theo thư mục.
 
 Quy trình:
-  - Đọc cặp ảnh/nhãn YOLO từ data/raw/
-  - Crop ảnh theo bounding box
-  - Mỗi crop là một sample với nhãn class (0–8)
+  - Nạp dataset lớp theo thư mục từ data/processed/dataset/
+  - Hỗ trợ dữ liệu YOLO cũ từ data/raw/ cho pipeline tương thích
 
-Nhãn class:
-  0: Apple Unripe   1: Apple Ripe   2: Apple Overripe
-  3: Banana Unripe  4: Banana Ripe  5: Banana Overripe
-  6: Mango Unripe   7: Mango Ripe   8: Mango Overripe
+Dataset classification dùng nhãn:
+  Orange, Banana, Mango × Unripe, Ripe, Spoiled
 """
 
 from __future__ import annotations
@@ -28,8 +25,21 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-# Nhãn 9 class
+# Nhãn của dataset classification hiện tại
 CLASS_NAMES = (
+    "Orange Unripe",
+    "Orange Ripe",
+    "Orange Spoiled",
+    "Banana Unripe",
+    "Banana Ripe",
+    "Banana Spoiled",
+    "Mango Unripe",
+    "Mango Ripe",
+    "Mango Spoiled",
+)
+
+# Nhãn YOLO cũ giữ riêng vì data/raw vẫn là dataset Apple/Banana/Mango.
+LEGACY_CLASS_NAMES = (
     "Apple Unripe",
     "Apple Ripe",
     "Apple Overripe",
@@ -41,17 +51,28 @@ CLASS_NAMES = (
     "Mango Overripe",
 )
 
-# Tên loại trái cây và độ chín
-FRUIT_NAMES = ("Apple", "Banana", "Mango")
-RIPENESS_NAMES = ("Unripe", "Ripe", "Overripe")
+FRUIT_NAMES = ("Orange", "Banana", "Mango")
+RIPENESS_NAMES = ("Unripe", "Ripe", "Spoiled")
+CLASS_FOLDER_NAMES = {
+    "Orange Unripe": "cam-chua-chin",
+    "Orange Ripe": "cam-chin",
+    "Orange Spoiled": "cam-hong",
+    "Banana Unripe": "chuoi-chua-chin",
+    "Banana Ripe": "chuoi-chin",
+    "Banana Spoiled": "chuoi-hong",
+    "Mango Unripe": "xoai-chua-chin",
+    "Mango Ripe": "xoai-chin",
+    "Mango Spoiled": "xoai-hong",
+}
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 
-# Kích thước resize cho mỗi crop
+# Kích thước chuẩn hóa ảnh đầu vào
 CROP_SIZE = (128, 128)
 
 # Thư mục dataset mặc định
 DATA_RAW = Path("data/raw")
+DATASET_CLASSIFICATION = Path("data/processed/dataset")
 
 
 def _parse_yolo_box(line: str, img_w: int, img_h: int) -> tuple[int, int, int, int, int] | None:
@@ -67,7 +88,7 @@ def _parse_yolo_box(line: str, img_w: int, img_h: int) -> tuple[int, int, int, i
         cx, cy, bw, bh = (float(x) for x in parts[1:])
     except ValueError:
         return None
-    if not (0 <= class_id <= 8):
+    if not 0 <= class_id < len(LEGACY_CLASS_NAMES):
         return None
 
     x1 = int(round((cx - bw / 2) * img_w))
@@ -94,7 +115,7 @@ def _parse_yolo_class_id(line: str) -> int | None:
         cx, cy, width, height = (float(value) for value in parts[1:])
     except ValueError:
         return None
-    if not 0 <= class_id < len(CLASS_NAMES):
+    if not 0 <= class_id < len(LEGACY_CLASS_NAMES):
         return None
     if not np.all(np.isfinite([cx, cy, width, height])):
         return None
@@ -182,7 +203,7 @@ def load_scene_split(
 
     images: list[np.ndarray] = []
     labels: list[int] = []
-    for class_id, class_name in enumerate(CLASS_NAMES):
+    for class_id, class_name in enumerate(LEGACY_CLASS_NAMES):
         class_dir = split_dir / class_name.replace(" ", "_")
         if not class_dir.is_dir():
             raise FileNotFoundError(f"Thiếu thư mục lớp trong split: {class_dir}")
@@ -208,13 +229,63 @@ def load_scene_split(
     return images, labels
 
 
+def load_classification_split(
+    data_dir: Path,
+    split: str,
+    crop_size: tuple[int, int] = CROP_SIZE,
+) -> tuple[list[np.ndarray], list[int]]:
+    """Nạp ảnh theo train/val/test và thư mục lớp của dataset classification."""
+    split_dir = data_dir / split
+    if not split_dir.is_dir():
+        raise FileNotFoundError(f"Không tìm thấy split dataset: {split_dir}")
+
+    expected_folders = set(CLASS_FOLDER_NAMES.values())
+    actual_folders = {
+        path.name for path in split_dir.iterdir()
+        if path.is_dir()
+    }
+    missing_folders = expected_folders - actual_folders
+    if missing_folders:
+        raise FileNotFoundError(
+            f"Thiếu thư mục lớp trong {split_dir}: {', '.join(sorted(missing_folders))}"
+        )
+    unexpected_folders = actual_folders - expected_folders
+    if unexpected_folders:
+        raise ValueError(
+            f"Thư mục lớp không được hỗ trợ trong {split_dir}: "
+            f"{', '.join(sorted(unexpected_folders))}"
+        )
+
+    images: list[np.ndarray] = []
+    labels: list[int] = []
+    for class_id, class_name in enumerate(CLASS_NAMES):
+        class_dir = split_dir / CLASS_FOLDER_NAMES[class_name]
+        image_paths = sorted(
+            path for path in class_dir.iterdir()
+            if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS
+        )
+        if not image_paths:
+            raise ValueError(f"Split {split} không có ảnh cho lớp {class_name}.")
+
+        for image_path in image_paths:
+            try:
+                with Image.open(image_path) as image:
+                    image = image.convert("RGB").resize(crop_size, Image.LANCZOS)
+            except (OSError, UnidentifiedImageError) as error:
+                raise ValueError(f"Không thể đọc ảnh: {image_path}") from error
+            images.append(np.asarray(image, dtype=np.uint8))
+            labels.append(class_id)
+
+    return images, labels
+
+
 def prepare_whole_scene_dataset(
     source_dir: Path,
     output_dir: Path,
 ) -> dict:
     """Xuất ảnh nguyên cảnh theo split gốc, chỉ giữ ảnh có duy nhất một class."""
     splits = ("train", "val", "test")
-    class_dirs = {name.replace(" ", "_") for name in CLASS_NAMES}
+    class_dirs = {name.replace(" ", "_") for name in LEGACY_CLASS_NAMES}
     manifest_path = output_dir / "manifest.json"
     previous_files: list[str] = []
 
@@ -249,7 +320,7 @@ def prepare_whole_scene_dataset(
 
         split_summary = {
             "included": 0,
-            "classes": {name: 0 for name in CLASS_NAMES},
+            "classes": {name: 0 for name in LEGACY_CLASS_NAMES},
             "excluded": {
                 "missing_label": 0,
                 "empty_label": 0,
@@ -294,11 +365,12 @@ def prepare_whole_scene_dataset(
                 continue
 
             class_id = class_ids.pop()
-            relative_path = Path(split) / CLASS_NAMES[class_id].replace(" ", "_") / image_path.name
+            class_name = LEGACY_CLASS_NAMES[class_id]
+            relative_path = Path(split) / class_name.replace(" ", "_") / image_path.name
             records.append((image_path, output_dir / relative_path, class_id))
             summary["files"].append(str(relative_path))
             split_summary["included"] += 1
-            split_summary["classes"][CLASS_NAMES[class_id]] += 1
+            split_summary["classes"][class_name] += 1
 
         summary["splits"][split] = split_summary
 
@@ -318,11 +390,14 @@ def prepare_whole_scene_dataset(
     return summary
 
 
-def class_distribution(labels: list[int]) -> dict[str, int]:
+def class_distribution(
+    labels: list[int],
+    class_names: tuple[str, ...] = CLASS_NAMES,
+) -> dict[str, int]:
     """Đếm số mẫu theo class."""
     from collections import Counter
     counts = Counter(labels)
-    return {CLASS_NAMES[i]: counts.get(i, 0) for i in range(len(CLASS_NAMES))}
+    return {class_names[i]: counts.get(i, 0) for i in range(len(class_names))}
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -5,11 +5,11 @@ export function escapeHtml(value) {
 }
 
 export function fruitLabel(value) {
-  return ({ Apple: "Táo", Banana: "Chuối", Mango: "Xoài" })[value] || value || "—";
+  return ({ Orange: "Cam", Banana: "Chuối", Mango: "Xoài", Apple: "Táo" })[value] || value || "—";
 }
 
 export function ripenessLabel(value) {
-  return ({ Unripe: "Chưa chín", Ripe: "Chín", Overripe: "Quá chín" })[value] || value || "—";
+  return ({ Unripe: "Chưa chín", Ripe: "Chín", Spoiled: "Hỏng", Overripe: "Quá chín" })[value] || value || "—";
 }
 
 export function classLabel(value) {

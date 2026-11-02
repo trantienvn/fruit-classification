@@ -1,6 +1,31 @@
 # Báo cáo kết quả thực nghiệm mô hình
 
-Tài liệu tổng hợp các kết quả thực nghiệm thực tế thu được từ quá trình huấn luyện và đánh giá trên bộ dữ liệu **Fruit Ripeness** (Huzaifa / Roboflow Universe).
+## Kết quả hiện hành — dataset Cam/Chuối/Xoài
+
+Dataset classification tại `data/processed/dataset/` có 1.270 ảnh train,
+361 validation và 184 test. GridSearch chọn SVM với validation accuracy
+94,46%, Macro F1 0,9448. Trên test độc lập, SVM đạt accuracy 91,30%,
+Macro F1 0,9115 và Macro AUC 0,9940.
+
+| Lớp | Precision | Recall | F1 | Số mẫu |
+|---|---:|---:|---:|---:|
+| Orange Unripe | 0,91 | 1,00 | 0,95 | 21 |
+| Orange Ripe | 0,95 | 0,95 | 0,95 | 20 |
+| Orange Spoiled | 0,86 | 0,95 | 0,90 | 20 |
+| Banana Unripe | 0,86 | 0,95 | 0,90 | 20 |
+| Banana Ripe | 1,00 | 0,82 | 0,90 | 22 |
+| Banana Spoiled | 1,00 | 1,00 | 1,00 | 20 |
+| Mango Unripe | 0,90 | 0,90 | 0,90 | 20 |
+| Mango Ripe | 0,91 | 1,00 | 0,95 | 20 |
+| Mango Spoiled | 0,82 | 0,67 | 0,74 | 21 |
+
+Báo cáo chi tiết và biểu đồ mới nằm trong `reports/`; cấu hình model ghi tại
+`models/config.json` (artifact model bị Git bỏ qua).
+
+## Kết quả lịch sử — dataset YOLO Apple/Banana/Mango
+
+Các mục bên dưới ghi lại thí nghiệm cũ trên bộ **Fruit Ripeness** (Huzaifa /
+Roboflow Universe), không phải kết quả của model hiện hành.
 
 ---
 

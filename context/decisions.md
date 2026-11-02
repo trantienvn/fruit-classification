@@ -12,10 +12,11 @@ Tài liệu này ghi lại các quyết định kỹ thuật cốt lõi đã đ�
 
 ---
 
-## 2. Quyết định phạm vi bài toán và cấu trúc nhãn (Q2)
+## 2. Quyết định phạm vi bài toán và cấu trúc nhãn (Q2, DEPRECATED 2026-11-02)
 - **Quyết định**: Giải quyết bài toán **Phân loại 9 lớp kết hợp (Loại trái cây × Mức độ chín)**.
   - Danh sách 9 nhãn: `Apple Unripe`, `Apple Ripe`, `Apple Overripe`, `Banana Unripe`, `Banana Ripe`, `Banana Overripe`, `Mango Unripe`, `Mango Ripe`, `Mango Overripe`.
-- **Lý do**:
+- **Trạng thái hiện tại**: Quyết định này chỉ còn áp dụng cho dữ liệu YOLO cũ trong `data/raw/`; taxonomy mặc định đã được thay thế bởi Q9.
+- **Lý do ban đầu**:
   - Dữ liệu thực tế trong `data/raw/data.yaml` và nhãn YOLO chỉ chứa 9 lớp kết hợp trên.
   - Không có dữ liệu phân hạng chất lượng thương mại độc lập (Class 1, Class 2, Extra Class).
   - Không tự bịa đặt nhãn hoặc giả lập phân loại khi dataset không hỗ trợ.
@@ -25,7 +26,7 @@ Tài liệu này ghi lại các quyết định kỹ thuật cốt lõi đã đ�
 
 ---
 
-## 3. Quyết định tiền xử lý dữ liệu từ YOLO sang Classification (Q3)
+## 3. Quyết định tiền xử lý dữ liệu từ YOLO sang Classification (Q3, legacy)
 - **Quyết định**: **Crop ảnh theo Bounding Box**.
 - **Lý do**: Dataset hiện tại được gắn nhãn theo định dạng YOLO Object Detection. Việc crop theo bounding box loại bỏ tối đa tạp chất hậu cảnh, tập trung toàn bộ pixel vào đối tượng trái cây trước khi trích xuất đặc trưng.
 - **Thực thi**:
@@ -74,3 +75,10 @@ Tài liệu này ghi lại các quyết định kỹ thuật cốt lõi đã đ�
 - **Tiền xử lý**: Ảnh toàn cảnh được resize về 128×128, khớp với inference hiện tại; không crop bbox.
 - **Artifact**: Mặc định tách vào `models-whole-scene/` và `reports-whole-scene/`; không ghi đè model crop. Resume không cho phép đổi chế độ dữ liệu.
 - **Giới hạn**: Model vẫn là classifier một nhãn cho toàn ảnh; không hỗ trợ ảnh có nhiều loại quả khác nhãn trong cùng cảnh.
+
+## 9. Dataset classification Cam/Chuối/Xoài (Q9, CONFIRMED 2026-11-02)
+- **Quyết định**: Dùng `data/processed/dataset/{train,val,test}/` làm dataset classification mặc định; không đổi nội dung `data/raw/`.
+- **Ánh xạ lớp**: Giữ 9 class theo thứ tự Orange/Banana/Mango × Unripe/Ripe/Spoiled; các thư mục `*-hong` được xác nhận là `Spoiled`, không gộp thành `Overripe`.
+- **Huấn luyện**: Dùng mode `folder`, chuẩn hóa ảnh 128×128; đánh giá validation/test theo split có sẵn. Model/report mới thay artifact mặc định trong các thư mục local bị Git ignore.
+- **Tương thích**: Các mode `yolo` và `whole-scene` tiếp tục dùng taxonomy cũ Apple/Banana/Mango × Unripe/Ripe/Overripe; class names của model suy luận được đọc từ config artifact.
+- **Nguồn dữ liệu**: Bộ thư mục classification hiện có tại máy, không được commit. Nguồn và giấy phép chưa được ghi trong repository, không suy đoán nguồn hoặc giấy phép.

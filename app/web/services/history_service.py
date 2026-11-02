@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from app.web.labels import localized_class_name
+from src.dataset import FRUIT_NAMES, RIPENESS_NAMES
 
 
 class HistoryService:
@@ -143,11 +144,9 @@ class HistoryService:
         return True
 
     def statistics(self, class_names: list[str]) -> dict[str, Any]:
-        fruits = ("Apple", "Banana", "Mango")
-        ripeness_names = ("Unripe", "Ripe", "Overripe")
-        by_class = {name: 0 for name in class_names}
-        by_fruit = {name: 0 for name in fruits}
-        by_ripeness = {name: 0 for name in ripeness_names}
+        by_class = dict.fromkeys(class_names, 0)
+        by_fruit = dict.fromkeys(FRUIT_NAMES, 0)
+        by_ripeness = dict.fromkeys(RIPENESS_NAMES, 0)
 
         with self._connection() as connection:
             total, latest_at = connection.execute(
@@ -161,6 +160,9 @@ class HistoryService:
                 """
             ).fetchall()
             for row in rows:
+                by_class.setdefault(row["class_name"], 0)
+                by_fruit.setdefault(row["fruit"], 0)
+                by_ripeness.setdefault(row["ripeness"], 0)
                 by_class[row["class_name"]] = row["count"]
                 by_fruit[row["fruit"]] = row["count"]
                 by_ripeness[row["ripeness"]] = row["count"]

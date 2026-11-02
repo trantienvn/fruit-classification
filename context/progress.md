@@ -7,14 +7,15 @@
 | Giai đoạn | Mô tả | Trạng thái |
 |---|---|---|
 | **Giai đoạn 1** | Khảo sát repository, thống nhất yêu cầu, thiết lập môi trường Python 3.14 + uv | **Hoàn thành 100%** |
-| **Giai đoạn 2** | Hoàn thiện Dataset pipeline & Crop Bounding Box YOLO (2.507 mẫu) | **Hoàn thành 100%** |
+| **Giai đoạn 2** | Dataset YOLO cũ: pipeline crop Bounding Box (2.507 mẫu) | **Hoàn thành 100%** |
 | **Giai đoạn 3** | Trích xuất đặc trưng (Feature Extraction - 51 features) | **Hoàn thành 100%** |
-| **Giai đoạn 4** | Huấn luyện mô hình (7 thuật toán + GridSearchCV + Lưu checkpoint) | **Hoàn thành 100%** (SVM Test Acc: 93.5%, F1: 93.71%) |
+| **Giai đoạn 4** | Huấn luyện baseline trên dataset YOLO cũ | **Hoàn thành 100%** (SVM test accuracy 93,50%, Macro F1 0,9371) |
 | **Giai đoạn 5** | Hoàn thiện Backend & Inference Engine (`FruitClassifier`) | **Hoàn thành 100%** |
 | **Giai đoạn 6** | Hoàn thiện Frontend Web App (Streamlit UI cũ đầy đủ 3 tabs) | **Hoàn thành 100%** |
 | **Giai đoạn 7** | Tích hợp End-to-End & Testing (17/17 tests passed) | **Hoàn thành 100%** |
 | **Giai đoạn 8** | Tài liệu hóa đầy đủ (`docs/`, `README.md`, `context/`) | **Hoàn thành 100%** |
 | **Giai đoạn 9** | Tách Streamlit thành FastAPI + HTML/CSS/JavaScript, lịch sử SQLite và API contract | **Hoàn thành 100%** |
+| **Giai đoạn 10** | Chuyển dataset/model mặc định sang Cam/Chuối/Xoài × Unripe/Ripe/Spoiled | **Hoàn thành 100%** (SVM test accuracy 91,30%, Macro F1 0,9115) |
 
 ---
 
@@ -117,3 +118,11 @@
 - Huấn luyện mới truyền validation feature/label sang báo cáo; `reports-gpu/feature_importance.png` đã được tạo từ 491 mẫu validation cho model active.
 - `/reports/feature_importance.png` trả 200 image/png; trang Thông tin mô hình đã đăng ký đúng tên và title chart.
 - `pytest tests/ -q`: 28 passed, 1 warning; `py_compile` và `git diff --check` đạt.
+
+### Chuyển dataset và model sang Cam/Chuối/Xoài (2026-11-02)
+- Hoàn thành TASK-N01: pipeline mặc định đọc dataset classification theo thư mục từ `data/processed/dataset/`; giữ nguyên `data/raw/` YOLO cũ và taxonomy Apple/Banana/Mango ở các mode tương thích.
+- Xác nhận `*-hong` là `Spoiled`; 9 lớp hiện hành là Orange/Banana/Mango × Unripe/Ripe/Spoiled. Split có 1.270 train, 361 validation và 184 test.
+- Huấn luyện lại SVM trên CPU với GridSearch: validation Macro F1 0,9448; test accuracy 91,30%, Macro F1 0,9115, Macro AUC 0,9940.
+- Artifact và báo cáo được cập nhật local tại `models/` và `reports/`; dataset/model artifact không được thêm vào Git.
+- Ảnh kiểm thử giữ riêng trong test split được nạp qua `FruitClassifier`; trả về 9 lớp mới và xác suất tổng bằng 1.
+- `pytest tests/ -q`: 30 passed, 1 warning; CLI, `py_compile`, OpenAPI snapshot và `git diff --check` được xác minh.

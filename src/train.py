@@ -1,7 +1,7 @@
 """Pipeline huấn luyện — phân loại 9 class kết hợp (loại × độ chín).
 
 Quy trình:
-  1. Nạp dataset từ data/raw/ (split train/val/test theo cấu trúc YOLO sẵn có)
+  1. Nạp dataset classification từ data/processed/dataset/ theo các split có sẵn
   2. Trích xuất đặc trưng (51 features)
   3. Chuẩn hóa với StandardScaler
   4. (Tùy chọn) Giảm chiều với PCA
@@ -15,7 +15,7 @@ Chế độ TorchMLP tùy chọn: `--device cuda` huấn luyện trên GPU, còn
 có thể tiếp tục artifact đã lưu trên CPU hoặc GPU. PyTorch phải được cài.
 
 Chạy:
-  python -m src.train --data-dir data/raw --model-dir models
+  python -m src.train --data-dir data/processed/dataset --model-dir models
 """
 
 from __future__ import annotations
@@ -43,7 +43,14 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 
-from src.dataset import CLASS_NAMES, DATA_RAW, load_scene_split, load_split
+from src.dataset import (
+    CLASS_NAMES,
+    DATASET_CLASSIFICATION,
+    LEGACY_CLASS_NAMES,
+    load_classification_split,
+    load_scene_split,
+    load_split,
+)
 from src.evaluate import evaluate_predictions, full_report
 from src.features import N_FEATURES, build_feature_matrix
 
@@ -90,7 +97,11 @@ def _load_data(data_dir: Path, dataset_mode: str) -> tuple[
     np.ndarray, np.ndarray,
 ]:
     """Nạp và trích xuất features từ ba split."""
-    split_loader = load_scene_split if dataset_mode == "whole-scene" else load_split
+    split_loader = {
+        "folder": load_classification_split,
+        "whole-scene": load_scene_split,
+        "yolo": load_split,
+    }[dataset_mode]
     print("Đang nạp tập train...")
     t0 = time.perf_counter()
     train_imgs, y_train = split_loader(data_dir, "train")
@@ -217,6 +228,7 @@ def _train_all(
     y_tr: np.ndarray,
     X_va: np.ndarray,
     y_va: np.ndarray,
+    class_names: tuple[str, ...],
 ) -> tuple[dict[str, dict], str]:
     """Huấn luyện tất cả mô hình, trả về kết quả validation và tên model tốt nhất."""
     results: dict[str, dict] = {}
@@ -230,7 +242,7 @@ def _train_all(
         y_pred = model.predict(X_va)  # type: ignore[union-attr]
         t_infer = time.perf_counter() - t0
 
-        metrics = evaluate_predictions(y_va.tolist(), y_pred.tolist(), class_names=CLASS_NAMES)
+        metrics = evaluate_predictions(y_va.tolist(), y_pred.tolist(), class_names=class_names)
         results[name] = {
             **metrics,
             "train_time_s": round(t_train, 3),
@@ -315,6 +327,7 @@ def _save_pipeline(
     val_metrics: dict,
     test_metrics: dict,
     training_meta: dict,
+    class_names: tuple[str, ...],
 ) -> None:
     """Lưu toàn bộ pipeline cần thiết để inference."""
     model_dir.mkdir(parents=True, exist_ok=True)
@@ -326,8 +339,8 @@ def _save_pipeline(
 
     config = {
         "model_name": model_name,
-        "n_classes": len(CLASS_NAMES),
-        "class_names": list(CLASS_NAMES),
+        "n_classes": len(class_names),
+        "class_names": list(class_names),
         "n_features": N_FEATURES,
         "use_pca": pca is not None,
         "crop_size": [128, 128],
@@ -344,7 +357,7 @@ def _save_pipeline(
 # ── Entry point ────────────────────────────────────────────────────────────────
 
 def train(
-    data_dir: Path = DATA_RAW,
+    data_dir: Path = DATASET_CLASSIFICATION,
     model_dir: Path | None = None,
     use_pca: bool = USE_PCA,
     run_gridsearch: bool = True,
@@ -352,20 +365,23 @@ def train(
     epochs: int = 100,
     batch_size: int = 64,
     resume: bool = False,
-    dataset_mode: str = "yolo",
+    dataset_mode: str = "folder",
 ) -> dict:
     """Chạy pipeline sklearn hoặc huấn luyện mới/tiếp tục TorchMLP."""
-    if dataset_mode not in {"yolo", "whole-scene"}:
-        raise ValueError("dataset_mode phải là 'yolo' hoặc 'whole-scene'.")
+    if dataset_mode not in {"folder", "yolo", "whole-scene"}:
+        raise ValueError("dataset_mode phải là 'folder', 'yolo' hoặc 'whole-scene'.")
     if model_dir is None:
-        model_dir = Path("models-whole-scene" if dataset_mode == "whole-scene" else "models")
+        model_dir = Path(
+            "models-whole-scene" if dataset_mode == "whole-scene" else "models"
+        )
+    class_names = CLASS_NAMES if dataset_mode == "folder" else LEGACY_CLASS_NAMES
     if device not in {"cpu", "cuda"}:
         raise ValueError("device phải là 'cpu' hoặc 'cuda'.")
     if (device == "cuda" or resume) and (epochs < 1 or batch_size < 1):
         raise ValueError("epochs và batch_size phải lớn hơn 0.")
     is_torch = device == "cuda" or resume
     print("=" * 60)
-    print("PIPELINE HUẤN LUYỆN — PHÂN LOẠI ĐỘ CHÍN TRÁI CÂY")
+    print("PIPELINE HUẤN LUYỆN — PHÂN LOẠI TRẠNG THÁI TRÁI CÂY")
     print(f"Dataset: {data_dir}")
     print(f"Chế độ dữ liệu: {dataset_mode}")
     print(f"Model dir: {model_dir}")
@@ -439,7 +455,7 @@ def train(
         y_pred_val = model.predict(X_va)
         infer_time = time.perf_counter() - t0
         val_metrics = evaluate_predictions(
-            y_val.tolist(), y_pred_val.tolist(), class_names=CLASS_NAMES
+            y_val.tolist(), y_pred_val.tolist(), class_names=class_names
         )
         val_results = {
             "TorchMLP": {
@@ -460,7 +476,7 @@ def train(
             f"epochs this run={model.last_fit_epochs_trained_}; total={model.n_epochs_trained_}"
         )
     else:
-        val_results, best_name = _train_all(X_tr, y_train, X_va, y_val)
+        val_results, best_name = _train_all(X_tr, y_train, X_va, y_val, class_names)
         available_models = MODELS
         use_gridsearch = run_gridsearch
 
@@ -475,7 +491,7 @@ def train(
         for name in top3_eligible:
             tuned = _grid_search_best(name, X_tr, y_train, X_va, y_val)
             y_pred_va = tuned.predict(X_va)  # type: ignore[union-attr]
-            m = evaluate_predictions(y_val.tolist(), y_pred_va.tolist(), class_names=CLASS_NAMES)
+            m = evaluate_predictions(y_val.tolist(), y_pred_va.tolist(), class_names=class_names)
             print(f"  {name} (tuned): val F1 = {m['macro_f1']:.4f}")
             val_results[name + "_tuned"] = m
             if m["macro_f1"] > best_f1:
@@ -493,7 +509,9 @@ def train(
     # 5. Đánh giá cuối trên test (chỉ lần này)
     best_model = available_models[best_name]
     y_pred_test = best_model.predict(X_te)  # type: ignore[union-attr]
-    test_metrics = evaluate_predictions(y_test.tolist(), y_pred_test.tolist(), class_names=CLASS_NAMES)
+    test_metrics = evaluate_predictions(
+        y_test.tolist(), y_pred_test.tolist(), class_names=class_names
+    )
     print("\n── Kết quả test ──")
     print(f"  Accuracy : {test_metrics['accuracy']:.4f}")
     print(f"  Macro F1 : {test_metrics['macro_f1']:.4f}")
@@ -505,7 +523,7 @@ def train(
         reports_dir = model_dir.parent / ("reports-gpu" if device == "cuda" else "reports")
     full_report(
         y_test.tolist(), y_pred_test.tolist(),
-        class_names=CLASS_NAMES,
+        class_names=class_names,
         model_name=best_name,
         all_val_results=val_results,
         save_dir=reports_dir,
@@ -522,6 +540,7 @@ def train(
         best_model, scaler, pca, model_dir, best_name,
         val_metrics=val_summary,
         test_metrics={k: test_metrics[k] for k in ("accuracy", "macro_f1")},
+        class_names=class_names,
         training_meta={
             "n_train": int(len(y_train)),
             "n_val": int(len(y_val)),
@@ -551,13 +570,16 @@ def train(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Huấn luyện mô hình phân loại trái cây")
-    parser.add_argument("--data-dir", type=Path, default=DATA_RAW)
+    parser.add_argument("--data-dir", type=Path, default=DATASET_CLASSIFICATION)
     parser.add_argument("--model-dir", type=Path, default=None)
     parser.add_argument(
         "--dataset-mode",
-        choices=("yolo", "whole-scene"),
-        default="yolo",
-        help="yolo: crop theo bbox (mặc định); whole-scene: dùng ảnh nguyên cảnh đã chuẩn bị",
+        choices=("folder", "yolo", "whole-scene"),
+        default="folder",
+        help=(
+            "folder: dataset classification theo thư mục (mặc định); "
+            "yolo: dataset YOLO cũ; whole-scene: ảnh nguyên cảnh từ YOLO"
+        ),
     )
     parser.add_argument("--pca", action="store_true", help="Bật PCA giảm chiều")
     parser.add_argument("--no-gridsearch", action="store_true", help="Tắt GridSearch")

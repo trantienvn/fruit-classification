@@ -4,6 +4,12 @@ Toàn bộ các thay đổi mã nguồn và tài liệu của dự án được 
 
 ## [2026-11-02]
 
+### Chuyển dataset mặc định sang Cam/Chuối/Xoài
+- Thêm loader dataset classification theo thư mục train/val/test; mapping `*-hong` thành `Spoiled`.
+- Cập nhật nhãn suy luận, thống kê, Web/Streamlit UI và tài liệu; giữ nguyên dataset YOLO Apple/Banana/Mango ở chế độ tương thích riêng.
+- Train lại SVM từ dataset local: test accuracy 91,30%, Macro F1 0,9115; cập nhật báo cáo `reports/` và artifact local trong `models/`.
+- Kiểm tra: 30 tests passed; inference smoke trên ảnh cam-hỏng trong test split trả `Orange Spoiled`, 9 lớp/xác suất hợp lệ; không commit dataset hoặc model artifacts.
+
 ### Thêm biểu đồ độ quan trọng đặc trưng cho TorchMLP
 - Model có tree importance/coef tiếp tục dùng chỉ số tích hợp; model khác dùng permutation importance theo Macro F1 trên validation, tránh dùng test.
 - `reports-gpu/feature_importance.png` được tạo cho model TorchMLP đang chạy bằng 491 mẫu validation và được phục vụ tại `/reports/feature_importance.png`; trang model-info đã có sẵn mục hiển thị.

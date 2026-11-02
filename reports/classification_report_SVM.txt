@@ -1,17 +1,17 @@
 Model: SVM
 
-                 precision    recall  f1-score   support
+                precision    recall  f1-score   support
 
-   Apple Unripe       0.90      0.96      0.93        28
-     Apple Ripe       1.00      0.93      0.97        30
- Apple Overripe       1.00      0.88      0.94        25
-  Banana Unripe       0.96      0.93      0.95        28
-    Banana Ripe       0.81      0.97      0.88        31
-Banana Overripe       0.92      0.92      0.92        24
-   Mango Unripe       0.96      0.96      0.96        25
-     Mango Ripe       0.93      0.87      0.90        30
- Mango Overripe       1.00      1.00      1.00        25
+ Orange Unripe       0.91      1.00      0.95        21
+   Orange Ripe       0.95      0.95      0.95        20
+Orange Spoiled       0.86      0.95      0.90        20
+ Banana Unripe       0.86      0.95      0.90        20
+   Banana Ripe       1.00      0.82      0.90        22
+Banana Spoiled       1.00      1.00      1.00        20
+  Mango Unripe       0.90      0.90      0.90        20
+    Mango Ripe       0.91      1.00      0.95        20
+ Mango Spoiled       0.82      0.67      0.74        21
 
-       accuracy                           0.93       246
-      macro avg       0.94      0.94      0.94       246
-   weighted avg       0.94      0.93      0.94       246
+      accuracy                           0.91       184
+     macro avg       0.91      0.91      0.91       184
+  weighted avg       0.91      0.91      0.91       184

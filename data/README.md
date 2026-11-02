@@ -1,10 +1,45 @@
 # Dữ liệu
 
-`data/raw/` hiện chứa dataset ảnh trái cây theo định dạng YOLO, với nhãn phát
-hiện đối tượng theo loại trái cây và độ chín. Dataset có ba tập `train`, `val`,
-`test` và 9 lớp: táo, chuối, xoài; mỗi loại gồm `Unripe`, `Ripe`, `Overripe`.
+## Dataset classification hiện hành
 
-## Cấu trúc hiện tại
+Pipeline mặc định dùng dataset ảnh đã chia lớp tại
+`data/processed/dataset/{train,val,test}/`. Dataset có 9 lớp: cam, chuối, xoài;
+mỗi loại gồm `Unripe`, `Ripe`, `Spoiled`. Các thư mục `*-hong` được xác nhận là
+trái cây hỏng, không gộp vào nhãn quá chín.
+
+| Tập | Ảnh |
+|---|---:|
+| Train | 1.270 |
+| Validation | 361 |
+| Test | 184 |
+| **Tổng** | **1.815** |
+
+Ánh xạ tên thư mục sang nhãn model:
+
+| Nhãn model | Thư mục |
+|---|---|
+| Orange Unripe | `cam-chua-chin` |
+| Orange Ripe | `cam-chin` |
+| Orange Spoiled | `cam-hong` |
+| Banana Unripe | `chuoi-chua-chin` |
+| Banana Ripe | `chuoi-chin` |
+| Banana Spoiled | `chuoi-hong` |
+| Mango Unripe | `xoai-chua-chin` |
+| Mango Ripe | `xoai-chin` |
+| Mango Spoiled | `xoai-hong` |
+
+Dataset là dữ liệu cục bộ, bị Git bỏ qua và không được thêm vào repository.
+Nguồn/giấy phép của bộ thư mục này chưa được ghi trong repository; cần giữ
+thông tin nguồn và giấy phép gốc khi chia sẻ dữ liệu.
+
+## Dataset YOLO cũ
+
+`data/raw/` vẫn giữ dataset YOLO cũ với nhãn Apple/Banana/Mango và các trạng
+thái `Unripe`, `Ripe`, `Overripe`. Dataset này chỉ dùng khi chạy rõ
+`--dataset-mode yolo` hoặc tạo ảnh toàn cảnh theo chế độ tương thích; không
+được dùng làm dataset mặc định Cam/Chuối/Xoài.
+
+### Cấu trúc YOLO cũ
 
 ```text
 data/
@@ -21,6 +56,10 @@ data/
       val/
       test/
   processed/
+    dataset/
+      train/{cam-chin,...}/
+      val/{cam-chin,...}/
+      test/{cam-chin,...}/
     whole-scene/
       manifest.json
       train/{Apple_Unripe,...}/
@@ -28,11 +67,9 @@ data/
       test/{Apple_Unripe,...}/
 ```
 
-`data.yaml` khai báo đường dẫn tương đối đến các tập ảnh, số lớp (`nc: 9`) và
-tên lớp. `class_mapping.json` ghi lại ánh xạ từ lớp nguồn sang 9 lớp đang dùng;
-`balanced_distribution.png` là biểu đồ phân phối lớp.
+`data.yaml` và `class_mapping.json` chỉ mô tả dataset YOLO cũ.
 
-## Phân hoạch và số lượng
+### Phân hoạch và số lượng YOLO cũ
 
 | Tập | Ảnh | Tệp nhãn |
 |---|---:|---:|
@@ -63,7 +100,7 @@ tượng được gán nhãn**, không phải số ảnh của mỗi lớp:
 | 7 | Mango Ripe | 269 |
 | 8 | Mango Overripe | 252 |
 
-## Ánh xạ và giới hạn nhãn
+### Ánh xạ và giới hạn nhãn YOLO cũ
 
 Các ID đích trong bảng trên khớp với thứ tự `names` trong `data.yaml`.
 `class_mapping.json` cho biết lớp nguồn nào được giữ lại; các nhãn `Rotten` và
@@ -76,7 +113,7 @@ huấn luyện, chọn mô hình hoặc điều chỉnh tham số. Nếu tạo t
 thay đổi ánh xạ nhãn, cập nhật đồng bộ `data.yaml`, `class_mapping.json` và tài
 liệu này.
 
-## Nguồn và giấy phép
+### Nguồn và giấy phép YOLO cũ
 
 Dataset **Fruit Ripeness** được thu thập từ [Roboflow Universe](https://universe.roboflow.com/huzaifa-qgpco/fruit-ripeness-unjex-xsudt),
 do tác giả Huzaifa công bố. Dữ liệu được sử dụng theo giấy phép
@@ -88,7 +125,7 @@ cung cấp liên kết đến giấy phép và nêu rõ các thay đổi đã th
 Khi phân phối lại dữ liệu hoặc bản phái sinh, hãy giữ thông tin ghi công và
 thông báo các thay đổi phù hợp với điều khoản CC BY 4.0.
 
-## Dataset classification ảnh toàn cảnh
+## Dataset YOLO ảnh toàn cảnh
 
 Tạo dữ liệu bằng lệnh:
 
@@ -102,9 +139,10 @@ classification nếu tất cả đối tượng trong ảnh cùng thuộc một 
 có nhãn, nhãn lỗi hoặc có nhiều class bị loại; số lượng theo split/lớp và lý do
 bị loại được ghi trong `data/processed/whole-scene/manifest.json`.
 
-Với dataset hiện có, export giữ 1.547 ảnh train, 443 validation và 220 test;
+Với dataset YOLO cũ, export giữ 1.547 ảnh train, 443 validation và 220 test;
 17 ảnh bị loại do có nhiều class trong cùng ảnh. Kết quả train hiện tại được
-lưu riêng trong `models-whole-scene/` và `reports-whole-scene/`.
+lưu riêng trong `models-whole-scene/` và `reports-whole-scene/`; đây là kết quả
+của taxonomy Apple/Banana/Mango cũ.
 
 Để train trên ảnh nguyên cảnh, dùng
 `python -m src.train --dataset-mode whole-scene --data-dir data/processed/whole-scene`.

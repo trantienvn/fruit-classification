@@ -12,9 +12,11 @@ from PIL import Image
 from sklearn.dummy import DummyClassifier
 
 from src.dataset import (
+    CLASS_FOLDER_NAMES,
     CLASS_NAMES,
     _parse_yolo_box,
     class_distribution,
+    load_classification_split,
     load_scene_split,
     prepare_whole_scene_dataset,
 )
@@ -44,11 +46,25 @@ def test_parse_yolo_box_invalid_returns_none():
 def test_class_distribution():
     labels = [0, 1, 1, 2, 0, 8]
     dist = class_distribution(labels)
-    assert dist["Apple Unripe"] == 2
-    assert dist["Apple Ripe"] == 2
-    assert dist["Apple Overripe"] == 1
-    assert dist["Mango Overripe"] == 1
+    assert dist["Orange Unripe"] == 2
+    assert dist["Orange Ripe"] == 2
+    assert dist["Orange Spoiled"] == 1
+    assert dist["Mango Spoiled"] == 1
     assert len(dist) == len(CLASS_NAMES)
+
+
+def test_load_classification_split_maps_folder_labels_and_resizes(tmp_path):
+    split_dir = tmp_path / "train"
+    for class_id, class_name in enumerate(CLASS_NAMES):
+        class_dir = split_dir / CLASS_FOLDER_NAMES[class_name]
+        class_dir.mkdir(parents=True)
+        Image.new("RGB", (40, 20), (class_id * 20, 50, 90)).save(class_dir / "sample.png")
+
+    images, labels = load_classification_split(tmp_path, "train")
+
+    assert labels == list(range(len(CLASS_NAMES)))
+    assert len(images) == len(CLASS_NAMES)
+    assert all(image.shape == (128, 128, 3) for image in images)
 
 
 def test_prepare_whole_scene_dataset_preserves_splits_and_filters_ambiguous_images(tmp_path):

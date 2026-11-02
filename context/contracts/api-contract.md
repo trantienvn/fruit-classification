@@ -19,7 +19,7 @@ Không yêu cầu xác thực cho ứng dụng demo cục bộ. UI gọi API cù
 | `GET /api/model-info` | Không có | Metadata từ classifier/config: model, nhãn, số feature, PCA và metrics đã lưu. HTTP 503 nếu model chưa sẵn sàng. |
 | `GET /api/history` | `q`, `class_name`, `limit` 1–100, `offset` ≥ 0 | Danh sách mới nhất trước, kèm `total`, `limit`, `offset`. |
 | `DELETE /api/history` | Không có | Xóa các record SQLite hiện có, trả số record đã xóa. |
-| `GET /api/statistics` | Không có | Đếm lượt phân loại đã lưu theo nhãn, loại quả, độ chín và ngày trong 7 ngày gần nhất. |
+| `GET /api/statistics` | Không có | Đếm lượt phân loại đã lưu theo nhãn, loại quả, trạng thái và ngày trong 7 ngày gần nhất. |
 
 ## Prediction contract
 
@@ -28,15 +28,15 @@ Upload chấp nhận JPG/JPEG, PNG, BMP và WEBP, tối đa 10 MiB. Server kiể
 Response thành công có `success: true` và `data` gồm:
 
 - `id`, `filename`, `predicted_class`, `class_name`, `class_name_vi`, `fruit_type`, `ripeness`.
-- `class_name` giữ tên lớp canonical từ model (ví dụ `Banana Overripe`); `class_name_vi` trả nhãn đầy đủ bằng tiếng Việt (ví dụ `Chuối · Quá chín`). Lịch sử cũ cũng được dịch khi serialize, không cần đổi schema SQLite.
+- `class_name` giữ tên lớp canonical từ artifact model; model hiện hành dùng Cam/Chuối/Xoài × Unripe/Ripe/Spoiled. `class_name_vi` trả nhãn đầy đủ bằng tiếng Việt (ví dụ `Cam · Hỏng`). Lịch sử cũ cũng được giữ và serialize, không cần đổi schema SQLite.
 - `processing_time_ms` và `created_at` UTC.
 - `confidence` và `probabilities` chỉ có mặt nếu classifier có `predict_proba`. Nếu không, API bỏ hai trường đó; không chuyển decision score thành xác suất.
 
-Không có trường “quality grade”: model được huấn luyện cho 9 lớp loại quả × độ chín, không có nhãn chất lượng thương mại.
+Không có trường “quality grade”: model được huấn luyện cho 9 lớp loại quả × trạng thái, không có nhãn chất lượng thương mại.
 
 ## Lưu trữ và dữ liệu thống kê
 
-SQLite ở `app/web/data/history.sqlite3` lưu tên file và metadata dự đoán. Ảnh, nội dung bytes và vector xác suất không được lưu. `GET /api/statistics` tính từ các lượt đã ghi; khi chưa có lượt nào, tổng bằng 0 và các nhãn trả count 0. Metrics kiểm thử của model được đọc riêng từ `models/config.json`.
+SQLite ở `app/web/data/history.sqlite3` lưu tên file và metadata dự đoán. Ảnh, nội dung bytes và vector xác suất không được lưu. `GET /api/statistics` tính từ các lượt đã ghi; khi chưa có lượt nào, tổng bằng 0 và các nhãn trả count 0. Nhãn legacy trong lịch sử (ví dụ Apple từ model cũ) vẫn được tính riêng thay vì làm hỏng thống kê. Metrics kiểm thử của model được đọc riêng từ `models/config.json`.
 
 ## Giới hạn và dependency
 

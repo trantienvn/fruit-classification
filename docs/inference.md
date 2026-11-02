@@ -34,18 +34,18 @@ print("Thông tin mô hình:", classifier.get_info()["model_name"])
 ### Dự đoán từ PIL Image
 
 ```python
-image = Image.open("data/raw/images/test/-1_jpg.rf.d74fe43dc3420613d4d51e940c55d319.jpg")
+image = Image.open("anh-trai-cay.jpg")
 result = classifier.predict(image)
 
-print("Nhãn:", result["class_name"])             # Ví dụ: 'Mango Overripe'
-print("Loại quả:", result["fruit"])              # 'Mango'
-print("Độ chín:", result["ripeness"])            # 'Overripe'
+print("Nhãn:", result["class_name"])
+print("Loại quả:", result["fruit"])
+print("Trạng thái:", result["ripeness"])
 print("Độ tin cậy:", f"{result['confidence']*100:.1f}%")
 print("Thời gian xử lý:", f"{result['processing_time_ms']} ms")
 ```
 
-Nếu train với `--dataset-mode whole-scene`, nạp đúng artifact ở
-`models-whole-scene` để tiền xử lý ảnh upload nhất quán:
+Nếu train với `--dataset-mode whole-scene` trên dataset YOLO cũ, nạp đúng
+artifact ở `models-whole-scene` để dùng taxonomy Apple/Banana/Mango:
 
 ```python
 classifier = FruitClassifier(model_dir=Path("models-whole-scene")).load()
@@ -82,24 +82,17 @@ Dict kết quả trả về từ `predict()` chứa đầy đủ các thông tin
 ```json
 {
   "class_id": 8,
-  "class_name": "Mango Overripe",
+  "class_name": "Mango Spoiled",
   "fruit": "Mango",
-  "ripeness": "Overripe",
-  "confidence": 0.8418,
-  "probabilities": {
-    "Apple Unripe": 0.0012,
-    "Apple Ripe": 0.0021,
-    "Apple Overripe": 0.0035,
-    "Banana Unripe": 0.0018,
-    "Banana Ripe": 0.0152,
-    "Banana Overripe": 0.0241,
-    "Mango Unripe": 0.0084,
-    "Mango Ripe": 0.1019,
-    "Mango Overripe": 0.8418
-  },
-  "processing_time_ms": 10.7
+  "ripeness": "Spoiled",
+  "confidence": "<giá trị từ model>",
+  "probabilities": "<các xác suất từ model>",
+  "processing_time_ms": "<thời gian thực tế>"
 }
 ```
+
+Tên lớp trong đoạn JSON chỉ minh họa cấu trúc; xác suất và thời gian được lấy
+trực tiếp từ model đang nạp.
 
 ---
 
@@ -134,7 +127,7 @@ Mở `http://127.0.0.1:8000`. Tài liệu Swagger UI ở `/docs`; OpenAPI JSON �
 | `DELETE /api/history` | Xóa metadata lịch sử trên máy đang chạy backend. |
 | `GET /api/statistics` | Thống kê thật từ các lượt đã ghi trong SQLite. |
 
-`POST /api/predict` hỗ trợ JPG, JPEG, PNG, BMP và WEBP, tối đa 10 MB. API kiểm tra nội dung ảnh bằng Pillow; đổi tên file hoặc `Content-Type` không làm một file không phải ảnh trở thành hợp lệ. Response gồm `predicted_class`, `class_name`, `fruit_type`, `ripeness`, `processing_time_ms` và metadata lịch sử. Trường `confidence`/`probabilities` chỉ được gửi khi model thực sự có `predict_proba`; model hiện tại là SVM đã bật xác suất. API không ánh xạ kết quả thành hạng chất lượng thương mại vì dataset chỉ có 9 lớp loại quả × độ chín.
+`POST /api/predict` hỗ trợ JPG, JPEG, PNG, BMP và WEBP, tối đa 10 MB. API kiểm tra nội dung ảnh bằng Pillow; đổi tên file hoặc `Content-Type` không làm một file không phải ảnh trở thành hợp lệ. Response gồm `predicted_class`, `class_name`, `fruit_type`, `ripeness`, `processing_time_ms` và metadata lịch sử. Trường `confidence`/`probabilities` chỉ được gửi khi model thực sự có `predict_proba`. Dataset hiện hành có 9 lớp Cam/Chuối/Xoài × Chưa chín/Chín/Hỏng; `ripeness` giữ tên field tương thích và có thể mang giá trị `Spoiled`.
 
 Ảnh upload chỉ được dùng cho inference và không lưu xuống đĩa. SQLite lưu tên file, nhãn, độ tin cậy nếu có, thời gian xử lý và timestamp UTC tại `app/web/data/history.sqlite3` (đường dẫn này bị Git bỏ qua). Thống kê dashboard lấy từ lịch sử cục bộ; metrics kiểm thử trên trang mô hình lấy từ `models/config.json` và có ý nghĩa khác với thống kê sử dụng.
 
@@ -150,7 +143,7 @@ không nằm trong phạm vi nhãn mà model được huấn luyện.
 - **Tổng quan:** trạng thái dịch vụ, metrics của model và lịch sử phân loại thực tế.
 - **Nhận diện ảnh:** kéo-thả/chọn ảnh, xem trước, trạng thái xử lý, nhãn và xác suất nếu model hỗ trợ.
 - **Lịch sử:** tìm, lọc nhãn, phân trang và xóa metadata đã lưu.
-- **Thống kê:** phân bố lớp, nhóm trái cây, mức độ chín và hoạt động 7 ngày từ SQLite.
+- **Thống kê:** phân bố lớp, nhóm trái cây, trạng thái quả và hoạt động 7 ngày từ SQLite.
 - **Thông tin mô hình:** cấu hình, 9 lớp, metrics test và các báo cáo có sẵn trong `reports/`.
 
 ## 4. Giao diện Streamlit cũ

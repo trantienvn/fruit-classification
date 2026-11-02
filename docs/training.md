@@ -1,33 +1,21 @@
 # Hướng dẫn huấn luyện mô hình (ML Pipeline)
 
-Tài liệu chi tiết về quy trình nạp dữ liệu, trích xuất đặc trưng và huấn luyện các mô hình Machine Learning truyền thống phân loại độ chín của trái cây.
+Tài liệu chi tiết về quy trình nạp dữ liệu, trích xuất đặc trưng và huấn luyện các mô hình Machine Learning truyền thống phân loại trạng thái trái cây.
 
 ---
 
 ## 1. Cấu trúc bài toán và Dataset
 
-- **Bài toán:** Phân loại đa lớp (Multi-class classification) thành **9 lớp kết hợp**:
-  1. `Apple Unripe` (Táo chưa chín)
-  2. `Apple Ripe` (Táo chín)
-  3. `Apple Overripe` (Táo quá chín)
-  4. `Banana Unripe` (Chuối chưa chín)
-  5. `Banana Ripe` (Chuối chín)
-  6. `Banana Overripe` (Chuối quá chín)
-  7. `Mango Unripe` (Xoài chưa chín)
-  8. `Mango Ripe` (Xoài chín)
-  9. `Mango Overripe` (Xoài quá chín)
-- **Định dạng dữ liệu:** YOLO Object Detection (tọa độ bounding box chuẩn hóa trong khoảng `[0, 1]`).
-- **Quy mô dữ liệu thực tế:**
-  - Tập Train: 1.559 ảnh (1.770 mẫu đối tượng sau khi crop)
-  - Tập Validation: 445 ảnh (491 mẫu đối tượng)
-  - Tập Test: 223 ảnh (246 mẫu đối tượng)
-  - **Tổng cộng:** 2.227 ảnh gốc, 2.507 mẫu đối tượng trái cây.
+- **Bài toán:** Phân loại đa lớp thành 9 lớp: `Orange`, `Banana`, `Mango` kết hợp với `Unripe`, `Ripe`, `Spoiled`.
+- **Định dạng dữ liệu mặc định:** Ảnh đã chia theo thư mục lớp tại `data/processed/dataset/{train,val,test}/`.
+- **Quy mô dataset hiện hành:** 1.270 ảnh train, 361 validation và 184 test (1.815 ảnh tổng cộng).
+- **Dataset YOLO cũ:** `data/raw/` có taxonomy Apple/Banana/Mango × Unripe/Ripe/Overripe; chỉ dùng khi chọn rõ mode `yolo` hoặc `whole-scene`.
 
 ---
 
 ## 2. Quy trình trích xuất 51 đặc trưng (Feature Extraction)
 
-Mỗi đối tượng trái cây được cắt theo bounding box, chuyển sang RGB và co giãn về kích thước chuẩn `128 × 128` pixel. Vector đặc trưng gồm 51 chiều bao quát toàn diện các thuộc tính vật lý của trái cây:
+Mỗi ảnh được chuyển sang RGB và co giãn về kích thước chuẩn `128 × 128` pixel. Vector đặc trưng gồm 51 chiều bao quát các thuộc tính thị giác của trái cây:
 
 1. **Đặc trưng màu sắc (Color Features - 33 chiều):**
    - *RGB Color Histogram:* 8 bins trên mỗi kênh R, G, B $\rightarrow$ 24 chiều.
@@ -42,10 +30,10 @@ Mỗi đối tượng trái cây được cắt theo bounding box, chuyển sang
 
 Toàn bộ 51 đặc trưng được chuẩn hóa bằng `StandardScaler` (chỉ fit trên tập train, sau đó transform cho val và test).
 
-### Chế độ ảnh toàn cảnh
+### Chế độ ảnh toàn cảnh từ dataset YOLO cũ
 
-Ngoài chế độ YOLO crop ở trên, có thể tạo bộ classification dùng nguyên ảnh
-gốc. Pipeline giữ nguyên split train/val/test có sẵn; chỉ nhận ảnh mà tất cả
+Dataset YOLO cũ có thể tạo bộ classification dùng nguyên ảnh gốc. Pipeline giữ
+nguyên split train/val/test có sẵn; chỉ nhận ảnh mà tất cả
 bounding box cùng mang một nhãn. Ảnh không có nhãn, nhãn sai định dạng hoặc
 nhiều class bị loại vì không thể gán một nhãn classification duy nhất cho cảnh.
 Ảnh được resize thành 128×128, cùng cách resize mà `FruitClassifier` dùng khi
@@ -61,10 +49,8 @@ vào `models-whole-scene/`, báo cáo vào `reports-whole-scene/`; truyền
 `--model-dir` nếu muốn chọn thư mục khác. Không dùng chung model directory giữa
 hai chế độ và không resume TorchMLP từ một chế độ sang chế độ còn lại.
 
-Model RandomForest train trên dataset hiện có đạt validation accuracy 94,81%
-(Macro F1 0,9480), test accuracy 91,82% (Macro F1 0,9174) trên 220 ảnh test.
-Đây là kết quả thực nghiệm của pipeline ảnh toàn cảnh; không so sánh trực tiếp
-với metric YOLO-crop nếu tập ảnh/định nghĩa sample khác nhau.
+Artifact của chế độ này vẫn dùng taxonomy Apple/Banana/Mango cũ và được lưu
+riêng trong `models-whole-scene/`; không dùng làm model hiện hành Cam/Chuối/Xoài.
 
 ---
 
@@ -97,19 +83,19 @@ Mô hình có hiệu năng tốt nhất sau tinh chỉnh sẽ được chọn l�
 ### Chạy huấn luyện đầy đủ (Mặc định)
 
 ```powershell
-python -m src.train --data-dir data/raw --model-dir models
+python -m src.train --data-dir data/processed/dataset --model-dir models
 ```
 
 ### Chạy huấn luyện nhanh (Bỏ qua GridSearchCV)
 
 ```powershell
-python -m src.train --data-dir data/raw --model-dir models --no-gridsearch
+python -m src.train --data-dir data/processed/dataset --model-dir models --no-gridsearch
 ```
 
 ### Tùy chọn giảm chiều PCA
 
 ```powershell
-python -m src.train --data-dir data/raw --model-dir models --pca
+python -m src.train --data-dir data/processed/dataset --model-dir models --pca
 ```
 
 ## 6. Huấn luyện tùy chọn trên GPU CUDA
@@ -132,7 +118,7 @@ Kiểm tra PyTorch nhận CUDA:
 Chạy huấn luyện vào thư mục riêng để giữ nguyên model scikit-learn trong `models/`:
 
 ```powershell
-.\.venv\Scripts\python.exe -m src.train --device cuda --no-gridsearch --data-dir data/raw --model-dir models-gpu --epochs 100 --batch-size 64
+.\.venv\Scripts\python.exe -m src.train --device cuda --no-gridsearch --data-dir data/processed/dataset --model-dir models-gpu --epochs 100 --batch-size 64
 ```
 
 `--device cuda` yêu cầu CUDA sẵn sàng; nếu không, chương trình báo lỗi thay vì
@@ -155,7 +141,7 @@ scaler/PCA cũ để bảo đảm đầu vào tương thích. Chọn `--device c
 GPU, hoặc `--device cpu` để chạy trên CPU:
 
 ```powershell
-.\.venv\Scripts\python.exe -m src.train --resume --device cuda --no-gridsearch --data-dir data/raw --model-dir models-gpu --epochs 30 --batch-size 64
+.\.venv\Scripts\python.exe -m src.train --resume --device cuda --no-gridsearch --data-dir data/processed/dataset --model-dir models-gpu --epochs 30 --batch-size 64
 ```
 
 `--resume` chỉ hỗ trợ TorchMLP, không dùng cho model scikit-learn. Mỗi lượt tiếp tục

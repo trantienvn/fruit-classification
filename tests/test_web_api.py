@@ -43,7 +43,7 @@ class StubClassifier:
     def predict_from_bytes(self, _image_bytes: bytes) -> dict:
         probabilities = {name: 0.0 for name in CLASS_NAMES}
         probabilities["Banana Ripe"] = 0.75
-        probabilities["Banana Overripe"] = 0.25
+        probabilities["Banana Spoiled"] = 0.25
         return {
             "class_id": 4,
             "class_name": "Banana Ripe",
@@ -121,6 +121,7 @@ def test_predict_persists_metadata_only_and_updates_statistics(tmp_path: Path) -
         assert prediction["predicted_class"] == 4
         assert prediction["fruit_type"] == "Banana"
         assert prediction["confidence"] == 0.75
+        assert prediction["class_name_vi"] == "Chuối · Chín"
         assert "probabilities" in prediction
         assert prediction["filename"] == "banana.png"
 
@@ -184,6 +185,28 @@ def test_history_filters_and_can_be_cleared(tmp_path: Path) -> None:
         deleted = client.delete("/api/history").json()["data"]["deleted"]
         assert deleted == 2
         assert client.get("/api/history").json()["data"]["total"] == 0
+
+
+def test_statistics_keeps_legacy_history_labels(tmp_path: Path) -> None:
+    with make_client(tmp_path) as client:
+        client.app.state.history_service.add(
+            {
+                "filename": "old-apple.png",
+                "predicted_class": 0,
+                "class_name": "Apple Ripe",
+                "fruit_type": "Apple",
+                "ripeness": "Ripe",
+                "confidence": 0.8,
+                "processing_time_ms": 3.0,
+            }
+        )
+
+        statistics = client.get("/api/statistics").json()["data"]
+
+    by_fruit = {row["fruit"]: row["count"] for row in statistics["by_fruit"]}
+    by_class = {row["class_name"]: row["count"] for row in statistics["by_class"]}
+    assert by_fruit["Apple"] == 1
+    assert by_class["Apple Ripe"] == 1
 
 
 def test_missing_model_leaves_api_alive_and_reports_unavailable(tmp_path: Path) -> None:

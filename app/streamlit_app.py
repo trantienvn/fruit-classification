@@ -1,4 +1,4 @@
-"""Giao diện Streamlit — Phân loại chất lượng và độ chín trái cây.
+"""Giao diện Streamlit — Phân loại trạng thái trái cây.
 
 Thiết kế theo fruit-ml-project và frontend-design skill:
   - Bản sắc riêng: xanh lá cây tươi + trắng xanh + accent cam đất
@@ -27,7 +27,7 @@ from src.predict import FruitClassifier, InvalidImageError, ModelNotReadyError
 # ── Cấu hình trang ──────────────────────────────────────────────────────────
 
 st.set_page_config(
-    page_title="Vườn chín · Độ chín trái cây",
+    page_title="Vườn chín · Trạng thái trái cây",
     page_icon="🍃",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -274,7 +274,7 @@ def _load_classifier() -> FruitClassifier | None:
 def _render_sidebar() -> str:
     with st.sidebar:
         st.markdown("## Vườn chín")
-        st.markdown("Trạm đọc độ chín\ncho táo, chuối và xoài")
+        st.markdown("Trạm kiểm tra trạng thái\ncam, chuối và xoài")
         st.markdown("---")
 
         pages = ["Dự đoán", "Lịch sử", "Mô hình"]
@@ -312,12 +312,17 @@ def _render_sidebar() -> str:
 # ── Trang Dự đoán ─────────────────────────────────────────────────────────────
 
 def _ripeness_label(ripeness: str) -> str:
-    mapping = {"Unripe": "Chưa chín", "Ripe": "Chín", "Overripe": "Quá chín"}
+    mapping = {
+        "Unripe": "Chưa chín",
+        "Ripe": "Chín",
+        "Spoiled": "Hỏng",
+        "Overripe": "Quá chín",
+    }
     return mapping.get(ripeness, ripeness)
 
 
 def _fruit_label(fruit: str) -> str:
-    mapping = {"Apple": "Táo", "Banana": "Chuối", "Mango": "Xoài"}
+    mapping = {"Orange": "Cam", "Banana": "Chuối", "Mango": "Xoài", "Apple": "Táo"}
     return mapping.get(fruit, fruit)
 
 
@@ -326,15 +331,15 @@ def _render_predict_page() -> None:
         """
         <section class="orchard-hero">
           <div>
-            <h1>Đọc độ chín<br>qua màu vỏ.</h1>
+            <h1>Kiểm tra trái cây<br>qua màu vỏ.</h1>
             <p>
               Chọn một ảnh trái cây để xem mô hình nhận diện loại quả và
-              mức độ chín. Kết quả được tạo trực tiếp từ ảnh bạn gửi.
+              trạng thái. Kết quả được tạo trực tiếp từ ảnh bạn gửi.
             </p>
           </div>
           <div class="orchard-mark">
             <strong>03 loại quả</strong>
-            <span>Táo · Chuối · Xoài</span>
+            <span>Cam · Chuối · Xoài</span>
           </div>
         </section>
         """,

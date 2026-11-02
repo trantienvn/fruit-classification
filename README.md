@@ -1,15 +1,22 @@
-# Phân loại độ chín của trái cây
+# Phân loại trạng thái trái cây
 
-Dự án phân loại ảnh trái cây thành 9 lớp kết hợp loại trái cây và độ chín:
-Cam, Chuối, Xoài; mỗi loại có các mức Chưa chín (Unripe), Chín (Ripe) và Quá
-chín (Overripe). Dataset đầu vào là ảnh phát hiện đối tượng theo định dạng
-YOLO; pipeline cắt từng bounding box thành ảnh mẫu, trích xuất đặc trưng ảnh
-(Màu sắc RGB/HSV, Kết cấu LBP & GLCM, Hình dạng) và huấn luyện các mô hình
-machine learning truyền thống.
+Dự án phân loại ảnh trái cây thành 9 lớp: Cam, Chuối, Xoài; mỗi loại gồm
+Chưa chín (Unripe), Chín (Ripe) và Hỏng (Spoiled). Dataset mặc định là ảnh
+được chia thư mục theo lớp tại `data/processed/dataset/`, với các split
+train/val/test có sẵn. Pipeline trích xuất đặc trưng ảnh (màu RGB/HSV, kết cấu
+LBP & GLCM, hình dạng) và huấn luyện các mô hình machine learning truyền thống.
 
 ## Dataset
 
-Dataset **Fruit Ripeness** do Huzaifa công bố trên
+Dataset classification hiện hành được lưu cục bộ tại `data/processed/dataset/`
+và không được commit vào repository. Cấu trúc lớp, số lượng ảnh và ánh xạ nhãn
+được mô tả trong [data/README.md](data/README.md). Nguồn/giấy phép của bộ dữ
+liệu này chưa được ghi trong repository.
+
+`data/raw/` vẫn lưu một dataset YOLO cũ Apple/Banana/Mango để tham khảo và
+tương thích ngược; nó không phải nguồn dữ liệu mặc định để train.
+
+Dataset YOLO cũ **Fruit Ripeness** do Huzaifa công bố trên
 [Roboflow Universe](https://universe.roboflow.com/huzaifa-qgpco/fruit-ripeness-unjex-xsudt),
 sử dụng theo giấy phép
 [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
@@ -17,15 +24,12 @@ Giấy phép cho phép sử dụng, chia sẻ và chỉnh sửa, kể cả cho m
 mại, với điều kiện ghi công phù hợp, dẫn nguồn, liên kết giấy phép và nêu rõ
 các thay đổi.
 
-Bản dữ liệu trong dự án được lọc về 9 lớp mục tiêu: các lớp `Rotten` và các
-loại trái cây ngoài Cam, Chuối, Xoài không nằm trong ánh xạ đích. Khi sử dụng
-lại hoặc phân phối dữ liệu/bản phái sinh, hãy ghi công tác giả Huzaifa, dẫn
+Dataset YOLO cũ được lọc về 9 lớp Apple, Banana, Mango; các lớp `Rotten` và
+loại quả khác không nằm trong ánh xạ cũ. Khi sử dụng hoặc phân phối lại bộ cũ,
+hãy ghi công tác giả Huzaifa, dẫn
 [nguồn dataset](https://universe.roboflow.com/huzaifa-qgpco/fruit-ripeness-unjex-xsudt),
-liên kết [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) và nêu các
-thay đổi này cùng mọi thay đổi khác.
-
-Dataset hiện có 1.559 ảnh train, 445 validation và 223 test. Cấu trúc, nhãn,
-ánh xạ lớp và số lượng mẫu được mô tả trong [data/README.md](data/README.md).
+liên kết [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) và nêu rõ
+các thay đổi.
 
 ## Yêu cầu
 
@@ -60,23 +64,22 @@ lại.
 
 ## Huấn luyện
 
-Dataset đã được đặt tại `data/raw/`. Chạy pipeline từ thư mục gốc:
+Dataset classification được đặt tại `data/processed/dataset/`. Chạy pipeline từ thư mục gốc:
 
 ```powershell
-python -m src.train --data-dir data/raw --model-dir models
+python -m src.train --data-dir data/processed/dataset --model-dir models
 ```
 
-Pipeline đọc ba split YOLO, cắt ảnh theo bounding box, trích xuất 51 đặc trưng,
-so sánh 7 mô hình (KNN, Naive Bayes, Logistic Regression, SVM, Decision Tree,
-Random Forest, Gradient Boosting) và đánh giá mô hình tốt nhất trên tập test.
-Mặc định pipeline có chạy GridSearch; để bỏ qua bước này để huấn luyện nhanh:
+Pipeline đọc ảnh theo các thư mục lớp trong ba split có sẵn, resize ảnh về
+128×128, trích xuất 51 đặc trưng, so sánh 7 mô hình và đánh giá mô hình tốt
+nhất trên tập test. Mặc định pipeline có chạy GridSearch; để bỏ qua bước này:
 
 ```powershell
-python -m src.train --data-dir data/raw --model-dir models --no-gridsearch
+python -m src.train --data-dir data/processed/dataset --model-dir models --no-gridsearch
 ```
 
 Muốn huấn luyện MLP bằng GPU NVIDIA, cài dependencies bằng `uv pip install -r requirements.txt`
-rồi chạy `python -m src.train --device cuda --no-gridsearch --model-dir models-gpu`.
+rồi chạy `python -m src.train --device cuda --no-gridsearch --data-dir data/processed/dataset --model-dir models-gpu`.
 Requirements khóa PyTorch ở wheel CUDA 12.6 tương thích driver NVIDIA 566.07 của máy.
 Máy vẫn cần NVIDIA driver tương thích.
 Xem [hướng dẫn huấn luyện](docs/training.md#6-huấn-luyện-tùy-chọn-trên-gpu-cuda)
@@ -85,7 +88,7 @@ Xem [hướng dẫn huấn luyện](docs/training.md#6-huấn-luyện-tùy-chọ
 Muốn tiếp tục train một TorchMLP đã lưu, dùng lại đúng thư mục artifact với `--resume`:
 
 ```powershell
-.\.venv\Scripts\python.exe -m src.train --resume --device cuda --no-gridsearch --data-dir data/raw --model-dir models-gpu --epochs 30 --batch-size 64
+.\.venv\Scripts\python.exe -m src.train --resume --device cuda --no-gridsearch --data-dir data/processed/dataset --model-dir models-gpu --epochs 30 --batch-size 64
 ```
 
 `--epochs` là số epoch tối đa chạy thêm; early stopping có thể dừng sớm. Lệnh nạp
@@ -99,8 +102,9 @@ và các báo cáo được ghi vào `models/` và `reports/`.
 
 ### Huấn luyện trên ảnh toàn cảnh
 
-Dataset YOLO đã có sẵn các split `train/val/test`. Tạo bản classification từ
-ảnh nguyên cảnh (không crop bounding box), giữ nguyên split gốc:
+Dataset YOLO cũ trong `data/raw/` có sẵn các split `train/val/test`. Có thể
+tạo bản classification ảnh nguyên cảnh (không crop bounding box), giữ nguyên
+split gốc:
 
 ```powershell
 python -m src.dataset --source-dir data/raw --output-dir data/processed/whole-scene
@@ -116,11 +120,9 @@ python -m src.train --dataset-mode whole-scene --data-dir data/processed/whole-s
 ```
 
 Chế độ này mặc định lưu model vào `models-whole-scene/` và báo cáo vào
-`reports-whole-scene/`, không ghi đè model crop trong `models/`. Chế độ YOLO
-crop bbox vẫn là mặc định nếu không truyền `--dataset-mode whole-scene`.
-Inference vẫn resize ảnh upload thành 128×128 như lúc train. Ảnh có nhiều loại
-trái cây khác nhau không có một nhãn scene duy nhất nên bị loại; cần đánh giá
-kết quả riêng trên tập test toàn cảnh trước khi dùng thay model crop.
+`reports-whole-scene/`, không ghi đè model classification hiện hành trong
+`models/`. Chế độ whole-scene chỉ dùng taxonomy Apple/Banana/Mango của dataset
+YOLO cũ. Ảnh có nhiều class trong cùng scene bị loại.
 
 ## Chạy Web Application
 

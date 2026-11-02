@@ -504,7 +504,7 @@
           "class_name_vi": {
             "type": "string",
             "title": "Class Name Vi",
-            "description": "Tên lớp đầy đủ bằng tiếng Việt, ví dụ: Chuối · Quá chín."
+            "description": "Tên lớp đầy đủ bằng tiếng Việt, ví dụ: Cam · Hỏng."
           },
           "confidence": {
             "anyOf": [

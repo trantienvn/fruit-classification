@@ -145,6 +145,10 @@ TASK-L01 [DONE]
 TASK-A03 + TASK-B02
     ↓
 TASK-K01 [DONE]
+
+TASK-B02 + TASK-H01
+    ↓
+TASK-N01 [DONE]
 ```
 
 ---
@@ -156,7 +160,7 @@ TASK-K01 [DONE]
 | `Main Agent` | Primary Developer | 2026-10-30 → nay | Không có task đang chạy |
 | `Copilot Session 0bc66139` | Copilot SDK session | 2026-10-31 | Hoàn thành TASK-G01 |
 | `CODEX` | OpenAI Codex | 2026-10-31 → 2026-11-02 | Không có task đang chạy |
-| `Copilot SDK session` | Primary Developer | 2026-11-02 | Hoàn thành TASK-K01 |
+| `Copilot SDK session` | Primary Developer | 2026-11-02 | Không có task đang chạy; hoàn thành TASK-N01 |
 
 ---
 
@@ -313,3 +317,31 @@ TASK-K01 [DONE]
 ### Activity
 - 2026-11-02: Đăng ký TASK-M01 để bảo đảm `feature_importance.png` có cho TorchMLP.
 - 2026-11-02: Hoàn tất permutation importance, kiểm thử generation/static serving và cập nhật hướng dẫn.
+
+## 🟢 NHÓM N — Chuyển dataset sang Cam/Chuối/Xoài
+
+### TASK-N01: Huấn luyện và tích hợp dataset classification theo thư mục
+
+- Agent: `Copilot SDK session`
+- Status: DONE
+- Priority: HIGH
+- Started: 2026-11-02
+- Scope: `src/dataset.py`, `src/train.py`, `src/predict.py`, `app/`, `tests/`, `README.md`, `data/README.md`, `docs/`, `context/`
+- Depends on: TASK-B02, TASK-H01
+
+### Expected Result
+- Dùng `data/processed/dataset/{train,val,test}/` làm nguồn dataset; mỗi lớp được nạp theo thư mục.
+- Dùng taxonomy mới Orange/Banana/Mango × Unripe/Ripe/Spoiled, theo thư mục dữ liệu tiếng Việt.
+- Giữ nguyên `data/raw/` YOLO và tránh dùng nhầm Apple labels.
+- Cập nhật giao diện/tài liệu và train lại model từ dataset thực; không commit dataset hay artifacts phát sinh.
+
+### Verification
+- Loader được kiểm thử bằng dataset tổng hợp tạm, không phụ thuộc dữ liệu thật.
+- Train/evaluate trên 1.270/361/184 ảnh theo split có sẵn; SVM đạt validation Macro F1 0,9448, test accuracy 91,30%, Macro F1 0,9115 và Macro AUC 0,9940.
+- Model nạp và dự đoán ảnh test `cam-hong` thành `Orange Spoiled`; 9 xác suất hợp lệ, tổng bằng 1.
+- `python -m pytest tests/ -q`: 30 passed; CLI help, Python compile, OpenAPI snapshot và `git diff --check` đạt.
+- Dataset và model artifacts không được thêm vào Git.
+
+### Activity
+- 2026-11-02: Đăng ký TASK-N01; người dùng xác nhận dùng dataset thư mục hiện có, `*-hong` là `Spoiled` và đồng ý train lại.
+- 2026-11-02: Hoàn thành TASK-N01, train model mới và xác minh inference/UI/API với taxonomy hiện hành.

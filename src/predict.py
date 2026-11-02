@@ -7,11 +7,11 @@ Sử dụng:
   result = clf.predict_from_file("anh.jpg")
   # result = {
   #   "class_id": 1,
-  #   "class_name": "Apple Ripe",
-  #   "fruit": "Apple",
+  #   "class_name": "Orange Ripe",
+  #   "fruit": "Orange",
   #   "ripeness": "Ripe",
   #   "confidence": 0.87,
-  #   "probabilities": {"Apple Unripe": 0.05, "Apple Ripe": 0.87, ...},
+  #   "probabilities": {"Orange Unripe": 0.05, "Orange Ripe": 0.87, ...},
   #   "processing_time_ms": 45.2,
   # }
 """
@@ -67,6 +67,7 @@ class FruitClassifier:
         self._scaler = None
         self._pca = None
         self._config: dict[str, Any] = {}
+        self._class_names = list(CLASS_NAMES)
         self._loaded = False
 
     # ── Nạp model ─────────────────────────────────────────────────────────────
@@ -86,6 +87,16 @@ class FruitClassifier:
                 )
 
         self._config = json.loads(config_path.read_text(encoding="utf-8"))
+        class_names = self._config.get("class_names", list(CLASS_NAMES))
+        if (
+            not isinstance(class_names, list)
+            or not class_names
+            or not all(isinstance(name, str) for name in class_names)
+        ):
+            raise ModelNotReadyError(f"Danh sách class_names trong {config_path} không hợp lệ.")
+        if self._config.get("n_classes", len(class_names)) != len(class_names):
+            raise ModelNotReadyError(f"Số lớp trong {config_path} không khớp class_names.")
+        self._class_names = class_names
         self._classifier = joblib.load(clf_path)
         self._scaler = joblib.load(scaler_path)
 
@@ -114,7 +125,7 @@ class FruitClassifier:
         return {
             "model_name": self._config.get("model_name", "unknown"),
             "n_classes": self._config.get("n_classes", 9),
-            "class_names": self._config.get("class_names", list(CLASS_NAMES)),
+            "class_names": self._class_names,
             "n_features": self._config.get("n_features", 0),
             "use_pca": self._config.get("use_pca", False),
             "val_metrics": self._config.get("val_metrics", {}),
@@ -140,7 +151,11 @@ class FruitClassifier:
             feat_scaled = self._pca.transform(feat_scaled)
 
         class_id = int(self._classifier.predict(feat_scaled)[0])  # type: ignore[union-attr]
-        class_name = CLASS_NAMES[class_id]
+        if not 0 <= class_id < len(self._class_names):
+            raise ModelNotReadyError(
+                f"Model dự đoán class_id={class_id}, ngoài phạm vi cấu hình."
+            )
+        class_name = self._class_names[class_id]
 
         # Phân tách tên class thành fruit + ripeness
         parts = class_name.split()
@@ -152,14 +167,18 @@ class FruitClassifier:
         confidence = 1.0
         if hasattr(self._classifier, "predict_proba"):
             prob_arr = self._classifier.predict_proba(feat_scaled)[0]  # type: ignore[union-attr]
-            classes = self._config.get("class_names", list(CLASS_NAMES))
+            classes = self._class_names
+            if len(prob_arr) != len(classes):
+                raise ModelNotReadyError("Số xác suất model trả về không khớp cấu hình lớp.")
             probs = {classes[i]: float(p) for i, p in enumerate(prob_arr)}
             confidence = float(prob_arr[class_id])
         elif hasattr(self._classifier, "decision_function"):
             scores = self._classifier.decision_function(feat_scaled)[0]  # type: ignore[union-attr]
             exp_scores = np.exp(scores - np.max(scores))
             prob_arr = exp_scores / exp_scores.sum()
-            classes = self._config.get("class_names", list(CLASS_NAMES))
+            classes = self._class_names
+            if len(prob_arr) != len(classes):
+                raise ModelNotReadyError("Số điểm model trả về không khớp cấu hình lớp.")
             probs = {classes[i]: float(p) for i, p in enumerate(prob_arr)}
             confidence = float(prob_arr[class_id])
 

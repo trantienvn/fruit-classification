@@ -37,7 +37,7 @@ class PredictionData(BaseModel):
     class_id: int = Field(alias="predicted_class")
     class_name: str
     class_name_vi: str = Field(
-        description="Tên lớp đầy đủ bằng tiếng Việt, ví dụ: Chuối · Quá chín."
+        description="Tên lớp đầy đủ bằng tiếng Việt, ví dụ: Cam · Hỏng."
     )
     confidence: float | None = Field(
         default=None,

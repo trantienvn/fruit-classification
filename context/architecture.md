@@ -99,6 +99,8 @@ Backend CUDA trong `src/torch_model.py` là tùy chọn và không được impo
 pipeline mặc định. Nó chỉ đưa bước MLP lên GPU; đọc ảnh, trích xuất đặc trưng,
 chuẩn hóa và PCA vẫn chạy trên CPU. Artifact chứa trọng số NumPy và có thể suy
 luận CPU khi CUDA không khả dụng; môi trường nạp artifact này vẫn cần PyTorch.
+Lệnh `--resume` nạp lại TorchMLP cùng scaler/PCA từ `--model-dir` rồi warm-start
+trọng số; pipeline scikit-learn không có chế độ tiếp tục train này.
 
 ## 3. Luồng dự đoán thời gian thực (Inference Flow)
 

@@ -11,8 +11,8 @@ Quy trình:
   8. Đánh giá cuối trên tập test
   9. Lưu model tốt nhất + preprocessing pipeline + metadata
 
-Chế độ GPU tùy chọn: `--device cuda` huấn luyện TorchMLP trên vector đặc trưng.
-PyTorch phải được cài riêng với bản CUDA tương thích.
+Chế độ TorchMLP tùy chọn: `--device cuda` huấn luyện trên GPU, còn `--resume`
+có thể tiếp tục artifact đã lưu trên CPU hoặc GPU. PyTorch phải được cài.
 
 Chạy:
   python -m src.train --data-dir data/raw --model-dir models
@@ -120,22 +120,89 @@ def _preprocess(
     X_val: np.ndarray,
     X_test: np.ndarray,
     use_pca: bool = USE_PCA,
+    *,
+    scaler: StandardScaler | None = None,
+    pca: PCA | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, StandardScaler, PCA | None]:
-    """Chuẩn hóa + (tùy chọn) PCA. Chỉ fit trên train."""
-    scaler = StandardScaler()
-    X_tr = scaler.fit_transform(X_train)
+    """Chuẩn hóa + PCA, có thể tái sử dụng bộ tiền xử lý đã lưu."""
+    if scaler is None:
+        scaler = StandardScaler()
+        X_tr = scaler.fit_transform(X_train)
+    else:
+        X_tr = scaler.transform(X_train)
     X_va = scaler.transform(X_val)
     X_te = scaler.transform(X_test)
 
-    pca = None
-    if use_pca:
+    if pca is None and use_pca:
         pca = PCA(n_components=PCA_VARIANCE, random_state=42)
         X_tr = pca.fit_transform(X_tr)
         X_va = pca.transform(X_va)
         X_te = pca.transform(X_te)
         print(f"PCA: {X_tr.shape[1]} components (giữ {PCA_VARIANCE*100:.0f}% phương sai)")
+    elif pca is not None:
+        X_tr = pca.transform(X_tr)
+        X_va = pca.transform(X_va)
+        X_te = pca.transform(X_te)
+        print(f"PCA đã lưu: {X_tr.shape[1]} components")
 
     return X_tr, X_va, X_te, scaler, pca
+
+
+def _load_resume_artifacts(
+    model_dir: Path,
+    device: str,
+) -> tuple[object, StandardScaler, PCA | None]:
+    """Nạp và kiểm tra artifact TorchMLP trước khi tiếp tục huấn luyện."""
+    classifier_path = model_dir / "classifier.joblib"
+    scaler_path = model_dir / "scaler.joblib"
+    config_path = model_dir / "config.json"
+    missing = [
+        path.name
+        for path in (classifier_path, scaler_path, config_path)
+        if not path.is_file()
+    ]
+    if missing:
+        raise RuntimeError(
+            f"Không thể tiếp tục train: thiếu {', '.join(missing)} trong {model_dir}."
+        )
+
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"Không đọc được cấu hình model tại {config_path}.") from exc
+    if not isinstance(config, dict):
+        raise RuntimeError(f"Cấu hình model tại {config_path} không phải JSON object.")
+    if config.get("backend") != "pytorch" or config.get("model_name") != "TorchMLP":
+        raise RuntimeError("--resume hiện chỉ hỗ trợ artifact TorchMLP (backend pytorch).")
+
+    try:
+        model = joblib.load(classifier_path)
+        scaler = joblib.load(scaler_path)
+    except Exception as exc:
+        raise RuntimeError(f"Không nạp được artifact model trong {model_dir}.") from exc
+
+    from src.torch_model import TorchMLPClassifier
+
+    if not isinstance(model, TorchMLPClassifier) or not hasattr(model, "state_"):
+        raise RuntimeError("Artifact classifier không chứa trọng số TorchMLP đã huấn luyện.")
+    if (
+        not hasattr(scaler, "transform")
+        or getattr(scaler, "n_features_in_", N_FEATURES) != N_FEATURES
+    ):
+        raise RuntimeError(f"Scaler trong {model_dir} không khớp với {N_FEATURES} features.")
+
+    pca = None
+    if config.get("use_pca", False):
+        pca_path = model_dir / "pca.joblib"
+        if not pca_path.is_file():
+            raise RuntimeError(f"Cấu hình yêu cầu PCA nhưng thiếu artifact {pca_path}.")
+        try:
+            pca = joblib.load(pca_path)
+        except Exception as exc:
+            raise RuntimeError(f"Không nạp được artifact PCA tại {pca_path}.") from exc
+
+    model.device = device
+    return model, scaler, pca
 
 
 def _train_all(
@@ -277,10 +344,14 @@ def train(
     device: str = "cpu",
     epochs: int = 100,
     batch_size: int = 64,
+    resume: bool = False,
 ) -> dict:
-    """Chạy pipeline scikit-learn hiện có hoặc backend PyTorch CUDA."""
+    """Chạy pipeline sklearn hoặc huấn luyện mới/tiếp tục TorchMLP."""
     if device not in {"cpu", "cuda"}:
         raise ValueError("device phải là 'cpu' hoặc 'cuda'.")
+    if (device == "cuda" or resume) and (epochs < 1 or batch_size < 1):
+        raise ValueError("epochs và batch_size phải lớn hơn 0.")
+    is_torch = device == "cuda" or resume
     print("=" * 60)
     print("PIPELINE HUẤN LUYỆN — PHÂN LOẠI ĐỘ CHÍN TRÁI CÂY")
     print(f"Dataset: {data_dir}")
@@ -288,30 +359,68 @@ def train(
     print(f"Thiết bị huấn luyện: {device}")
     gpu_name = None
     if device == "cuda":
-        from src.torch_model import TorchMLPClassifier, ensure_cuda_available
+        from src.torch_model import ensure_cuda_available
 
         gpu_name = ensure_cuda_available()
         print(f"GPU: {gpu_name}")
-        if epochs < 1 or batch_size < 1:
-            raise ValueError("epochs và batch_size phải lớn hơn 0.")
+    resume_model = None
+    scaler = None
+    pca = None
+    previous_epochs_requested = 0
+    if resume:
+        resume_model, scaler, pca = _load_resume_artifacts(model_dir, device)
+        previous_epochs_requested = int(
+            getattr(
+                resume_model,
+                "epochs_requested_total_",
+                getattr(resume_model, "epochs", 0),
+            )
+        )
+        print(f"Tiếp tục từ TorchMLP đã lưu trong: {model_dir}")
+        if use_pca and pca is None:
+            raise ValueError("Model đã lưu không dùng PCA; bỏ tùy chọn --pca khi --resume.")
     print("=" * 60)
 
     # 1. Nạp và trích xuất features
     X_train, y_train, X_val, y_val, X_test, y_test = _load_data(data_dir)
 
     # 2. Chuẩn hóa
-    X_tr, X_va, X_te, scaler, pca = _preprocess(X_train, X_val, X_test, use_pca)
+    X_tr, X_va, X_te, scaler, pca = _preprocess(
+        X_train,
+        X_val,
+        X_test,
+        use_pca if not resume else pca is not None,
+        scaler=scaler,
+        pca=pca,
+    )
 
     # 3. Huấn luyện tất cả mô hình
-    if device == "cuda":
-        model = TorchMLPClassifier(
-            device="cuda",
-            epochs=epochs,
-            batch_size=batch_size,
-            random_state=42,
-        )
+    if is_torch:
+        if resume:
+            model = resume_model
+            assert model is not None
+            model.epochs = epochs
+            model.batch_size = batch_size
+        else:
+            from src.torch_model import TorchMLPClassifier
+
+            model = TorchMLPClassifier(
+                device=device,
+                epochs=epochs,
+                batch_size=batch_size,
+                random_state=42,
+            )
         t0 = time.perf_counter()
-        model.fit(X_tr, y_train, validation_data=(X_va, y_val))
+        model.fit(
+            X_tr,
+            y_train,
+            validation_data=(X_va, y_val),
+            warm_start=resume,
+        )
+        if resume:
+            model.epochs_requested_total_ = previous_epochs_requested + epochs
+        else:
+            model.epochs_requested_total_ = epochs
         train_time = time.perf_counter() - t0
         t0 = time.perf_counter()
         y_pred_val = model.predict(X_va)
@@ -330,12 +439,12 @@ def train(
         best_name = "TorchMLP"
         available_models = {best_name: model}
         if run_gridsearch:
-            print("Bỏ qua GridSearchCV trong chế độ CUDA (TorchMLP không dùng GridSearchCV).")
+            print("Bỏ qua GridSearchCV trong chế độ TorchMLP.")
         use_gridsearch = False
         print(
-            f"  TorchMLP (CUDA)  acc={val_metrics['accuracy']:.4f}  "
+            f"  TorchMLP ({device.upper()})  acc={val_metrics['accuracy']:.4f}  "
             f"f1={val_metrics['macro_f1']:.4f}  train={train_time:.1f}s  "
-            f"epochs={model.n_epochs_trained_}"
+            f"epochs this run={model.last_fit_epochs_trained_}; total={model.n_epochs_trained_}"
         )
     else:
         val_results, best_name = _train_all(X_tr, y_train, X_va, y_val)
@@ -399,18 +508,20 @@ def train(
             "n_train": int(len(y_train)),
             "n_val": int(len(y_val)),
             "n_test": int(len(y_test)),
-            "use_pca": use_pca,
+            "use_pca": pca is not None,
             "gridsearch": use_gridsearch,
-            "backend": "pytorch" if device == "cuda" else "scikit-learn",
+            "backend": "pytorch" if is_torch else "scikit-learn",
             "device": device,
             **({"gpu_name": gpu_name} if gpu_name is not None else {}),
             **(
                 {
-                    "epochs_requested": epochs,
+                    "epochs_requested": best_model.epochs_requested_total_,
                     "epochs_trained": best_model.n_epochs_trained_,
+                    "epochs_added": best_model.last_fit_epochs_trained_,
                     "batch_size": batch_size,
+                    "resumed": resume,
                 }
-                if device == "cuda"
+                if is_torch
                 else {}
             ),
         },
@@ -429,10 +540,20 @@ def main(argv: list[str] | None = None) -> int:
         "--device",
         choices=("cpu", "cuda"),
         default="cpu",
-        help="cpu: pipeline scikit-learn; cuda: MLP PyTorch trên GPU NVIDIA",
+        help="cpu: scikit-learn (hoặc TorchMLP khi --resume); cuda: TorchMLP trên GPU NVIDIA",
     )
-    parser.add_argument("--epochs", type=int, default=100, help="Số epoch cho MLP CUDA")
-    parser.add_argument("--batch-size", type=int, default=64, help="Batch size cho MLP CUDA")
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=100,
+        help="Số epoch cho lượt train mới hoặc số epoch bổ sung khi --resume",
+    )
+    parser.add_argument("--batch-size", type=int, default=64, help="Batch size cho TorchMLP")
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Tiếp tục huấn luyện TorchMLP từ classifier.joblib trong model-dir",
+    )
     args = parser.parse_args(argv)
 
     if not (args.data_dir / "images" / "train").is_dir():
@@ -448,8 +569,9 @@ def main(argv: list[str] | None = None) -> int:
             device=args.device,
             epochs=args.epochs,
             batch_size=args.batch_size,
+            resume=args.resume,
         )
-    except RuntimeError as exc:
+    except (RuntimeError, ValueError) as exc:
         print(f"LỖI: {exc}")
         return 2
     print(f"\nTest accuracy: {test_metrics['accuracy']:.4f}")

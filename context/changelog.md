@@ -2,6 +2,13 @@
 
 Toàn bộ các thay đổi mã nguồn và tài liệu của dự án được ghi nhận theo chuẩn [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-11-02]
+
+### Tiếp tục huấn luyện TorchMLP
+- Thêm `--resume` để warm-start TorchMLP từ `classifier.joblib`, dùng lại scaler/PCA đã lưu và cho phép chạy thêm số epoch chỉ định.
+- Ghi nhận tổng epoch, epoch của lượt vừa chạy và trạng thái resume trong cấu hình model.
+- Cập nhật hướng dẫn huấn luyện, README và context; chưa chạy test hoặc huấn luyện thực tế trong phiên này.
+
 ## [2026-10-31]
 
 ### Thêm backend huấn luyện CUDA tùy chọn

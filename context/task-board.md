@@ -1,6 +1,7 @@
 # Task Board — Phân loại chất lượng và độ chín trái cây
 
-> Cập nhật lần cuối: 2026-10-31  
+> Cập nhật lần cuối: 2026-11-02
+>
 > Tuân thủ skill: `multi-agent-coordinator`
 
 ---
@@ -184,12 +185,14 @@ TASK-I01 [IN_PROGRESS]
 - Giữ pipeline scikit-learn làm mặc định; thêm lựa chọn PyTorch chạy trên CUDA.
 - PyTorch được khai báo trong `requirements.txt`; GPU vẫn chỉ được dùng khi chọn `--device cuda`.
 - Artifact GPU có thể được `FruitClassifier` nạp để suy luận.
+- Có thể tiếp tục huấn luyện TorchMLP từ artifact đã lưu bằng `--resume`, giữ nguyên scaler/PCA và trọng số hiện có.
 
 ### Verification
-- Đã hoàn thiện thay đổi mã/tài liệu/context; chưa chạy test/runtime trong phiên này.
+- Đã bổ sung khả năng resume và tài liệu; chưa chạy test hoặc huấn luyện thực tế trong phiên 2026-11-02.
 - Cần xác nhận bằng PyTorch CUDA trên máy có GPU NVIDIA trước khi đánh dấu DONE.
 
 ### Activity
 - 2026-10-31: Đăng ký TASK-I01 `IN_PROGRESS` — Thêm backend huấn luyện PyTorch CUDA tùy chọn.
 - 2026-10-31: Theo yêu cầu người dùng, thêm PyTorch vào `requirements.txt`; wheel cung cấp CUDA runtime nhưng không cài NVIDIA driver.
 - 2026-10-31: Khóa PyTorch 2.14.1 + CUDA 12.6 sau khi đối chiếu RTX 3050/driver 566.07 và wheel Windows/Python 3.14.
+- 2026-11-02: Tiếp tục TASK-I01 theo yêu cầu bổ sung — hỗ trợ tiếp tục huấn luyện TorchMLP từ artifact đã lưu; verification đang chờ.

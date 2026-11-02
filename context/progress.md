@@ -96,3 +96,8 @@
 - Đang hoàn thiện TASK-I01: `--device cuda` huấn luyện TorchMLP trên vector 51 đặc trưng; pipeline 7 mô hình scikit-learn tiếp tục là mặc định CPU.
 - `requirements.txt` khóa PyTorch `2.14.1+cu126` theo GPU RTX 3050/driver 566.07; đọc ảnh, trích xuất đặc trưng, chuẩn hóa và PCA vẫn chạy trên CPU.
 - Chưa chạy test hoặc huấn luyện GPU trong phiên này; cần môi trường PyTorch CUDA và GPU NVIDIA để xác nhận runtime.
+
+### Tiếp tục huấn luyện TorchMLP (2026-11-02)
+- `src.train --resume` nạp classifier TorchMLP, scaler và PCA đã lưu; có thể tiếp tục trên CPU hoặc CUDA.
+- `--epochs` là số epoch bổ sung; artifact/config ghi tổng epoch yêu cầu, tổng epoch đã chạy, số epoch của lượt mới và trạng thái resume.
+- Chưa chạy test hoặc huấn luyện trong phiên này; TASK-I01 vẫn chờ xác nhận runtime CUDA.

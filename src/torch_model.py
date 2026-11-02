@@ -85,8 +85,8 @@ class TorchMLPClassifier:
         layers.append(nn.Linear(input_size, n_classes))
         return nn.Sequential(*layers)
 
-    def fit(self, X, y, *, validation_data=None):
-        """Huấn luyện MLP; validation tùy chọn dùng cho early stopping."""
+    def fit(self, X, y, *, validation_data=None, warm_start: bool = False):
+        """Huấn luyện MLP; ``warm_start`` tiếp tục từ các trọng số đang có."""
         torch, nn = _import_torch()
         if self.device not in {"cpu", "cuda"}:
             raise ValueError("device phải là 'cpu' hoặc 'cuda'.")
@@ -106,17 +106,36 @@ class TorchMLPClassifier:
         if X_array.ndim != 2 or len(X_array) != len(y_array) or not len(y_array):
             raise ValueError("X phải là ma trận không rỗng, cùng số dòng với y.")
 
-        self.classes_, encoded_y = np.unique(y_array, return_inverse=True)
-        self.n_features_in_ = int(X_array.shape[1])
+        classes, encoded_y = np.unique(y_array, return_inverse=True)
+        n_features = int(X_array.shape[1])
+        if warm_start:
+            if not hasattr(self, "state_"):
+                raise ValueError("Không thể tiếp tục: model chưa có trọng số đã lưu.")
+            if not np.array_equal(classes, self.classes_):
+                raise ValueError("Không thể tiếp tục: tập lớp hiện tại khác model đã lưu.")
+            if n_features != self.n_features_in_:
+                raise ValueError("Không thể tiếp tục: số đặc trưng khác model đã lưu.")
+            starting_epoch = int(getattr(self, "n_epochs_trained_", 0))
+        else:
+            starting_epoch = 0
+
+        self.classes_ = classes
+        self.n_features_in_ = n_features
         self.n_classes_ = int(len(self.classes_))
 
-        torch.manual_seed(self.random_state)
+        torch.manual_seed(self.random_state + starting_epoch)
         if self.device == "cuda":
-            torch.cuda.manual_seed_all(self.random_state)
+            torch.cuda.manual_seed_all(self.random_state + starting_epoch)
 
         network = self._build_network(
             nn, self.n_features_in_, self.n_classes_, self.hidden_sizes
         ).to(target_device)
+        if warm_start:
+            saved_state = {
+                name: torch.as_tensor(value, dtype=torch.float32, device=target_device)
+                for name, value in self.state_.items()
+            }
+            network.load_state_dict(saved_state)
         optimizer = torch.optim.Adam(network.parameters(), lr=self.learning_rate)
         loss_fn = nn.CrossEntropyLoss()
         X_tensor = torch.as_tensor(X_array, dtype=torch.float32, device=target_device)
@@ -146,7 +165,20 @@ class TorchMLPClassifier:
         best_state = None
         best_val_loss = float("inf")
         epochs_without_improvement = 0
-        self.best_epoch_ = self.epochs
+        starting_best_epoch = int(getattr(self, "best_epoch_", starting_epoch))
+        self.best_epoch_ = starting_epoch + self.epochs
+
+        if X_val_tensor is not None and y_val_tensor is not None and warm_start:
+            network.eval()
+            with torch.inference_mode():
+                best_val_loss = float(
+                    loss_fn(network(X_val_tensor), y_val_tensor).item()
+                )
+            best_state = {
+                name: value.detach().cpu().clone()
+                for name, value in network.state_dict().items()
+            }
+            self.best_epoch_ = starting_best_epoch
 
         for epoch in range(self.epochs):
             network.train()
@@ -170,7 +202,7 @@ class TorchMLPClassifier:
                         name: value.detach().cpu().clone()
                         for name, value in network.state_dict().items()
                     }
-                    self.best_epoch_ = epoch + 1
+                    self.best_epoch_ = starting_epoch + epoch + 1
                     epochs_without_improvement = 0
                 else:
                     epochs_without_improvement += 1
@@ -179,7 +211,8 @@ class TorchMLPClassifier:
 
         if best_state is not None:
             network.load_state_dict(best_state)
-        self.n_epochs_trained_ = epoch + 1
+        self.last_fit_epochs_trained_ = epoch + 1
+        self.n_epochs_trained_ = starting_epoch + self.last_fit_epochs_trained_
         self.state_ = {
             name: value.detach().cpu().numpy().copy()
             for name, value in network.state_dict().items()

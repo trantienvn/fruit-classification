@@ -80,7 +80,19 @@ rồi chạy `python -m src.train --device cuda --no-gridsearch --model-dir mode
 Requirements khóa PyTorch ở wheel CUDA 12.6 tương thích driver NVIDIA 566.07 của máy.
 Máy vẫn cần NVIDIA driver tương thích.
 Xem [hướng dẫn huấn luyện](docs/training.md#6-huấn-luyện-tùy-chọn-trên-gpu-cuda)
-để biết cách kiểm tra CUDA và nạp artifact.
+để biết cách kiểm tra CUDA, nạp artifact và tiếp tục train với `--resume`.
+
+Muốn tiếp tục train một TorchMLP đã lưu, dùng lại đúng thư mục artifact với `--resume`:
+
+```powershell
+.\.venv\Scripts\python.exe -m src.train --resume --device cuda --no-gridsearch --data-dir data/raw --model-dir models-gpu --epochs 30 --batch-size 64
+```
+
+`--epochs` là số epoch tối đa chạy thêm; early stopping có thể dừng sớm. Lệnh nạp
+trọng số cùng scaler/PCA hiện có, rồi cập nhật artifact trong `--model-dir`. Có thể
+đổi `--device cuda` thành `--device cpu` để tiếp tục trên CPU. `--resume` chỉ áp dụng
+cho TorchMLP, không dùng cho các model scikit-learn; mỗi lượt resume khởi tạo lại
+optimizer Adam.
 
 Không dùng tập test để chọn mô hình hoặc điều chỉnh tham số. Kết quả huấn luyện
 và các báo cáo được ghi vào `models/` và `reports/`.

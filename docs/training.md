@@ -122,6 +122,24 @@ Môi trường suy luận cần cài PyTorch; model dùng CUDA nếu có, nếu 
 bằng CPU. Biểu đồ và classification report của lượt train CUDA được lưu riêng trong
 `reports-gpu/`.
 
+### Tiếp tục huấn luyện TorchMLP đã lưu
+
+Trỏ `--model-dir` tới thư mục artifact PyTorch hiện có và thêm `--resume`. `--epochs`
+là số epoch tối đa muốn chạy thêm; early stopping vẫn có thể dừng sớm. Chương trình
+giữ trọng số tốt nhất đã lưu và dùng lại
+scaler/PCA cũ để bảo đảm đầu vào tương thích. Chọn `--device cuda` để tiếp tục trên
+GPU, hoặc `--device cpu` để chạy trên CPU:
+
+```powershell
+.\.venv\Scripts\python.exe -m src.train --resume --device cuda --no-gridsearch --data-dir data/raw --model-dir models-gpu --epochs 30 --batch-size 64
+```
+
+`--resume` chỉ hỗ trợ TorchMLP, không dùng cho model scikit-learn. Mỗi lượt tiếp tục
+tạo optimizer Adam mới và chạy early stopping lại từ trọng số đã lưu. Kết quả ghi
+đè artifact trong chính `--model-dir`; metadata lưu tổng epoch đã yêu cầu/đã train,
+số epoch của lượt vừa chạy và trạng thái resume. Không cần truyền lại `--pca` nếu
+artifact ban đầu đã dùng PCA.
+
 ---
 
 ## 7. Kết quả đầu ra

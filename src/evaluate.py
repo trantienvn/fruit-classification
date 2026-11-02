@@ -38,6 +38,12 @@ from sklearn.metrics import (
 from sklearn.preprocessing import label_binarize
 
 
+def _macro_f1_scorer(model: object, X: np.ndarray, y_true: np.ndarray) -> float:
+    """Score predictions without requiring a full scikit-learn estimator API."""
+    y_pred = model.predict(X)  # type: ignore[union-attr]
+    return float(f1_score(y_true, y_pred, average="macro", zero_division=0))
+
+
 def evaluate_predictions(
     y_true: list[int],
     y_pred: list[int],
@@ -157,31 +163,58 @@ def _plot_feature_importance(
     model: object,
     feature_names: list[str],
     save_path: Path,
+    X_eval: np.ndarray | None = None,
+    y_eval: np.ndarray | None = None,
     top_n: int = 20,
-) -> None:
-    """Vẽ feature importance nếu mô hình hỗ trợ."""
+) -> bool:
+    """Vẽ built-in importance hoặc permutation importance trên validation."""
     importance = None
+    importance_std = None
     if hasattr(model, "feature_importances_"):
         importance = model.feature_importances_  # type: ignore[union-attr]
     elif hasattr(model, "coef_"):
         coef = model.coef_  # type: ignore[union-attr]
         importance = np.abs(coef).mean(axis=0)
+    elif X_eval is not None and y_eval is not None:
+        from sklearn.inspection import permutation_importance
+
+        result = permutation_importance(
+            model,
+            X_eval,
+            y_eval,
+            scoring=_macro_f1_scorer,
+            n_repeats=5,
+            random_state=42,
+            n_jobs=1,
+        )
+        importance = result.importances_mean
+        importance_std = result.importances_std
 
     if importance is None:
-        return
+        return False
+    importance = np.asarray(importance).reshape(-1)
+    if len(importance) != len(feature_names) or not np.all(np.isfinite(importance)):
+        raise ValueError("Số lượng hoặc giá trị feature importance không hợp lệ.")
 
-    idx = np.argsort(importance)[-top_n:]
+    idx = np.argsort(importance)[-min(top_n, len(importance)):]
     top_names = [feature_names[i] for i in idx]
     top_vals = importance[idx]
+    errors = importance_std[idx] if importance_std is not None else None
+    displayed_n = len(idx)
 
     fig, ax = plt.subplots(figsize=(9, 7))
-    ax.barh(top_names, top_vals, color="#4C72B0")
-    ax.set_title(f"Top {top_n} Feature Importance", fontsize=13, fontweight="bold")
-    ax.set_xlabel("Importance")
+    ax.barh(top_names, top_vals, xerr=errors, color="#4C72B0")
+    ax.set_title(f"Top {displayed_n} Feature Importance", fontsize=13, fontweight="bold")
+    ax.set_xlabel(
+        "Permutation importance (Macro F1 decrease)"
+        if importance_std is not None
+        else "Importance"
+    )
     plt.tight_layout()
     fig.savefig(save_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"  Đã lưu: {save_path}")
+    return True
 
 
 def full_report(
@@ -194,6 +227,7 @@ def full_report(
     model: object | None = None,
     X_test: np.ndarray | None = None,
     X_val: np.ndarray | None = None,
+    y_val: list[int] | None = None,
 ) -> None:
     """Tạo toàn bộ biểu đồ và in classification report."""
     from src.features import FEATURE_NAMES
@@ -221,9 +255,20 @@ def full_report(
     # So sánh models
     _plot_model_comparison(all_val_results, save_dir / "model_comparison.png")
 
-    # Feature importance
+    # Feature importance: prefer validation data for model-agnostic estimates.
     if model is not None:
-        _plot_feature_importance(model, FEATURE_NAMES, save_dir / "feature_importance.png")
+        feature_names = FEATURE_NAMES
+        if X_val is not None and X_val.shape[1] != len(feature_names):
+            feature_names = [f"component_{index + 1}" for index in range(X_val.shape[1])]
+        generated = _plot_feature_importance(
+            model,
+            feature_names,
+            save_dir / "feature_importance.png",
+            X_eval=X_val,
+            y_eval=np.asarray(y_val) if y_val is not None else None,
+        )
+        if not generated:
+            print("  Không tạo feature_importance.png: model không hỗ trợ importance.")
 
     # In classification report
     report_str = classification_report(

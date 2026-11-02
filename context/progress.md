@@ -111,3 +111,9 @@
 - Huấn luyện 7 mô hình, chọn RandomForest theo validation Macro F1 0,9480. Test accuracy 91,82%, Macro F1 0,9174 trên 220 ảnh; classification report chi tiết ở `reports-whole-scene/`.
 - Kiểm tra Mango Unripe trên test: 23/25 dự đoán đúng; metric này phản ánh dataset hiện có, không đảm bảo độ tin cậy trên ảnh thực tế khác domain.
 - `pytest tests/ -q`: 26 passed, 1 warning; inference smoke test với model whole-scene thành công; compile/CLI và `git diff --check` đạt.
+
+### Biểu đồ độ quan trọng đặc trưng (2026-11-02)
+- Hoàn thành TASK-M01: `src/evaluate.py` tạo feature importance bằng permutation/Macro F1 trên validation cho model không có importance/coef tích hợp, ví dụ TorchMLP.
+- Huấn luyện mới truyền validation feature/label sang báo cáo; `reports-gpu/feature_importance.png` đã được tạo từ 491 mẫu validation cho model active.
+- `/reports/feature_importance.png` trả 200 image/png; trang Thông tin mô hình đã đăng ký đúng tên và title chart.
+- `pytest tests/ -q`: 28 passed, 1 warning; `py_compile` và `git diff --check` đạt.

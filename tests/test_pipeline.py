@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 from PIL import Image
+from sklearn.dummy import DummyClassifier
 
 from src.dataset import (
     CLASS_NAMES,
@@ -17,8 +18,8 @@ from src.dataset import (
     load_scene_split,
     prepare_whole_scene_dataset,
 )
-from src.evaluate import evaluate_predictions
-from src.features import N_FEATURES, extract_features
+from src.evaluate import _plot_feature_importance, evaluate_predictions
+from src.features import FEATURE_NAMES, N_FEATURES, extract_features
 from src.predict import FruitClassifier, checkpoint_available
 from src.train import _load_resume_artifacts
 
@@ -173,6 +174,26 @@ def test_evaluate_predictions_with_class_names():
         class_names=["Apple Unripe", "Apple Ripe"]
     )
     assert "Apple Unripe" in metrics["report"]
+
+
+def test_feature_importance_uses_permutation_for_models_without_builtin_importance(tmp_path):
+    rng = np.random.default_rng(42)
+    X = rng.normal(size=(40, N_FEATURES))
+    y = np.array([0, 1] * 20)
+    model = DummyClassifier(strategy="most_frequent").fit(X, y)
+    output_path = tmp_path / "feature_importance.png"
+
+    generated = _plot_feature_importance(
+        model,
+        FEATURE_NAMES,
+        output_path,
+        X_eval=X,
+        y_eval=y,
+    )
+
+    assert generated
+    assert output_path.is_file()
+    assert output_path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
 
 
 # ── Predict ──────────────────────────────────────────────────────────────────

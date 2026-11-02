@@ -85,6 +85,20 @@ def test_health_and_frontend_pages_are_served(tmp_path: Path) -> None:
         assert client.get("/pages/not-allowed.html").status_code == 404
 
 
+def test_feature_importance_report_is_served(tmp_path: Path) -> None:
+    reports_root = tmp_path / "reports"
+    reports_root.mkdir()
+    expected_image = make_png()
+    (reports_root / "feature_importance.png").write_bytes(expected_image)
+
+    with make_client(tmp_path) as client:
+        response = client.get("/reports/feature_importance.png")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert response.content == expected_image
+
+
 def test_openapi_describes_api_contract(tmp_path: Path) -> None:
     with make_client(tmp_path) as client:
         schema = client.get("/openapi.json").json()

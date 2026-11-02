@@ -4,6 +4,11 @@ Toàn bộ các thay đổi mã nguồn và tài liệu của dự án được 
 
 ## [2026-11-02]
 
+### Thêm biểu đồ độ quan trọng đặc trưng cho TorchMLP
+- Model có tree importance/coef tiếp tục dùng chỉ số tích hợp; model khác dùng permutation importance theo Macro F1 trên validation, tránh dùng test.
+- `reports-gpu/feature_importance.png` được tạo cho model TorchMLP đang chạy bằng 491 mẫu validation và được phục vụ tại `/reports/feature_importance.png`; trang model-info đã có sẵn mục hiển thị.
+- Bổ sung unit test generation và static report endpoint; `pytest tests/`: 28 passed, 1 warning; compile/`git diff --check` đạt.
+
 ### Thêm train trên ảnh toàn cảnh
 - Thêm công cụ xuất ảnh nguyên cảnh từ split YOLO sang cấu trúc classification, giữ nguyên train/val/test và ghi manifest thống kê các ảnh bị loại.
 - Thêm `--dataset-mode whole-scene`, lưu model/báo cáo riêng; giữ chế độ crop bbox làm mặc định.

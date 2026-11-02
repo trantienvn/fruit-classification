@@ -288,3 +288,28 @@ TASK-K01 [DONE]
 ### Activity
 - 2026-11-02: Đăng ký TASK-L01 để bổ sung nhãn lớp tiếng Việt vào response `app.web`.
 - 2026-11-02: Hoàn thành TASK-L01; API dự đoán/lịch sử trả nhãn lớp tiếng Việt và giữ tương thích field canonical.
+
+## 🟢 NHÓM M — Biểu đồ độ quan trọng đặc trưng
+
+### TASK-M01: Sinh feature_importance.png cả khi model không có importance tích hợp
+
+- Agent: `Copilot SDK session`
+- Status: DONE
+- Priority: MEDIUM
+- Started: 2026-11-02
+- Scope: `src/evaluate.py`, `src/train.py`, `tests/`, `docs/`, `context/`
+- Depends on: TASK-B03, TASK-H01
+
+### Expected Result
+- Báo cáo model có `feature_importance.png` cho estimator hỗ trợ importance/coef và cả model khác bằng permutation importance trên validation.
+- Biểu đồ hiện có trong trang Thông tin mô hình qua `/reports/feature_importance.png`.
+- Không dùng test set để chọn hoặc tính permutation feature importance.
+
+### Verification
+- Unit test xác nhận sinh PNG từ permutation importance với estimator không có importance/coef tích hợp.
+- `python -m pytest tests/ -q`: 28 passed, 1 warning; compile và `git diff --check` đạt.
+- Tạo `reports-gpu/feature_importance.png` cho TorchMLP từ validation 491 mẫu; endpoint `/reports/feature_importance.png` trả HTTP 200, image/png. Trang model-info đã đăng ký hiển thị chart này.
+
+### Activity
+- 2026-11-02: Đăng ký TASK-M01 để bảo đảm `feature_importance.png` có cho TorchMLP.
+- 2026-11-02: Hoàn tất permutation importance, kiểm thử generation/static serving và cập nhật hướng dẫn.

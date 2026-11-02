@@ -511,6 +511,8 @@ def train(
         save_dir=reports_dir,
         model=best_model,
         X_test=X_te,
+        X_val=X_va,
+        y_val=y_val.tolist(),
     )
 
     # 7. Lưu pipeline

@@ -36,6 +36,9 @@ class PredictionData(BaseModel):
     ripeness: str
     class_id: int = Field(alias="predicted_class")
     class_name: str
+    class_name_vi: str = Field(
+        description="Tên lớp đầy đủ bằng tiếng Việt, ví dụ: Chuối · Quá chín."
+    )
     confidence: float | None = Field(
         default=None,
         description="Chỉ có khi model cung cấp xác suất dự đoán thật.",

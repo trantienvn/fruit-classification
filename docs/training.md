@@ -42,6 +42,30 @@ Mỗi đối tượng trái cây được cắt theo bounding box, chuyển sang
 
 Toàn bộ 51 đặc trưng được chuẩn hóa bằng `StandardScaler` (chỉ fit trên tập train, sau đó transform cho val và test).
 
+### Chế độ ảnh toàn cảnh
+
+Ngoài chế độ YOLO crop ở trên, có thể tạo bộ classification dùng nguyên ảnh
+gốc. Pipeline giữ nguyên split train/val/test có sẵn; chỉ nhận ảnh mà tất cả
+bounding box cùng mang một nhãn. Ảnh không có nhãn, nhãn sai định dạng hoặc
+nhiều class bị loại vì không thể gán một nhãn classification duy nhất cho cảnh.
+Ảnh được resize thành 128×128, cùng cách resize mà `FruitClassifier` dùng khi
+inference.
+
+```powershell
+python -m src.dataset --source-dir data/raw --output-dir data/processed/whole-scene
+python -m src.train --dataset-mode whole-scene --data-dir data/processed/whole-scene --no-gridsearch
+```
+
+Manifest ghi số ảnh giữ lại/loại theo split và class. Model được lưu mặc định
+vào `models-whole-scene/`, báo cáo vào `reports-whole-scene/`; truyền
+`--model-dir` nếu muốn chọn thư mục khác. Không dùng chung model directory giữa
+hai chế độ và không resume TorchMLP từ một chế độ sang chế độ còn lại.
+
+Model RandomForest train trên dataset hiện có đạt validation accuracy 94,81%
+(Macro F1 0,9480), test accuracy 91,82% (Macro F1 0,9174) trên 220 ảnh test.
+Đây là kết quả thực nghiệm của pipeline ảnh toàn cảnh; không so sánh trực tiếp
+với metric YOLO-crop nếu tập ảnh/định nghĩa sample khác nhau.
+
 ---
 
 ## 3. Các thuật toán so sánh

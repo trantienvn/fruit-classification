@@ -501,6 +501,11 @@
             "type": "string",
             "title": "Class Name"
           },
+          "class_name_vi": {
+            "type": "string",
+            "title": "Class Name Vi",
+            "description": "Tên lớp đầy đủ bằng tiếng Việt, ví dụ: Chuối · Quá chín."
+          },
           "confidence": {
             "anyOf": [
               {
@@ -545,6 +550,7 @@
           "ripeness",
           "predicted_class",
           "class_name",
+          "class_name_vi",
           "processing_time_ms",
           "created_at"
         ],

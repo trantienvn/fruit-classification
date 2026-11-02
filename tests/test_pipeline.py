@@ -3,16 +3,24 @@
 from __future__ import annotations
 
 import io
+import json
 from pathlib import Path
 
 import numpy as np
 import pytest
 from PIL import Image
 
-from src.dataset import CLASS_NAMES, _parse_yolo_box, class_distribution
+from src.dataset import (
+    CLASS_NAMES,
+    _parse_yolo_box,
+    class_distribution,
+    load_scene_split,
+    prepare_whole_scene_dataset,
+)
 from src.evaluate import evaluate_predictions
 from src.features import N_FEATURES, extract_features
 from src.predict import FruitClassifier, checkpoint_available
+from src.train import _load_resume_artifacts
 
 
 # ── Dataset ──────────────────────────────────────────────────────────────────
@@ -40,6 +48,67 @@ def test_class_distribution():
     assert dist["Apple Overripe"] == 1
     assert dist["Mango Overripe"] == 1
     assert len(dist) == len(CLASS_NAMES)
+
+
+def test_prepare_whole_scene_dataset_preserves_splits_and_filters_ambiguous_images(tmp_path):
+    source_dir = tmp_path / "source"
+    output_dir = tmp_path / "whole-scene"
+
+    for split in ("train", "val", "test"):
+        image_dir = source_dir / "images" / split
+        label_dir = source_dir / "labels" / split
+        image_dir.mkdir(parents=True)
+        label_dir.mkdir(parents=True)
+        for class_id, class_name in enumerate(CLASS_NAMES):
+            image_name = f"sample-{class_id}.png"
+            Image.new("RGB", (160, 90), (class_id * 20, 50, 90)).save(image_dir / image_name)
+            (label_dir / f"sample-{class_id}.txt").write_text(
+                f"{class_id} 0.5 0.5 0.5 0.5\n",
+                encoding="utf-8",
+            )
+
+        if split == "train":
+            Image.new("RGB", (160, 90), "white").save(image_dir / "mixed.png")
+            (label_dir / "mixed.txt").write_text(
+                "0 0.25 0.5 0.2 0.3\n1 0.75 0.5 0.2 0.3\n",
+                encoding="utf-8",
+            )
+            Image.new("RGB", (160, 90), "black").save(image_dir / "unlabeled.png")
+            (label_dir / "unlabeled.txt").write_text("", encoding="utf-8")
+            (label_dir / "invalid.txt").write_text("invalid label\n", encoding="utf-8")
+            Image.new("RGB", (160, 90), "red").save(image_dir / "invalid.png")
+            Image.new("RGB", (160, 90), "green").save(image_dir / "missing-label.png")
+
+    summary = prepare_whole_scene_dataset(source_dir, output_dir)
+    train_summary = summary["splits"]["train"]
+    assert train_summary["included"] == len(CLASS_NAMES)
+    assert train_summary["excluded"] == {
+        "missing_label": 1,
+        "empty_label": 1,
+        "invalid_label": 1,
+        "multiple_classes": 1,
+    }
+
+    exported_image = output_dir / "train" / "Apple_Unripe" / "sample-0.png"
+    assert Image.open(exported_image).size == (160, 90)
+    images, labels = load_scene_split(output_dir, "train")
+    assert len(images) == len(CLASS_NAMES)
+    assert set(labels) == set(range(len(CLASS_NAMES)))
+    assert all(image.shape == (128, 128, 3) for image in images)
+
+    assert prepare_whole_scene_dataset(source_dir, output_dir) == summary
+
+
+def test_resume_rejects_artifact_from_different_dataset_mode(tmp_path):
+    (tmp_path / "classifier.joblib").write_bytes(b"")
+    (tmp_path / "scaler.joblib").write_bytes(b"")
+    (tmp_path / "config.json").write_text(
+        json.dumps({"backend": "pytorch", "model_name": "TorchMLP", "dataset_mode": "yolo"}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuntimeError, match="chế độ dữ liệu khác nhau"):
+        _load_resume_artifacts(tmp_path, "cpu", "whole-scene")
 
 
 # ── Features ─────────────────────────────────────────────────────────────────

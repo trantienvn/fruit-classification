@@ -8,6 +8,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
+from app.web.labels import localized_class_name
+
 
 class HistoryService:
     """Kho lịch sử dự đoán cục bộ."""
@@ -67,6 +69,7 @@ class HistoryService:
             "filename": row["filename"],
             "predicted_class": row["class_id"],
             "class_name": row["class_name"],
+            "class_name_vi": localized_class_name(row["class_name"]),
             "fruit_type": row["fruit"],
             "ripeness": row["ripeness"],
             "confidence": row["confidence"],

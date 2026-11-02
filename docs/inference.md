@@ -44,6 +44,13 @@ print("Độ tin cậy:", f"{result['confidence']*100:.1f}%")
 print("Thời gian xử lý:", f"{result['processing_time_ms']} ms")
 ```
 
+Nếu train với `--dataset-mode whole-scene`, nạp đúng artifact ở
+`models-whole-scene` để tiền xử lý ảnh upload nhất quán:
+
+```python
+classifier = FruitClassifier(model_dir=Path("models-whole-scene")).load()
+```
+
 ### Dự đoán trực tiếp từ đường dẫn file hoặc chuỗi bytes
 
 ```python
@@ -132,6 +139,11 @@ Mở `http://127.0.0.1:8000`. Tài liệu Swagger UI ở `/docs`; OpenAPI JSON �
 Ảnh upload chỉ được dùng cho inference và không lưu xuống đĩa. SQLite lưu tên file, nhãn, độ tin cậy nếu có, thời gian xử lý và timestamp UTC tại `app/web/data/history.sqlite3` (đường dẫn này bị Git bỏ qua). Thống kê dashboard lấy từ lịch sử cục bộ; metrics kiểm thử trên trang mô hình lấy từ `models/config.json` và có ý nghĩa khác với thống kê sử dụng.
 
 Có thể đổi cấu hình mà không sửa code bằng các biến `FRUIT_MODEL_DIR`, `FRUIT_HISTORY_DB`, `FRUIT_FRONTEND_DIR`, `FRUIT_REPORTS_DIR` và `FRUIT_MAX_UPLOAD_BYTES`. Nếu model chưa tồn tại, API vẫn phục vụ giao diện và `/api/health` báo `degraded`; endpoint dự đoán trả HTTP 503.
+
+Để web dùng model ảnh toàn cảnh, đặt `FRUIT_MODEL_DIR=models-whole-scene` và
+`FRUIT_REPORTS_DIR=reports-whole-scene` trước khi khởi chạy. Chế độ này nhận
+ảnh toàn cảnh và resize trực tiếp về 128×128; ảnh có nhiều loại quả cùng lúc
+không nằm trong phạm vi nhãn mà model được huấn luyện.
 
 ### Các màn hình giao diện
 

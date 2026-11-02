@@ -68,3 +68,9 @@ Tài liệu này ghi lại các quyết định kỹ thuật cốt lõi đã đ�
 - **Tương thích artifact**: Lưu trọng số dưới dạng NumPy; artifact GPU có thể suy luận CPU nếu CUDA không khả dụng, nhưng môi trường suy luận vẫn cần PyTorch.
 - **Quan hệ với Q4**: Q4 tiếp tục áp dụng cho pipeline mặc định; yêu cầu mới cho phép thêm backend Deep Learning tùy chọn và cài PyTorch cùng dependencies.
 
+## 8. Chế độ huấn luyện ảnh toàn cảnh (Q8, CONFIRMED 2026-11-02)
+- **Quyết định**: Bổ sung chế độ classification trên ảnh nguyên cảnh bên cạnh chế độ YOLO crop hiện có, chọn bằng `--dataset-mode whole-scene`.
+- **Tách dữ liệu**: Giữ nguyên train/val/test YOLO để không trộn split. Chỉ giữ ảnh mà mọi bounding box cùng thuộc một class; loại ảnh thiếu/nhãn lỗi/đa class và ghi nguyên nhân vào manifest.
+- **Tiền xử lý**: Ảnh toàn cảnh được resize về 128×128, khớp với inference hiện tại; không crop bbox.
+- **Artifact**: Mặc định tách vào `models-whole-scene/` và `reports-whole-scene/`; không ghi đè model crop. Resume không cho phép đổi chế độ dữ liệu.
+- **Giới hạn**: Model vẫn là classifier một nhãn cho toàn ảnh; không hỗ trợ ảnh có nhiều loại quả khác nhãn trong cùng cảnh.

@@ -13,11 +13,20 @@ Nhãn class:
 
 from __future__ import annotations
 
+import argparse
+import json
+import shutil
+import sys
 from pathlib import Path
 from typing import Generator
 
 import numpy as np
 from PIL import Image, UnidentifiedImageError
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 # Nhãn 9 class
 CLASS_NAMES = (
@@ -73,6 +82,25 @@ def _parse_yolo_box(line: str, img_w: int, img_h: int) -> tuple[int, int, int, i
     if x2 <= x1 or y2 <= y1:
         return None
     return class_id, x1, y1, x2, y2
+
+
+def _parse_yolo_class_id(line: str) -> int | None:
+    """Validate a YOLO row and return its class without pixel rounding."""
+    parts = line.strip().split()
+    if len(parts) != 5:
+        return None
+    try:
+        class_id = int(parts[0])
+        cx, cy, width, height = (float(value) for value in parts[1:])
+    except ValueError:
+        return None
+    if not 0 <= class_id < len(CLASS_NAMES):
+        return None
+    if not np.all(np.isfinite([cx, cy, width, height])):
+        return None
+    if not (0 <= cx <= 1 and 0 <= cy <= 1 and 0 < width <= 1 and 0 < height <= 1):
+        return None
+    return class_id
 
 
 def iter_samples(
@@ -142,8 +170,184 @@ def load_split(
     return images, labels
 
 
+def load_scene_split(
+    data_dir: Path,
+    split: str,
+    crop_size: tuple[int, int] = CROP_SIZE,
+) -> tuple[list[np.ndarray], list[int]]:
+    """Nạp ảnh nguyên cảnh từ cấu trúc classification đã chuẩn bị."""
+    split_dir = data_dir / split
+    if not split_dir.is_dir():
+        raise FileNotFoundError(f"Không tìm thấy split ảnh toàn cảnh: {split_dir}")
+
+    images: list[np.ndarray] = []
+    labels: list[int] = []
+    for class_id, class_name in enumerate(CLASS_NAMES):
+        class_dir = split_dir / class_name.replace(" ", "_")
+        if not class_dir.is_dir():
+            raise FileNotFoundError(f"Thiếu thư mục lớp trong split: {class_dir}")
+
+        class_count = 0
+        image_paths = sorted(
+            path for path in class_dir.iterdir()
+            if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS
+        )
+        for image_path in image_paths:
+            try:
+                with Image.open(image_path) as image:
+                    image = image.convert("RGB").resize(crop_size, Image.LANCZOS)
+            except (OSError, UnidentifiedImageError) as error:
+                raise ValueError(f"Không thể đọc ảnh: {image_path}") from error
+            images.append(np.asarray(image, dtype=np.uint8))
+            labels.append(class_id)
+            class_count += 1
+
+        if class_count == 0:
+            raise ValueError(f"Split {split} không có ảnh cho lớp {class_name}.")
+
+    return images, labels
+
+
+def prepare_whole_scene_dataset(
+    source_dir: Path,
+    output_dir: Path,
+) -> dict:
+    """Xuất ảnh nguyên cảnh theo split gốc, chỉ giữ ảnh có duy nhất một class."""
+    splits = ("train", "val", "test")
+    class_dirs = {name.replace(" ", "_") for name in CLASS_NAMES}
+    manifest_path = output_dir / "manifest.json"
+    previous_files: list[str] = []
+
+    if manifest_path.is_file():
+        previous_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        for relative_path in previous_manifest.get("files", []):
+            rel_path = Path(relative_path)
+            if (
+                rel_path.is_absolute()
+                or len(rel_path.parts) != 3
+                or rel_path.parts[0] not in splits
+                or rel_path.parts[1] not in class_dirs
+            ):
+                raise ValueError(f"Đường dẫn file không hợp lệ trong {manifest_path}: {relative_path}")
+            previous_files.append(relative_path)
+    elif output_dir.exists() and any(output_dir.iterdir()):
+        raise FileExistsError(
+            f"Thư mục đầu ra không rỗng và không có manifest do pipeline tạo: {output_dir}"
+        )
+
+    records: list[tuple[Path, Path, int]] = []
+    summary = {
+        "splits": {},
+        "files": [],
+    }
+
+    for split in splits:
+        image_dir = source_dir / "images" / split
+        label_dir = source_dir / "labels" / split
+        if not image_dir.is_dir() or not label_dir.is_dir():
+            raise FileNotFoundError(f"Thiếu thư mục ảnh hoặc nhãn của split {split} trong {source_dir}")
+
+        split_summary = {
+            "included": 0,
+            "classes": {name: 0 for name in CLASS_NAMES},
+            "excluded": {
+                "missing_label": 0,
+                "empty_label": 0,
+                "invalid_label": 0,
+                "multiple_classes": 0,
+            },
+        }
+        image_paths = sorted(
+            path for path in image_dir.iterdir()
+            if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS
+        )
+
+        for image_path in image_paths:
+            label_path = label_dir / f"{image_path.stem}.txt"
+            if not label_path.is_file():
+                split_summary["excluded"]["missing_label"] += 1
+                continue
+
+            label_lines = [
+                line for line in label_path.read_text(
+                    encoding="utf-8-sig", errors="replace"
+                ).splitlines() if line.strip()
+            ]
+            if not label_lines:
+                split_summary["excluded"]["empty_label"] += 1
+                continue
+
+            class_ids: set[int] = set()
+            invalid_label = False
+            for line in label_lines:
+                class_id = _parse_yolo_class_id(line)
+                if class_id is None:
+                    invalid_label = True
+                    break
+                class_ids.add(class_id)
+
+            if invalid_label:
+                split_summary["excluded"]["invalid_label"] += 1
+                continue
+            if len(class_ids) != 1:
+                split_summary["excluded"]["multiple_classes"] += 1
+                continue
+
+            class_id = class_ids.pop()
+            relative_path = Path(split) / CLASS_NAMES[class_id].replace(" ", "_") / image_path.name
+            records.append((image_path, output_dir / relative_path, class_id))
+            summary["files"].append(str(relative_path))
+            split_summary["included"] += 1
+            split_summary["classes"][CLASS_NAMES[class_id]] += 1
+
+        summary["splits"][split] = split_summary
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for relative_path in previous_files:
+        old_path = output_dir / relative_path
+        if old_path.is_file():
+            old_path.unlink()
+    for source_path, target_path, _ in records:
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source_path, target_path)
+
+    manifest_path.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return summary
+
+
 def class_distribution(labels: list[int]) -> dict[str, int]:
     """Đếm số mẫu theo class."""
     from collections import Counter
     counts = Counter(labels)
     return {CLASS_NAMES[i]: counts.get(i, 0) for i in range(len(CLASS_NAMES))}
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Tạo dataset classification từ ảnh nguyên cảnh có nhãn YOLO."
+    )
+    parser.add_argument("--source-dir", type=Path, default=DATA_RAW)
+    parser.add_argument("--output-dir", type=Path, default=Path("data/processed/whole-scene"))
+    args = parser.parse_args(argv)
+
+    try:
+        summary = prepare_whole_scene_dataset(args.source_dir, args.output_dir)
+    except (FileExistsError, FileNotFoundError, ValueError, OSError) as error:
+        print(f"LỖI: {error}")
+        return 2
+
+    print(f"Đã tạo dataset ảnh toàn cảnh tại: {args.output_dir}")
+    for split, result in summary["splits"].items():
+        excluded = sum(result["excluded"].values())
+        print(
+            f"  {split}: {result['included']} ảnh được giữ, "
+            f"{excluded} ảnh bị loại"
+        )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

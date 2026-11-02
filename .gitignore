@@ -7,4 +7,10 @@ venv/
 .streamlit/secrets.toml
 app/web/data/
 tests/.tmp/
-
+models/
+models-whole-scene/
+data/raw/
+data/processed/
+reports-whole-scene/
+models-gpu/
+reports-gpu/

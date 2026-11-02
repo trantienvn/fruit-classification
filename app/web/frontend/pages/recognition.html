@@ -15,8 +15,10 @@
       <small>JPG, PNG, BMP hoặc WEBP · tối đa 10 MB</small>
     </label>
     <div class="image-preview is-hidden" id="image-preview-wrap">
-      <img id="image-preview" alt="Ảnh trái cây đã chọn">
+      <img id="image-preview" alt="Ảnh trái cây đã chọn" draggable="false">
+      <div class="preview-drop-overlay" aria-hidden="true">Thả ảnh mới để thay thế</div>
       <div class="preview-meta"><span id="preview-name"></span><span id="preview-size"></span></div>
+      <p class="preview-drop-hint">Kéo ảnh khác vào khung ảnh để thay thế.</p>
       <button class="button button-quiet" id="clear-image" type="button">Bỏ ảnh</button>
     </div>
     <div class="recognition-actions"><button class="button button-primary button-wide" id="predict-button" type="button" disabled>
@@ -30,7 +32,7 @@
     <div class="panel-heading"><div><p class="eyebrow">Kết quả</p><h2>Phân loại từ model</h2></div><span class="result-state" id="result-state">Đang chờ ảnh</span></div>
     <div class="result-empty" id="result-empty"><div class="fruit-outline" aria-hidden="true"><svg viewBox="0 0 120 120" fill="none"><path d="M60 35c-13-14-37-8-43 12-8 27 11 58 29 58 6 0 9-4 15-4s9 4 15 4c18 0 37-31 29-58-6-20-30-26-43-12-1-12 3-20 12-26-13-2-23 7-26 26Z" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M61 35c-1-11 2-20 10-26M73 14c9-3 17-1 23 4-6 7-14 9-23 7" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></div><strong>Kết quả sẽ hiện ở đây</strong><p>Tải ảnh lên rồi chọn “Phân loại ảnh” để xem loại quả và mức độ chín.</p></div>
     <div class="result-content is-hidden" id="result-content">
-      <p class="result-kicker">Mô hình nhận diện</p>
+      <p class="result-kicker">Lớp nhận diện</p>
       <div class="result-fruit" id="result-fruit">—</div>
       <div class="result-class" id="result-class"></div>
       <div class="result-facts">

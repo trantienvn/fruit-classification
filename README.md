@@ -97,11 +97,45 @@ optimizer Adam.
 Không dùng tập test để chọn mô hình hoặc điều chỉnh tham số. Kết quả huấn luyện
 và các báo cáo được ghi vào `models/` và `reports/`.
 
+### Huấn luyện trên ảnh toàn cảnh
+
+Dataset YOLO đã có sẵn các split `train/val/test`. Tạo bản classification từ
+ảnh nguyên cảnh (không crop bounding box), giữ nguyên split gốc:
+
+```powershell
+python -m src.dataset --source-dir data/raw --output-dir data/processed/whole-scene
+```
+
+Chỉ ảnh mà mọi bounding box cùng thuộc một class được đưa vào; ảnh thiếu nhãn,
+nhãn lỗi, không có đối tượng hoặc có nhiều class bị loại và thống kê được ghi
+trong `data/processed/whole-scene/manifest.json`. Sau đó train trên ảnh nguyên
+cảnh:
+
+```powershell
+python -m src.train --dataset-mode whole-scene --data-dir data/processed/whole-scene --no-gridsearch
+```
+
+Chế độ này mặc định lưu model vào `models-whole-scene/` và báo cáo vào
+`reports-whole-scene/`, không ghi đè model crop trong `models/`. Chế độ YOLO
+crop bbox vẫn là mặc định nếu không truyền `--dataset-mode whole-scene`.
+Inference vẫn resize ảnh upload thành 128×128 như lúc train. Ảnh có nhiều loại
+trái cây khác nhau không có một nhãn scene duy nhất nên bị loại; cần đánh giá
+kết quả riêng trên tập test toàn cảnh trước khi dùng thay model crop.
+
 ## Chạy Web Application
 
 Sau khi có model trong `models/`, chạy FastAPI từ thư mục gốc:
 
 ```powershell
+.\.venv\Scripts\python.exe -m app.web
+```
+
+Để web dùng model được train trên ảnh toàn cảnh, trỏ biến môi trường tới artifact
+đó trước khi chạy:
+
+```powershell
+$env:FRUIT_MODEL_DIR = "models-whole-scene"
+$env:FRUIT_REPORTS_DIR = "reports-whole-scene"
 .\.venv\Scripts\python.exe -m app.web
 ```
 

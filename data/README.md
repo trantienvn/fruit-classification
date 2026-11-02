@@ -21,6 +21,11 @@ data/
       val/
       test/
   processed/
+    whole-scene/
+      manifest.json
+      train/{Apple_Unripe,...}/
+      val/{Apple_Unripe,...}/
+      test/{Apple_Unripe,...}/
 ```
 
 `data.yaml` khai báo đường dẫn tương đối đến các tập ảnh, số lớp (`nc: 9`) và
@@ -81,5 +86,27 @@ mại hoặc phi thương mại, với điều kiện ghi nhận tác giả, d�
 cung cấp liên kết đến giấy phép và nêu rõ các thay đổi đã thực hiện (nếu có).
 
 Khi phân phối lại dữ liệu hoặc bản phái sinh, hãy giữ thông tin ghi công và
-thông báo các thay đổi phù hợp với điều khoản CC BY 4.0. Hiện
-`data/processed/` chưa có dữ liệu đã xử lý.
+thông báo các thay đổi phù hợp với điều khoản CC BY 4.0.
+
+## Dataset classification ảnh toàn cảnh
+
+Tạo dữ liệu bằng lệnh:
+
+```powershell
+python -m src.dataset --source-dir data/raw --output-dir data/processed/whole-scene
+```
+
+Pipeline sao chép ảnh gốc, không crop bounding box và giữ nguyên phân hoạch
+train/val/test YOLO để tránh trộn các split. Một ảnh chỉ có thể có một nhãn
+classification nếu tất cả đối tượng trong ảnh cùng thuộc một class. Ảnh không
+có nhãn, nhãn lỗi hoặc có nhiều class bị loại; số lượng theo split/lớp và lý do
+bị loại được ghi trong `data/processed/whole-scene/manifest.json`.
+
+Với dataset hiện có, export giữ 1.547 ảnh train, 443 validation và 220 test;
+17 ảnh bị loại do có nhiều class trong cùng ảnh. Kết quả train hiện tại được
+lưu riêng trong `models-whole-scene/` và `reports-whole-scene/`.
+
+Để train trên ảnh nguyên cảnh, dùng
+`python -m src.train --dataset-mode whole-scene --data-dir data/processed/whole-scene`.
+Dataset đã xuất và manifest là dữ liệu tạo sinh cục bộ, không commit vào
+repository.

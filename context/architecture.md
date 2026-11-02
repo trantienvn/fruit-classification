@@ -49,7 +49,7 @@ fruit-classification/
 ├── src/                              # Mã nguồn nghiệp vụ
 │   ├── __init__.py
 │   ├── data.py                       # Tiện ích đọc & kiểm tra tính hợp lệ của ảnh
-│   ├── dataset.py                    # Parser YOLO & Bounding box cropper
+│   ├── dataset.py                    # Parser YOLO, crop bbox và xuất dataset ảnh toàn cảnh
 │   ├── features.py                   # Trích xuất 51 đặc trưng (Color, Texture, Shape)
 │   ├── train.py                      # Pipeline scikit-learn CPU và backend CUDA tùy chọn
 │   ├── torch_model.py                # MLP PyTorch tùy chọn; chỉ import PyTorch khi dùng
@@ -71,8 +71,11 @@ fruit-classification/
 ```mermaid
 flowchart TD
     RawData["Dữ liệu thô (data/raw/)<br/>Ảnh + Nhãn YOLO txt"] --> DatasetParser["src/dataset.py<br/>Parse tọa độ Bounding Box"]
-    DatasetParser --> CropResize["Crop vùng quả & Resize 128x128"]
+    DatasetParser --> CropResize["Mode yolo: crop bbox & resize 128x128"]
+    RawData --> SceneExport["Mode whole-scene: giữ ảnh nguyên cảnh,<br/>giữ split gốc, loại ảnh đa class"]
+    SceneExport --> SceneResize["Resize ảnh toàn cảnh 128x128"]
     CropResize --> FeatureExtract["src/features.py<br/>Trích xuất 51 đặc trưng thủ công"]
+    SceneResize --> FeatureExtract
     
     subgraph FeatureSet ["51 Đặc trưng"]
         F1["Color Histogram RGB (24)"]
@@ -91,9 +94,16 @@ flowchart TD
     Scaler --> TorchGPU["Tùy chọn --device cuda:<br/>TorchMLP trên GPU"]
     TorchGPU --> BestModel
     BestModel --> TestEval["Đánh giá độc lập trên Test<br/>src/evaluate.py"]
-    BestModel --> SaveArtifacts["Lưu models/<br/>classifier, scaler, config.json"]
-    TestEval --> SaveReports["Xuất biểu đồ reports/<br/>Confusion Matrix, ROC, etc."]
+    BestModel --> SaveArtifacts["Lưu artifact riêng theo mode<br/>models/ hoặc models-whole-scene/"]
+    TestEval --> SaveReports["Xuất báo cáo riêng theo mode<br/>reports/ hoặc reports-whole-scene/"]
 ```
+
+Chế độ `whole-scene` được tạo bằng `python -m src.dataset`; ảnh được sao chép
+không crop vào `data/processed/whole-scene/{train,val,test}/{class}/`. Chỉ ảnh
+có một class duy nhất được giữ lại; manifest lưu số lượng và lý do loại. Khi
+train bằng `--dataset-mode whole-scene`, preprocessing resize 128×128 khớp với
+`FruitClassifier`; CLI mặc định lưu artifact ở `models-whole-scene/` để không
+ghi đè model crop.
 
 Backend CUDA trong `src/torch_model.py` là tùy chọn và không được import bởi
 pipeline mặc định. Nó chỉ đưa bước MLP lên GPU; đọc ảnh, trích xuất đặc trưng,

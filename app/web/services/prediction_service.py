@@ -8,6 +8,7 @@ from typing import Any
 
 from PIL import Image, UnidentifiedImageError
 
+from app.web.labels import localized_class_name
 from src.predict import FruitClassifier, InvalidImageError, ModelNotReadyError
 
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
@@ -66,10 +67,12 @@ def predict_upload(
     except ModelNotReadyError as error:
         raise UploadError("model_not_ready", str(error), 503) from error
 
+    class_name = str(result["class_name"])
     prediction: dict[str, Any] = {
         "filename": clean_name,
         "predicted_class": int(result["class_id"]),
-        "class_name": str(result["class_name"]),
+        "class_name": class_name,
+        "class_name_vi": localized_class_name(class_name),
         "fruit_type": str(result["fruit"]),
         "ripeness": str(result["ripeness"]),
         "processing_time_ms": float(result.get("processing_time_ms", 0.0)),

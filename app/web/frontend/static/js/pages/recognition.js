@@ -1,7 +1,10 @@
 import { postImage } from "../api.js";
-import { classLabel, escapeHtml, fruitLabel, percent, ripenessLabel } from "../utils.js";
+import { classLabel, escapeHtml, percent, ripenessLabel } from "../utils.js";
 
 const MAX_BYTES = 10 * 1024 * 1024;
+const PREDICT_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5M10.8 7.5v6.6m-3.3-3.3h6.6"/></svg>';
+const READY_BUTTON_HTML = `${PREDICT_ICON} Phân loại ảnh`;
+const REPEAT_BUTTON_HTML = `${PREDICT_ICON} Phân loại lại ảnh`;
 let selectedFile = null;
 let previewUrl = null;
 
@@ -19,15 +22,40 @@ function resetResult(message = "") {
   feedback(message);
 }
 
+function enableDrop(target) {
+  let dragDepth = 0;
+  target.addEventListener("dragenter", (event) => {
+    event.preventDefault();
+    dragDepth += 1;
+    target.classList.add("is-dragging");
+  });
+  target.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    target.classList.add("is-dragging");
+  });
+  target.addEventListener("dragleave", () => {
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) target.classList.remove("is-dragging");
+  });
+  target.addEventListener("drop", (event) => {
+    event.preventDefault();
+    dragDepth = 0;
+    target.classList.remove("is-dragging");
+    setFile(event.dataTransfer?.files?.[0]);
+  });
+}
+
 function setFile(file) {
   if (!file) return;
   if (file.size > MAX_BYTES) {
-    selectedFile = null;
-    document.querySelector("#predict-button").disabled = true;
-    document.querySelector("#image-preview-wrap").classList.add("is-hidden");
-    document.querySelector("#drop-zone").classList.remove("is-hidden");
-    document.querySelector("#result-state").textContent = "Tệp quá lớn";
-    feedback("Ảnh vượt quá 10 MB. Hãy chọn một tệp nhỏ hơn.");
+    const hasCurrentFile = Boolean(selectedFile);
+    if (!hasCurrentFile) resetResult();
+    const resultState = document.querySelector("#result-state");
+    resultState.textContent = "Tệp quá lớn";
+    resultState.className = "result-state is-error";
+    feedback(hasCurrentFile
+      ? "Ảnh thay thế vượt quá 10 MB. Ảnh đang chọn vẫn được giữ."
+      : "Ảnh vượt quá 10 MB. Hãy chọn một tệp nhỏ hơn.");
     return;
   }
   if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -41,7 +69,8 @@ function setFile(file) {
   };
   document.querySelector("#drop-zone").classList.add("is-hidden");
   document.querySelector("#image-preview-wrap").classList.remove("is-hidden");
-  document.querySelector("#predict-button").disabled = false;
+  const button = document.querySelector("#predict-button");
+  button.disabled = Boolean(button.querySelector(".spinner"));
   resetResult();
 }
 
@@ -50,8 +79,9 @@ function showPrediction(data) {
   document.querySelector("#result-content").classList.remove("is-hidden");
   document.querySelector("#result-state").textContent = "Đã phân loại";
   document.querySelector("#result-state").className = "result-state is-success";
-  document.querySelector("#result-fruit").textContent = fruitLabel(data.fruit_type);
-  document.querySelector("#result-class").textContent = data.class_name;
+  const predictedClass = data.class_name || [data.fruit_type, data.ripeness].filter(Boolean).join(" ");
+  document.querySelector("#result-fruit").textContent = data.class_name_vi || classLabel(predictedClass);
+  document.querySelector("#result-class").textContent = `Lớp mô hình: ${predictedClass}`;
   document.querySelector("#result-ripeness").textContent = ripenessLabel(data.ripeness);
   document.querySelector("#result-confidence").textContent = data.confidence == null ? "Không có" : percent(data.confidence);
   document.querySelector("#result-time").textContent = `${Number(data.processing_time_ms || 0).toFixed(1)} ms`;
@@ -73,18 +103,13 @@ function showPrediction(data) {
 export function mount() {
   const input = document.querySelector("#image-file");
   const dropZone = document.querySelector("#drop-zone");
+  const inputPanel = document.querySelector(".recognition-input");
   const button = document.querySelector("#predict-button");
-  input.addEventListener("change", () => setFile(input.files?.[0]));
-  dropZone.addEventListener("dragover", (event) => {
-    event.preventDefault();
-    dropZone.classList.add("is-dragging");
+  input.addEventListener("change", () => {
+    setFile(input.files?.[0]);
+    input.value = "";
   });
-  dropZone.addEventListener("dragleave", () => dropZone.classList.remove("is-dragging"));
-  dropZone.addEventListener("drop", (event) => {
-    event.preventDefault();
-    dropZone.classList.remove("is-dragging");
-    setFile(event.dataTransfer?.files?.[0]);
-  });
+  enableDrop(inputPanel);
   document.querySelector("#clear-image").addEventListener("click", () => {
     selectedFile = null;
     input.value = "";
@@ -97,20 +122,23 @@ export function mount() {
   });
   button.addEventListener("click", async () => {
     if (!selectedFile) return;
+    const requestFile = selectedFile;
     button.disabled = true;
     button.innerHTML = '<span class="spinner" aria-hidden="true"></span> Đang phân loại';
     document.querySelector("#result-state").textContent = "Đang xử lý ảnh";
     feedback("");
     try {
-      const result = await postImage(selectedFile);
-      showPrediction(result);
+      const result = await postImage(requestFile);
+      if (selectedFile === requestFile) showPrediction(result);
     } catch (error) {
+      if (selectedFile !== requestFile) return;
       document.querySelector("#result-state").textContent = "Không hoàn tất";
       document.querySelector("#result-state").className = "result-state is-error";
       feedback(error.message);
     } finally {
-      button.disabled = false;
-      button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5M10.8 7.5v6.6m-3.3-3.3h6.6"/></svg> Phân loại lại ảnh';
+      const selectionChanged = selectedFile !== requestFile;
+      button.disabled = selectionChanged ? !selectedFile : false;
+      button.innerHTML = selectionChanged ? READY_BUTTON_HTML : REPEAT_BUTTON_HTML;
     }
   });
 }

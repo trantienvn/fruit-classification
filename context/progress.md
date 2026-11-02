@@ -1,6 +1,6 @@
 # Tiến độ dự án (Project Progress)
 
-> Cập nhật lần cuối: 2026-10-31
+> Cập nhật lần cuối: 2026-11-02
 
 ## 1. Trạng thái tổng quan
 
@@ -100,4 +100,14 @@
 ### Tiếp tục huấn luyện TorchMLP (2026-11-02)
 - `src.train --resume` nạp classifier TorchMLP, scaler và PCA đã lưu; có thể tiếp tục trên CPU hoặc CUDA.
 - `--epochs` là số epoch bổ sung; artifact/config ghi tổng epoch yêu cầu, tổng epoch đã chạy, số epoch của lượt mới và trạng thái resume.
-- Chưa chạy test hoặc huấn luyện trong phiên này; TASK-I01 vẫn chờ xác nhận runtime CUDA.
+- `pytest tests -q`: 24 passed. CPU warm-start smoke qua serialize/deserialize chạy thêm 2 epoch thành công.
+- CUDA hiện khả dụng; `models-gpu/config.json` ghi nhận lượt resume trên RTX 3050, `epochs_added=12`, `resumed=true`. Artifact nạp và dự đoán qua `FruitClassifier` thành công.
+- `pytest -q` ở gốc bị PermissionError khi quét `context/pytest-tmp`; chạy đúng thư mục `tests/` thành công. TASK-I01 hoàn thành.
+
+### Train và đánh giá ảnh toàn cảnh (2026-11-02)
+- Hoàn thành TASK-K01: thêm bước chuẩn bị dataset classification từ YOLO, giữ nguyên split train/val/test và không crop bbox; loại ảnh nhiều class/nhãn không dùng được.
+- Dataset hiện tại giữ 1.547 train, 443 val, 220 test; toàn bộ 17 ảnh bị loại có nhiều class trong cùng ảnh. Dữ liệu đã xuất ở `data/processed/whole-scene/` (local/ignored).
+- Thêm `--dataset-mode whole-scene`; artifact/báo cáo mặc định tách ở `models-whole-scene/` và `reports-whole-scene/`.
+- Huấn luyện 7 mô hình, chọn RandomForest theo validation Macro F1 0,9480. Test accuracy 91,82%, Macro F1 0,9174 trên 220 ảnh; classification report chi tiết ở `reports-whole-scene/`.
+- Kiểm tra Mango Unripe trên test: 23/25 dự đoán đúng; metric này phản ánh dataset hiện có, không đảm bảo độ tin cậy trên ảnh thực tế khác domain.
+- `pytest tests/ -q`: 26 passed, 1 warning; inference smoke test với model whole-scene thành công; compile/CLI và `git diff --check` đạt.

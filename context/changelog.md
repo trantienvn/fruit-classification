@@ -4,10 +4,28 @@ Toàn bộ các thay đổi mã nguồn và tài liệu của dự án được 
 
 ## [2026-11-02]
 
+### Thêm train trên ảnh toàn cảnh
+- Thêm công cụ xuất ảnh nguyên cảnh từ split YOLO sang cấu trúc classification, giữ nguyên train/val/test và ghi manifest thống kê các ảnh bị loại.
+- Thêm `--dataset-mode whole-scene`, lưu model/báo cáo riêng; giữ chế độ crop bbox làm mặc định.
+- Dataset hiện có giữ 1.547/443/220 ảnh ở train/val/test; RandomForest đạt test accuracy 91,82%, Macro F1 0,9174.
+- Kiểm tra: 26 tests passed; inference smoke test với model whole-scene đạt; `git diff --check` và `py_compile` đạt.
+
+### Thay ảnh trực tiếp bằng kéo thả
+- Cho phép thả ảnh mới lên vùng xem trước để thay ảnh hiện tại; thêm gợi ý thao tác và trạng thái viền khi kéo ảnh vào.
+- Nếu ảnh thay thế vượt quá 10 MB, giữ ảnh hiện tại; bỏ qua kết quả của lượt phân loại cũ nếu người dùng đã đổi ảnh trong lúc xử lý.
+- Mở rộng vùng thả ra toàn bộ thẻ ảnh đầu vào, thêm overlay hướng dẫn và hiển thị đầy đủ lớp tiếng Việt ở kết quả chính (ví dụ “Chuối · Quá chín”).
+- Đã rà soát diff và chạy `git diff --check`; không chạy test trong phiên này.
+
+### Trả tên lớp tiếng Việt từ Web API
+- Thêm `class_name_vi` vào response dự đoán và lịch sử; giữ nguyên `class_name` canonical từ model.
+- Lịch sử cũ cũng được dịch khi serialize, không cần migrate SQLite; trang nhận diện ưu tiên field tiếng Việt do API trả về.
+- Sinh lại `app/web/openapi.json` từ schema FastAPI; không chạy test trong phiên này.
+
 ### Tiếp tục huấn luyện TorchMLP
 - Thêm `--resume` để warm-start TorchMLP từ `classifier.joblib`, dùng lại scaler/PCA đã lưu và cho phép chạy thêm số epoch chỉ định.
 - Ghi nhận tổng epoch, epoch của lượt vừa chạy và trạng thái resume trong cấu hình model.
-- Cập nhật hướng dẫn huấn luyện, README và context; chưa chạy test hoặc huấn luyện thực tế trong phiên này.
+- Cập nhật hướng dẫn huấn luyện, README và context.
+- Xác minh sau triển khai: 24 tests đạt; smoke warm-start CPU qua serialize/deserialize đạt; artifact resume trên CUDA nạp và dự đoán thành công.
 
 ## [2026-10-31]
 

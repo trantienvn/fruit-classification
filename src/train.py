@@ -43,7 +43,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 
-from src.dataset import CLASS_NAMES, DATA_RAW, load_split
+from src.dataset import CLASS_NAMES, DATA_RAW, load_scene_split, load_split
 from src.evaluate import evaluate_predictions, full_report
 from src.features import N_FEATURES, build_feature_matrix
 
@@ -84,25 +84,26 @@ PCA_VARIANCE = 0.95  # giữ 95% phương sai
 
 # ── Hàm tiện ích ──────────────────────────────────────────────────────────────
 
-def _load_data(data_dir: Path) -> tuple[
+def _load_data(data_dir: Path, dataset_mode: str) -> tuple[
     np.ndarray, np.ndarray,
     np.ndarray, np.ndarray,
     np.ndarray, np.ndarray,
 ]:
     """Nạp và trích xuất features từ ba split."""
+    split_loader = load_scene_split if dataset_mode == "whole-scene" else load_split
     print("Đang nạp tập train...")
     t0 = time.perf_counter()
-    train_imgs, y_train = load_split(data_dir, "train")
+    train_imgs, y_train = split_loader(data_dir, "train")
     print(f"  {len(y_train)} mẫu — {time.perf_counter()-t0:.1f}s")
 
     print("Đang nạp tập val...")
     t0 = time.perf_counter()
-    val_imgs, y_val = load_split(data_dir, "val")
+    val_imgs, y_val = split_loader(data_dir, "val")
     print(f"  {len(y_val)} mẫu — {time.perf_counter()-t0:.1f}s")
 
     print("Đang nạp tập test...")
     t0 = time.perf_counter()
-    test_imgs, y_test = load_split(data_dir, "test")
+    test_imgs, y_test = split_loader(data_dir, "test")
     print(f"  {len(y_test)} mẫu — {time.perf_counter()-t0:.1f}s")
 
     print("\nTrích xuất đặc trưng...")
@@ -151,6 +152,7 @@ def _preprocess(
 def _load_resume_artifacts(
     model_dir: Path,
     device: str,
+    dataset_mode: str,
 ) -> tuple[object, StandardScaler, PCA | None]:
     """Nạp và kiểm tra artifact TorchMLP trước khi tiếp tục huấn luyện."""
     classifier_path = model_dir / "classifier.joblib"
@@ -174,6 +176,11 @@ def _load_resume_artifacts(
         raise RuntimeError(f"Cấu hình model tại {config_path} không phải JSON object.")
     if config.get("backend") != "pytorch" or config.get("model_name") != "TorchMLP":
         raise RuntimeError("--resume hiện chỉ hỗ trợ artifact TorchMLP (backend pytorch).")
+    if config.get("dataset_mode", "yolo") != dataset_mode:
+        raise RuntimeError(
+            "Không thể resume giữa hai chế độ dữ liệu khác nhau "
+            f"(artifact={config.get('dataset_mode', 'yolo')}, yêu cầu={dataset_mode})."
+        )
 
     try:
         model = joblib.load(classifier_path)
@@ -338,15 +345,20 @@ def _save_pipeline(
 
 def train(
     data_dir: Path = DATA_RAW,
-    model_dir: Path = Path("models"),
+    model_dir: Path | None = None,
     use_pca: bool = USE_PCA,
     run_gridsearch: bool = True,
     device: str = "cpu",
     epochs: int = 100,
     batch_size: int = 64,
     resume: bool = False,
+    dataset_mode: str = "yolo",
 ) -> dict:
     """Chạy pipeline sklearn hoặc huấn luyện mới/tiếp tục TorchMLP."""
+    if dataset_mode not in {"yolo", "whole-scene"}:
+        raise ValueError("dataset_mode phải là 'yolo' hoặc 'whole-scene'.")
+    if model_dir is None:
+        model_dir = Path("models-whole-scene" if dataset_mode == "whole-scene" else "models")
     if device not in {"cpu", "cuda"}:
         raise ValueError("device phải là 'cpu' hoặc 'cuda'.")
     if (device == "cuda" or resume) and (epochs < 1 or batch_size < 1):
@@ -355,6 +367,7 @@ def train(
     print("=" * 60)
     print("PIPELINE HUẤN LUYỆN — PHÂN LOẠI ĐỘ CHÍN TRÁI CÂY")
     print(f"Dataset: {data_dir}")
+    print(f"Chế độ dữ liệu: {dataset_mode}")
     print(f"Model dir: {model_dir}")
     print(f"Thiết bị huấn luyện: {device}")
     gpu_name = None
@@ -368,7 +381,7 @@ def train(
     pca = None
     previous_epochs_requested = 0
     if resume:
-        resume_model, scaler, pca = _load_resume_artifacts(model_dir, device)
+        resume_model, scaler, pca = _load_resume_artifacts(model_dir, device, dataset_mode)
         previous_epochs_requested = int(
             getattr(
                 resume_model,
@@ -382,7 +395,7 @@ def train(
     print("=" * 60)
 
     # 1. Nạp và trích xuất features
-    X_train, y_train, X_val, y_val, X_test, y_test = _load_data(data_dir)
+    X_train, y_train, X_val, y_val, X_test, y_test = _load_data(data_dir, dataset_mode)
 
     # 2. Chuẩn hóa
     X_tr, X_va, X_te, scaler, pca = _preprocess(
@@ -486,7 +499,10 @@ def train(
     print(f"  Macro F1 : {test_metrics['macro_f1']:.4f}")
 
     # 6. Xuất biểu đồ và báo cáo
-    reports_dir = model_dir.parent / ("reports-gpu" if device == "cuda" else "reports")
+    if dataset_mode == "whole-scene":
+        reports_dir = model_dir.parent / "reports-whole-scene"
+    else:
+        reports_dir = model_dir.parent / ("reports-gpu" if device == "cuda" else "reports")
     full_report(
         y_test.tolist(), y_pred_test.tolist(),
         class_names=CLASS_NAMES,
@@ -512,6 +528,7 @@ def train(
             "gridsearch": use_gridsearch,
             "backend": "pytorch" if is_torch else "scikit-learn",
             "device": device,
+            "dataset_mode": dataset_mode,
             **({"gpu_name": gpu_name} if gpu_name is not None else {}),
             **(
                 {
@@ -533,7 +550,13 @@ def train(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Huấn luyện mô hình phân loại trái cây")
     parser.add_argument("--data-dir", type=Path, default=DATA_RAW)
-    parser.add_argument("--model-dir", type=Path, default=Path("models"))
+    parser.add_argument("--model-dir", type=Path, default=None)
+    parser.add_argument(
+        "--dataset-mode",
+        choices=("yolo", "whole-scene"),
+        default="yolo",
+        help="yolo: crop theo bbox (mặc định); whole-scene: dùng ảnh nguyên cảnh đã chuẩn bị",
+    )
     parser.add_argument("--pca", action="store_true", help="Bật PCA giảm chiều")
     parser.add_argument("--no-gridsearch", action="store_true", help="Tắt GridSearch")
     parser.add_argument(
@@ -556,8 +579,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    if not (args.data_dir / "images" / "train").is_dir():
-        print(f"LỖI: Không tìm thấy data/raw/images/train trong {args.data_dir}")
+    image_root = args.data_dir / "images" if args.dataset_mode == "yolo" else args.data_dir
+    missing_splits = [
+        split for split in ("train", "val", "test")
+        if not (image_root / split).is_dir()
+    ]
+    if missing_splits:
+        print(
+            f"LỖI: Thiếu split {', '.join(missing_splits)} trong {image_root}. "
+            "Hãy kiểm tra --data-dir hoặc chạy bước chuẩn bị dataset."
+        )
         return 2
 
     try:
@@ -570,8 +601,9 @@ def main(argv: list[str] | None = None) -> int:
             epochs=args.epochs,
             batch_size=args.batch_size,
             resume=args.resume,
+            dataset_mode=args.dataset_mode,
         )
-    except (RuntimeError, ValueError) as exc:
+    except (FileNotFoundError, OSError, RuntimeError, ValueError) as exc:
         print(f"LỖI: {exc}")
         return 2
     print(f"\nTest accuracy: {test_metrics['accuracy']:.4f}")

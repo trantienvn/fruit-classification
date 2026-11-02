@@ -135,8 +135,16 @@ TASK-F01 [DONE]
 TASK-G01 [DONE]
     ↓
 TASK-H01 [DONE]
+    ├── TASK-I01 [DONE]
+    └── TASK-J01 [DONE]
+
+TASK-H01 + TASK-J01
     ↓
-TASK-I01 [IN_PROGRESS]
+TASK-L01 [DONE]
+
+TASK-A03 + TASK-B02
+    ↓
+TASK-K01 [DONE]
 ```
 
 ---
@@ -147,7 +155,8 @@ TASK-I01 [IN_PROGRESS]
 |---|---|---|---|
 | `Main Agent` | Primary Developer | 2026-10-30 → nay | Không có task đang chạy |
 | `Copilot Session 0bc66139` | Copilot SDK session | 2026-10-31 | Hoàn thành TASK-G01 |
-| `CODEX` | OpenAI Codex | 2026-10-31 | Đang thực hiện TASK-I01 |
+| `CODEX` | OpenAI Codex | 2026-10-31 → 2026-11-02 | Không có task đang chạy |
+| `Copilot SDK session` | Primary Developer | 2026-11-02 | Hoàn thành TASK-K01 |
 
 ---
 
@@ -175,7 +184,7 @@ TASK-I01 [IN_PROGRESS]
 ### TASK-I01: Thêm backend PyTorch CUDA tùy chọn cho pipeline huấn luyện
 
 - Agent: `CODEX`
-- Status: IN_PROGRESS
+- Status: DONE
 - Priority: MEDIUM
 - Started: 2026-10-31
 - Scope: `src/train.py`, `src/torch_model.py`, `requirements.txt`, `docs/`, `README.md`, `context/`
@@ -188,11 +197,94 @@ TASK-I01 [IN_PROGRESS]
 - Có thể tiếp tục huấn luyện TorchMLP từ artifact đã lưu bằng `--resume`, giữ nguyên scaler/PCA và trọng số hiện có.
 
 ### Verification
-- Đã bổ sung khả năng resume và tài liệu; chưa chạy test hoặc huấn luyện thực tế trong phiên 2026-11-02.
-- Cần xác nhận bằng PyTorch CUDA trên máy có GPU NVIDIA trước khi đánh dấu DONE.
+- `python -m pytest tests -q`: 24 passed, 2 warnings.
+- Smoke TorchMLP CPU với dữ liệu tổng hợp và serialize/deserialize: resume thêm 2 epoch, tổng 4 epoch; xác suất dự đoán hữu hạn và tổng mỗi hàng bằng 1.
+- PyTorch CUDA khả dụng; artifact `models-gpu/config.json` ghi `device=cuda`, GPU RTX 3050 Laptop, `resumed=true`, `epochs_added=12`; nạp artifact và dự đoán qua `FruitClassifier` thành công.
+- `python -m pytest -q` không thu thập được test do PermissionError khi quét `context/pytest-tmp`; chạy riêng `tests/` thành công.
+- `git diff --check` đạt. Artifact GPU đã có thay đổi trong working tree trước khi đánh giá và được giữ nguyên.
 
 ### Activity
 - 2026-10-31: Đăng ký TASK-I01 `IN_PROGRESS` — Thêm backend huấn luyện PyTorch CUDA tùy chọn.
 - 2026-10-31: Theo yêu cầu người dùng, thêm PyTorch vào `requirements.txt`; wheel cung cấp CUDA runtime nhưng không cài NVIDIA driver.
 - 2026-10-31: Khóa PyTorch 2.14.1 + CUDA 12.6 sau khi đối chiếu RTX 3050/driver 566.07 và wheel Windows/Python 3.14.
 - 2026-11-02: Tiếp tục TASK-I01 theo yêu cầu bổ sung — hỗ trợ tiếp tục huấn luyện TorchMLP từ artifact đã lưu; verification đang chờ.
+- 2026-11-02: Hoàn thành xác minh TASK-I01; đánh dấu `DONE` sau 24 tests, CPU warm-start smoke và kiểm tra artifact resume trên CUDA.
+
+## 🟢 NHÓM J — Cải thiện trải nghiệm nhận diện
+
+### TASK-J01: Thả ảnh mới trực tiếp lên ảnh xem trước
+
+- Agent: `CODEX`
+- Status: DONE
+- Priority: LOW
+- Started: 2026-11-02
+- Scope: `app/web/frontend/pages/recognition.html`, `app/web/frontend/static/js/pages/recognition.js`, `app/web/frontend/static/css/main.css`, `context/`
+- Depends on: TASK-H01
+
+### Expected Result
+- Có thể kéo ảnh khác thả lên vùng xem trước để thay ảnh hiện tại mà không cần bấm “Bỏ ảnh”.
+- Toàn bộ thẻ ảnh đầu vào nhận kéo thả; vùng xem trước hiển thị overlay báo thả ảnh thay thế.
+- Kết quả chính hiển thị đầy đủ tên lớp tiếng Việt, ví dụ “Chuối · Quá chín”.
+- Khi ảnh thay thế không hợp lệ vì vượt giới hạn dung lượng, ảnh hiện tại vẫn được giữ.
+
+### Verification
+- Rà soát code cho luồng kéo thả trên toàn thẻ ảnh đầu vào, cập nhật ảnh và hiển thị tên lớp đầy đủ.
+- `git diff --check` đạt; không chạy test hoặc mở giao diện trình duyệt trong phiên này.
+
+### Activity
+- 2026-11-02: Đăng ký TASK-J01 `IN_PROGRESS` theo yêu cầu cập nhật frontend.
+- 2026-11-02: Hoàn thành TASK-J01; preview nhận ảnh thả thay thế và giữ ảnh hiện tại nếu ảnh mới vượt giới hạn 10 MB.
+- 2026-11-02: Mở rộng TASK-J01 theo góp ý: làm rõ vùng thả ảnh và đưa tên lớp đầy đủ lên dòng kết quả chính.
+- 2026-11-02: Hoàn thành phần bổ sung; toàn bộ thẻ ảnh nhận thả thay thế và kết quả hiển thị lớp tiếng Việt nổi bật.
+
+## 🟢 NHÓM K — Huấn luyện trên ảnh toàn cảnh
+
+### TASK-K01: Tạo split classification từ ảnh YOLO và train trên ảnh toàn cảnh
+
+- Agent: `Copilot SDK session`
+- Status: DONE
+- Priority: HIGH
+- Started: 2026-11-02
+- Scope: `src/dataset.py`, `src/train.py`, `tests/`, `README.md`, `docs/training.md`, `data/README.md`, `context/`
+- Depends on: TASK-A03, TASK-B02
+
+### Expected Result
+- Xuất ảnh nguyên cảnh thành dataset classification train/val/test theo split YOLO có sẵn; không crop bbox và không trộn split.
+- Loại trừ ảnh không có nhãn hoặc có nhiều class khác nhau, đồng thời báo cáo số lượng rõ ràng.
+- Huấn luyện theo mode toàn cảnh với preprocessing tương thích inference và artifact tách biệt để không ghi đè model crop hiện có.
+
+### Verification
+- `python -m pytest tests/ -q`: 26 passed, 1 warning; `py_compile`, CLI help và `git diff --check` đạt.
+- Dataset thật được xuất: 1.547 train / 443 val / 220 test; 17 ảnh đa class bị loại và ghi vào manifest.
+- Train scikit-learn chọn RandomForest (validation Macro F1 0,9480); test accuracy 91,82%, Macro F1 0,9174. Model nạp và dự đoán smoke thành công.
+- Dataset/model/report mới nằm trong các thư mục bị Git ignore; không ghi đè artifact crop hoặc artifact GPU hiện có.
+
+### Activity
+- 2026-11-02: Đăng ký TASK-K01 sau khi TASK-I01 hoàn thành.
+- 2026-11-02: Hoàn tất exporter, whole-scene loader, train mode riêng, tài liệu và đánh giá train/test.
+
+## 🟢 NHÓM L — Nhãn lớp tiếng Việt trong Web API
+
+### TASK-L01: Trả tên lớp đã dịch trong dự đoán và lịch sử
+
+- Agent: `CODEX`
+- Status: DONE
+- Priority: MEDIUM
+- Started: 2026-11-02
+- Scope: `app/web/schemas.py`, `app/web/services/`, `app/web/frontend/static/js/pages/recognition.js`, `app/web/openapi.json`, `context/contracts/api-contract.md`, `context/`
+- Depends on: TASK-H01, TASK-J01
+
+### Expected Result
+- API trả thêm `class_name_vi` với tên đầy đủ như “Chuối · Quá chín”, giữ nguyên `class_name` gốc để tương thích caller.
+- Lịch sử cũ và mới đều có `class_name_vi` mà không cần migrate SQLite.
+- Trang nhận diện dùng nhãn tiếng Việt do API trả về làm kết quả chính.
+- Cập nhật Pydantic schema, OpenAPI snapshot và API contract.
+
+### Verification
+- Rà soát luồng serialize prediction/history, schema và frontend.
+- `python -m app.web.export_openapi` sinh OpenAPI snapshot thành công; `git diff --check` đạt.
+- Không chạy test trong phiên này.
+
+### Activity
+- 2026-11-02: Đăng ký TASK-L01 để bổ sung nhãn lớp tiếng Việt vào response `app.web`.
+- 2026-11-02: Hoàn thành TASK-L01; API dự đoán/lịch sử trả nhãn lớp tiếng Việt và giữ tương thích field canonical.

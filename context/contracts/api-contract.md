@@ -27,7 +27,8 @@ Upload chấp nhận JPG/JPEG, PNG, BMP và WEBP, tối đa 10 MiB. Server kiể
 
 Response thành công có `success: true` và `data` gồm:
 
-- `id`, `filename`, `predicted_class`, `class_name`, `fruit_type`, `ripeness`.
+- `id`, `filename`, `predicted_class`, `class_name`, `class_name_vi`, `fruit_type`, `ripeness`.
+- `class_name` giữ tên lớp canonical từ model (ví dụ `Banana Overripe`); `class_name_vi` trả nhãn đầy đủ bằng tiếng Việt (ví dụ `Chuối · Quá chín`). Lịch sử cũ cũng được dịch khi serialize, không cần đổi schema SQLite.
 - `processing_time_ms` và `created_at` UTC.
 - `confidence` và `probabilities` chỉ có mặt nếu classifier có `predict_proba`. Nếu không, API bỏ hai trường đó; không chuyển decision score thành xác suất.
 

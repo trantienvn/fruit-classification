@@ -1,7 +1,7 @@
-"""Pipeline huấn luyện — phân loại 9 class kết hợp (loại × độ chín).
+"""Pipeline huấn luyện CPU — phân loại 9 class kết hợp (loại × độ chín).
 
 Quy trình:
-  1. Nạp dataset classification từ data/processed/dataset/ theo các split có sẵn
+  1. Nạp ảnh nguyên cảnh từ data/processed/whole-scene/ theo các split có sẵn
   2. Trích xuất đặc trưng (51 features)
   3. Chuẩn hóa với StandardScaler
   4. (Tùy chọn) Giảm chiều với PCA
@@ -11,11 +11,8 @@ Quy trình:
   8. Đánh giá cuối trên tập test
   9. Lưu model tốt nhất + preprocessing pipeline + metadata
 
-Chế độ TorchMLP tùy chọn: `--device cuda` huấn luyện trên GPU, còn `--resume`
-có thể tiếp tục artifact đã lưu trên CPU hoặc GPU. PyTorch phải được cài.
-
 Chạy:
-  python -m src.train --data-dir data/processed/dataset --model-dir models
+  python -m src.train --data-dir data/processed/whole-scene
 """
 
 from __future__ import annotations
@@ -33,6 +30,8 @@ if hasattr(sys.stderr, "reconfigure"):
 
 import joblib
 import numpy as np
+from sklearn.base import clone
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
@@ -45,7 +44,9 @@ from sklearn.tree import DecisionTreeClassifier
 
 from src.dataset import (
     CLASS_NAMES,
+    DATA_RAW,
     DATASET_CLASSIFICATION,
+    DATASET_WHOLE_SCENE,
     LEGACY_CLASS_NAMES,
     load_classification_split,
     load_scene_split,
@@ -60,7 +61,7 @@ MODELS: dict[str, object] = {
     "KNN": KNeighborsClassifier(n_neighbors=5, n_jobs=-1),
     "NaiveBayes": GaussianNB(),
     "LogisticRegression": LogisticRegression(max_iter=1000, random_state=42),
-    "SVM": SVC(kernel="rbf", C=10, gamma="scale", probability=True, random_state=42),
+    "SVM": CalibratedClassifierCV(SVC(kernel="rbf", C=10, gamma="scale", random_state=42),ensemble=False),
     "DecisionTree": DecisionTreeClassifier(max_depth=15, random_state=42),
     "RandomForest": RandomForestClassifier(n_estimators=200, random_state=42, n_jobs=-1),
     "GradientBoosting": GradientBoostingClassifier(n_estimators=100, random_state=42),
@@ -69,9 +70,9 @@ MODELS: dict[str, object] = {
 # GridSearch params cho top-3 models
 GRID_PARAMS: dict[str, dict] = {
     "SVM": {
-        "C": [1, 10, 50],
-        "gamma": ["scale", "auto"],
-        "kernel": ["rbf"],
+        "estimator__C": [1, 10, 50],
+        "estimator__gamma": ["scale", "auto"],
+        "estimator__kernel": ["rbf"],
     },
     "RandomForest": {
         "n_estimators": [100, 200, 300],
@@ -90,6 +91,15 @@ PCA_VARIANCE = 0.95  # giữ 95% phương sai
 
 
 # ── Hàm tiện ích ──────────────────────────────────────────────────────────────
+
+def _default_data_dir(dataset_mode: str) -> Path:
+    """Trả về thư mục dữ liệu mặc định tương ứng với chế độ."""
+    return {
+        "folder": DATASET_CLASSIFICATION,
+        "yolo": DATA_RAW,
+        "whole-scene": DATASET_WHOLE_SCENE,
+    }[dataset_mode]
+
 
 def _load_data(data_dir: Path, dataset_mode: str) -> tuple[
     np.ndarray, np.ndarray,
@@ -132,95 +142,22 @@ def _preprocess(
     X_val: np.ndarray,
     X_test: np.ndarray,
     use_pca: bool = USE_PCA,
-    *,
-    scaler: StandardScaler | None = None,
-    pca: PCA | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, StandardScaler, PCA | None]:
-    """Chuẩn hóa + PCA, có thể tái sử dụng bộ tiền xử lý đã lưu."""
-    if scaler is None:
-        scaler = StandardScaler()
-        X_tr = scaler.fit_transform(X_train)
-    else:
-        X_tr = scaler.transform(X_train)
+    """Chuẩn hóa và tùy chọn PCA trên các split."""
+    scaler = StandardScaler()
+    X_tr = scaler.fit_transform(X_train)
     X_va = scaler.transform(X_val)
     X_te = scaler.transform(X_test)
 
-    if pca is None and use_pca:
+    pca = None
+    if use_pca:
         pca = PCA(n_components=PCA_VARIANCE, random_state=42)
         X_tr = pca.fit_transform(X_tr)
         X_va = pca.transform(X_va)
         X_te = pca.transform(X_te)
         print(f"PCA: {X_tr.shape[1]} components (giữ {PCA_VARIANCE*100:.0f}% phương sai)")
-    elif pca is not None:
-        X_tr = pca.transform(X_tr)
-        X_va = pca.transform(X_va)
-        X_te = pca.transform(X_te)
-        print(f"PCA đã lưu: {X_tr.shape[1]} components")
 
     return X_tr, X_va, X_te, scaler, pca
-
-
-def _load_resume_artifacts(
-    model_dir: Path,
-    device: str,
-    dataset_mode: str,
-) -> tuple[object, StandardScaler, PCA | None]:
-    """Nạp và kiểm tra artifact TorchMLP trước khi tiếp tục huấn luyện."""
-    classifier_path = model_dir / "classifier.joblib"
-    scaler_path = model_dir / "scaler.joblib"
-    config_path = model_dir / "config.json"
-    missing = [
-        path.name
-        for path in (classifier_path, scaler_path, config_path)
-        if not path.is_file()
-    ]
-    if missing:
-        raise RuntimeError(
-            f"Không thể tiếp tục train: thiếu {', '.join(missing)} trong {model_dir}."
-        )
-
-    try:
-        config = json.loads(config_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise RuntimeError(f"Không đọc được cấu hình model tại {config_path}.") from exc
-    if not isinstance(config, dict):
-        raise RuntimeError(f"Cấu hình model tại {config_path} không phải JSON object.")
-    if config.get("backend") != "pytorch" or config.get("model_name") != "TorchMLP":
-        raise RuntimeError("--resume hiện chỉ hỗ trợ artifact TorchMLP (backend pytorch).")
-    if config.get("dataset_mode", "yolo") != dataset_mode:
-        raise RuntimeError(
-            "Không thể resume giữa hai chế độ dữ liệu khác nhau "
-            f"(artifact={config.get('dataset_mode', 'yolo')}, yêu cầu={dataset_mode})."
-        )
-
-    try:
-        model = joblib.load(classifier_path)
-        scaler = joblib.load(scaler_path)
-    except Exception as exc:
-        raise RuntimeError(f"Không nạp được artifact model trong {model_dir}.") from exc
-
-    from src.torch_model import TorchMLPClassifier
-
-    if not isinstance(model, TorchMLPClassifier) or not hasattr(model, "state_"):
-        raise RuntimeError("Artifact classifier không chứa trọng số TorchMLP đã huấn luyện.")
-    if (
-        not hasattr(scaler, "transform")
-        or getattr(scaler, "n_features_in_", N_FEATURES) != N_FEATURES
-    ):
-        raise RuntimeError(f"Scaler trong {model_dir} không khớp với {N_FEATURES} features.")
-
-    pca = None
-    if config.get("use_pca", False):
-        pca_path = model_dir / "pca.joblib"
-        if not pca_path.is_file():
-            raise RuntimeError(f"Cấu hình yêu cầu PCA nhưng thiếu artifact {pca_path}.")
-        try:
-            pca = joblib.load(pca_path)
-        except Exception as exc:
-            raise RuntimeError(f"Không nạp được artifact PCA tại {pca_path}.") from exc
-
-    model.device = device
-    return model, scaler, pca
 
 
 def _train_all(
@@ -280,18 +217,7 @@ def _grid_search_best(
     X_all = np.vstack([X_tr, X_va])
     y_all = np.concatenate([y_tr, y_va])
 
-    base_model = MODELS[name].__class__(**{
-        k: v[0] for k, v in GRID_PARAMS[name].items()
-    })
-    # Thêm random_state nếu mô hình hỗ trợ
-    try:
-        base_model.set_params(random_state=42)
-    except ValueError:
-        pass
-
-    # Với SVM, giữ probability=True
-    if name == "SVM":
-        base_model.set_params(probability=True)
+    base_model = clone(MODELS[name])
 
     gs = GridSearchCV(
         base_model,
@@ -306,14 +232,7 @@ def _grid_search_best(
     gs.fit(X_all, y_all)
     print(f"  Xong — {time.perf_counter()-t0:.1f}s | best params: {gs.best_params_}")
 
-    best_model = MODELS[name].__class__(**gs.best_params_)
-    try:
-        best_model.set_params(random_state=42)
-    except ValueError:
-        pass
-    if name == "SVM":
-        best_model.set_params(probability=True)
-
+    best_model = clone(MODELS[name]).set_params(**gs.best_params_)
     best_model.fit(X_tr, y_tr)
     return best_model
 
@@ -357,128 +276,40 @@ def _save_pipeline(
 # ── Entry point ────────────────────────────────────────────────────────────────
 
 def train(
-    data_dir: Path = DATASET_CLASSIFICATION,
+    data_dir: Path | None = None,
     model_dir: Path | None = None,
     use_pca: bool = USE_PCA,
     run_gridsearch: bool = True,
-    device: str = "cpu",
-    epochs: int = 100,
-    batch_size: int = 64,
-    resume: bool = False,
-    dataset_mode: str = "folder",
+    dataset_mode: str = "whole-scene",
 ) -> dict:
-    """Chạy pipeline sklearn hoặc huấn luyện mới/tiếp tục TorchMLP."""
+    """Chạy pipeline các mô hình scikit-learn trên CPU."""
     if dataset_mode not in {"folder", "yolo", "whole-scene"}:
         raise ValueError("dataset_mode phải là 'folder', 'yolo' hoặc 'whole-scene'.")
+    if data_dir is None:
+        data_dir = _default_data_dir(dataset_mode)
     if model_dir is None:
         model_dir = Path(
             "models-whole-scene" if dataset_mode == "whole-scene" else "models"
         )
     class_names = CLASS_NAMES if dataset_mode == "folder" else LEGACY_CLASS_NAMES
-    if device not in {"cpu", "cuda"}:
-        raise ValueError("device phải là 'cpu' hoặc 'cuda'.")
-    if (device == "cuda" or resume) and (epochs < 1 or batch_size < 1):
-        raise ValueError("epochs và batch_size phải lớn hơn 0.")
-    is_torch = device == "cuda" or resume
     print("=" * 60)
     print("PIPELINE HUẤN LUYỆN — PHÂN LOẠI TRẠNG THÁI TRÁI CÂY")
     print(f"Dataset: {data_dir}")
     print(f"Chế độ dữ liệu: {dataset_mode}")
     print(f"Model dir: {model_dir}")
-    print(f"Thiết bị huấn luyện: {device}")
-    gpu_name = None
-    if device == "cuda":
-        from src.torch_model import ensure_cuda_available
-
-        gpu_name = ensure_cuda_available()
-        print(f"GPU: {gpu_name}")
-    resume_model = None
-    scaler = None
-    pca = None
-    previous_epochs_requested = 0
-    if resume:
-        resume_model, scaler, pca = _load_resume_artifacts(model_dir, device, dataset_mode)
-        previous_epochs_requested = int(
-            getattr(
-                resume_model,
-                "epochs_requested_total_",
-                getattr(resume_model, "epochs", 0),
-            )
-        )
-        print(f"Tiếp tục từ TorchMLP đã lưu trong: {model_dir}")
-        if use_pca and pca is None:
-            raise ValueError("Model đã lưu không dùng PCA; bỏ tùy chọn --pca khi --resume.")
+    print("Thiết bị huấn luyện: CPU")
     print("=" * 60)
 
     # 1. Nạp và trích xuất features
     X_train, y_train, X_val, y_val, X_test, y_test = _load_data(data_dir, dataset_mode)
 
     # 2. Chuẩn hóa
-    X_tr, X_va, X_te, scaler, pca = _preprocess(
-        X_train,
-        X_val,
-        X_test,
-        use_pca if not resume else pca is not None,
-        scaler=scaler,
-        pca=pca,
-    )
+    X_tr, X_va, X_te, scaler, pca = _preprocess(X_train, X_val, X_test, use_pca)
 
     # 3. Huấn luyện tất cả mô hình
-    if is_torch:
-        if resume:
-            model = resume_model
-            assert model is not None
-            model.epochs = epochs
-            model.batch_size = batch_size
-        else:
-            from src.torch_model import TorchMLPClassifier
-
-            model = TorchMLPClassifier(
-                device=device,
-                epochs=epochs,
-                batch_size=batch_size,
-                random_state=42,
-            )
-        t0 = time.perf_counter()
-        model.fit(
-            X_tr,
-            y_train,
-            validation_data=(X_va, y_val),
-            warm_start=resume,
-        )
-        if resume:
-            model.epochs_requested_total_ = previous_epochs_requested + epochs
-        else:
-            model.epochs_requested_total_ = epochs
-        train_time = time.perf_counter() - t0
-        t0 = time.perf_counter()
-        y_pred_val = model.predict(X_va)
-        infer_time = time.perf_counter() - t0
-        val_metrics = evaluate_predictions(
-            y_val.tolist(), y_pred_val.tolist(), class_names=class_names
-        )
-        val_results = {
-            "TorchMLP": {
-                **val_metrics,
-                "train_time_s": round(train_time, 3),
-                "infer_time_ms": round(infer_time * 1000, 2),
-                "epochs_trained": model.n_epochs_trained_,
-            }
-        }
-        best_name = "TorchMLP"
-        available_models = {best_name: model}
-        if run_gridsearch:
-            print("Bỏ qua GridSearchCV trong chế độ TorchMLP.")
-        use_gridsearch = False
-        print(
-            f"  TorchMLP ({device.upper()})  acc={val_metrics['accuracy']:.4f}  "
-            f"f1={val_metrics['macro_f1']:.4f}  train={train_time:.1f}s  "
-            f"epochs this run={model.last_fit_epochs_trained_}; total={model.n_epochs_trained_}"
-        )
-    else:
-        val_results, best_name = _train_all(X_tr, y_train, X_va, y_val, class_names)
-        available_models = MODELS
-        use_gridsearch = run_gridsearch
+    val_results, best_name = _train_all(X_tr, y_train, X_va, y_val, class_names)
+    available_models = MODELS
+    use_gridsearch = run_gridsearch
 
     # 4. GridSearch cho top-3 mô hình tốt nhất
     if use_gridsearch:
@@ -520,7 +351,7 @@ def train(
     if dataset_mode == "whole-scene":
         reports_dir = model_dir.parent / "reports-whole-scene"
     else:
-        reports_dir = model_dir.parent / ("reports-gpu" if device == "cuda" else "reports")
+        reports_dir = model_dir.parent / "reports"
     full_report(
         y_test.tolist(), y_pred_test.tolist(),
         class_names=class_names,
@@ -547,21 +378,9 @@ def train(
             "n_test": int(len(y_test)),
             "use_pca": pca is not None,
             "gridsearch": use_gridsearch,
-            "backend": "pytorch" if is_torch else "scikit-learn",
-            "device": device,
+            "backend": "scikit-learn",
+            "device": "cpu",
             "dataset_mode": dataset_mode,
-            **({"gpu_name": gpu_name} if gpu_name is not None else {}),
-            **(
-                {
-                    "epochs_requested": best_model.epochs_requested_total_,
-                    "epochs_trained": best_model.n_epochs_trained_,
-                    "epochs_added": best_model.last_fit_epochs_trained_,
-                    "batch_size": batch_size,
-                    "resumed": resume,
-                }
-                if is_torch
-                else {}
-            ),
         },
     )
 
@@ -570,40 +389,23 @@ def train(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Huấn luyện mô hình phân loại trái cây")
-    parser.add_argument("--data-dir", type=Path, default=DATASET_CLASSIFICATION)
+    parser.add_argument("--data-dir", type=Path, default=None)
     parser.add_argument("--model-dir", type=Path, default=None)
     parser.add_argument(
         "--dataset-mode",
         choices=("folder", "yolo", "whole-scene"),
-        default="folder",
+        default="whole-scene",
         help=(
-            "folder: dataset classification theo thư mục (mặc định); "
-            "yolo: dataset YOLO cũ; whole-scene: ảnh nguyên cảnh từ YOLO"
+            "whole-scene: ảnh nguyên cảnh (mặc định); "
+            "folder: dataset classification theo thư mục; yolo: crop bbox YOLO"
         ),
     )
     parser.add_argument("--pca", action="store_true", help="Bật PCA giảm chiều")
     parser.add_argument("--no-gridsearch", action="store_true", help="Tắt GridSearch")
-    parser.add_argument(
-        "--device",
-        choices=("cpu", "cuda"),
-        default="cpu",
-        help="cpu: scikit-learn (hoặc TorchMLP khi --resume); cuda: TorchMLP trên GPU NVIDIA",
-    )
-    parser.add_argument(
-        "--epochs",
-        type=int,
-        default=100,
-        help="Số epoch cho lượt train mới hoặc số epoch bổ sung khi --resume",
-    )
-    parser.add_argument("--batch-size", type=int, default=64, help="Batch size cho TorchMLP")
-    parser.add_argument(
-        "--resume",
-        action="store_true",
-        help="Tiếp tục huấn luyện TorchMLP từ classifier.joblib trong model-dir",
-    )
     args = parser.parse_args(argv)
 
-    image_root = args.data_dir / "images" if args.dataset_mode == "yolo" else args.data_dir
+    data_dir = args.data_dir or _default_data_dir(args.dataset_mode)
+    image_root = data_dir / "images" if args.dataset_mode == "yolo" else data_dir
     missing_splits = [
         split for split in ("train", "val", "test")
         if not (image_root / split).is_dir()
@@ -617,14 +419,10 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         test_metrics = train(
-            data_dir=args.data_dir,
+            data_dir=data_dir,
             model_dir=args.model_dir,
             use_pca=args.pca,
             run_gridsearch=not args.no_gridsearch,
-            device=args.device,
-            epochs=args.epochs,
-            batch_size=args.batch_size,
-            resume=args.resume,
             dataset_mode=args.dataset_mode,
         )
     except (FileNotFoundError, OSError, RuntimeError, ValueError) as exc:

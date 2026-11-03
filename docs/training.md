@@ -6,10 +6,10 @@ Tài liệu chi tiết về quy trình nạp dữ liệu, trích xuất đặc t
 
 ## 1. Cấu trúc bài toán và Dataset
 
-- **Bài toán:** Phân loại đa lớp thành 9 lớp: `Orange`, `Banana`, `Mango` kết hợp với `Unripe`, `Ripe`, `Spoiled`.
-- **Định dạng dữ liệu mặc định:** Ảnh đã chia theo thư mục lớp tại `data/processed/dataset/{train,val,test}/`.
-- **Quy mô dataset hiện hành:** 1.270 ảnh train, 361 validation và 184 test (1.815 ảnh tổng cộng).
-- **Dataset YOLO cũ:** `data/raw/` có taxonomy Apple/Banana/Mango × Unripe/Ripe/Overripe; chỉ dùng khi chọn rõ mode `yolo` hoặc `whole-scene`.
+- **Bài toán:** Phân loại đa lớp thành 9 lớp; nhãn tùy theo dataset mode.
+- **Định dạng dữ liệu mặc định:** Ảnh nguyên cảnh tại `data/processed/whole-scene/{train,val,test}/`; giữ nguyên ảnh, không crop bounding box.
+- **Taxonomy mặc định:** Apple/Banana/Mango × Unripe/Ripe/Overripe từ dataset YOLO cũ trong `data/raw/`.
+- **Dataset classification khác:** Có thể chọn rõ mode `folder` cho 1.270 ảnh train, 361 validation và 184 test (Cam/Chuối/Xoài × Unripe/Ripe/Spoiled) tại `data/processed/dataset/`.
 
 ---
 
@@ -30,27 +30,28 @@ Mỗi ảnh được chuyển sang RGB và co giãn về kích thước chuẩn 
 
 Toàn bộ 51 đặc trưng được chuẩn hóa bằng `StandardScaler` (chỉ fit trên tập train, sau đó transform cho val và test).
 
-### Chế độ ảnh toàn cảnh từ dataset YOLO cũ
+### Dataset mặc định: ảnh toàn cảnh từ YOLO
 
-Dataset YOLO cũ có thể tạo bộ classification dùng nguyên ảnh gốc. Pipeline giữ
-nguyên split train/val/test có sẵn; chỉ nhận ảnh mà tất cả
+Dataset YOLO trong `data/raw/` được chuyển thành bộ classification dùng nguyên
+ảnh gốc. Pipeline giữ nguyên split train/val/test có sẵn; chỉ nhận ảnh mà tất cả
 bounding box cùng mang một nhãn. Ảnh không có nhãn, nhãn sai định dạng hoặc
 nhiều class bị loại vì không thể gán một nhãn classification duy nhất cho cảnh.
 Ảnh được resize thành 128×128, cùng cách resize mà `FruitClassifier` dùng khi
-inference.
+inference. Đây là chế độ mặc định của lệnh train.
 
 ```powershell
 python -m src.dataset --source-dir data/raw --output-dir data/processed/whole-scene
-python -m src.train --dataset-mode whole-scene --data-dir data/processed/whole-scene --no-gridsearch
+python -m src.train
 ```
 
 Manifest ghi số ảnh giữ lại/loại theo split và class. Model được lưu mặc định
 vào `models-whole-scene/`, báo cáo vào `reports-whole-scene/`; truyền
 `--model-dir` nếu muốn chọn thư mục khác. Không dùng chung model directory giữa
-hai chế độ và không resume TorchMLP từ một chế độ sang chế độ còn lại.
+hai chế độ.
 
 Artifact của chế độ này vẫn dùng taxonomy Apple/Banana/Mango cũ và được lưu
-riêng trong `models-whole-scene/`; không dùng làm model hiện hành Cam/Chuối/Xoài.
+riêng trong `models-whole-scene/`. Muốn dùng taxonomy Cam/Chuối/Xoài, chọn rõ
+`--dataset-mode folder --data-dir data/processed/dataset --model-dir models`.
 
 ---
 
@@ -80,86 +81,40 @@ Mô hình có hiệu năng tốt nhất sau tinh chỉnh sẽ được chọn l�
 
 ## 5. Hướng dẫn chạy huấn luyện
 
-### Chạy huấn luyện đầy đủ (Mặc định)
+### Chạy huấn luyện mặc định (ảnh nguyên cảnh, CPU)
 
 ```powershell
-python -m src.train --data-dir data/processed/dataset --model-dir models
+python -m src.train
 ```
 
-### Chạy huấn luyện nhanh (Bỏ qua GridSearchCV)
+### Chạy huấn luyện nhanh (bỏ qua GridSearchCV)
 
 ```powershell
-python -m src.train --data-dir data/processed/dataset --model-dir models --no-gridsearch
+python -m src.train --no-gridsearch
 ```
 
-### Tùy chọn giảm chiều PCA
+Pipeline luôn huấn luyện 7 mô hình scikit-learn trên CPU. Không có tùy chọn
+CUDA/GPU hoặc backend PyTorch trong lệnh train. Có thể chọn dataset classification
+Cam/Chuối/Xoài bằng cách chỉ rõ mode và đường dẫn:
 
 ```powershell
-python -m src.train --data-dir data/processed/dataset --model-dir models --pca
+python -m src.train --dataset-mode folder --data-dir data/processed/dataset --model-dir models
 ```
 
-## 6. Huấn luyện tùy chọn trên GPU CUDA
-
-Pipeline scikit-learn gồm 7 mô hình vẫn là mặc định và chạy trên CPU. Để chọn
-GPU NVIDIA, dự án có backend PyTorch: nó huấn luyện một MLP trên cùng 51 đặc trưng
-ảnh. PyTorch được khai báo trong `requirements.txt`; cài dependencies (hoặc cập nhật
-môi trường hiện tại) bằng `uv pip install -r requirements.txt`. Wheel PyTorch đi
-kèm CUDA runtime 12.6 để khớp driver 566.07 (CUDA 12.7) trên máy hiện tại; requirements
-không cài driver NVIDIA. NVIDIA yêu cầu driver Windows 560.76 trở lên cho CUDA 12.6,
-nên driver 566.07 đáp ứng điều kiện này. Wheel CUDA 12.6 có sẵn cho Windows/Python 3.14.
-Nếu dùng máy khác, chọn wheel tương ứng trong [PyTorch Local](https://pytorch.org/get-started/locally/).
-
-Kiểm tra PyTorch nhận CUDA:
+Để bật PCA giảm chiều cho dataset mặc định:
 
 ```powershell
-.\.venv\Scripts\python.exe -c "import torch; print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CUDA chưa sẵn sàng')"
+python -m src.train --pca
 ```
 
-Chạy huấn luyện vào thư mục riêng để giữ nguyên model scikit-learn trong `models/`:
-
-```powershell
-.\.venv\Scripts\python.exe -m src.train --device cuda --no-gridsearch --data-dir data/processed/dataset --model-dir models-gpu --epochs 100 --batch-size 64
-```
-
-`--device cuda` yêu cầu CUDA sẵn sàng; nếu không, chương trình báo lỗi thay vì
-âm thầm chuyển sang CPU. MLP có early stopping dựa trên validation loss. Tùy chọn này huấn luyện riêng `TorchMLP`, không chạy 7
-mô hình scikit-learn. Đọc ảnh, trích xuất 51 đặc trưng, chuẩn hóa và PCA (nếu bật)
-vẫn chạy trên CPU; chỉ bước huấn luyện MLP chạy trên GPU. Tập dữ liệu hiện tại nhỏ,
-nên GPU không nhất thiết nhanh hơn CPU.
-
-Artifact trong `models-gpu/` có thể nạp bằng `FruitClassifier(model_dir="models-gpu")`.
-Môi trường suy luận cần cài PyTorch; model dùng CUDA nếu có, nếu không sẽ suy luận
-bằng CPU. Biểu đồ và classification report của lượt train CUDA được lưu riêng trong
-`reports-gpu/`.
-
-### Tiếp tục huấn luyện TorchMLP đã lưu
-
-Trỏ `--model-dir` tới thư mục artifact PyTorch hiện có và thêm `--resume`. `--epochs`
-là số epoch tối đa muốn chạy thêm; early stopping vẫn có thể dừng sớm. Chương trình
-giữ trọng số tốt nhất đã lưu và dùng lại
-scaler/PCA cũ để bảo đảm đầu vào tương thích. Chọn `--device cuda` để tiếp tục trên
-GPU, hoặc `--device cpu` để chạy trên CPU:
-
-```powershell
-.\.venv\Scripts\python.exe -m src.train --resume --device cuda --no-gridsearch --data-dir data/processed/dataset --model-dir models-gpu --epochs 30 --batch-size 64
-```
-
-`--resume` chỉ hỗ trợ TorchMLP, không dùng cho model scikit-learn. Mỗi lượt tiếp tục
-tạo optimizer Adam mới và chạy early stopping lại từ trọng số đã lưu. Kết quả ghi
-đè artifact trong chính `--model-dir`; metadata lưu tổng epoch đã yêu cầu/đã train,
-số epoch của lượt vừa chạy và trạng thái resume. Không cần truyền lại `--pca` nếu
-artifact ban đầu đã dùng PCA.
-
----
-
-## 7. Kết quả đầu ra
+## 6. Kết quả đầu ra
 
 Sau khi chạy thành công, hệ thống tự động sinh:
-- **Thư mục `models/`:**
+- **Thư mục model:** Mặc định `models-whole-scene/`; mode `folder` mặc định dùng `models/`.
   - `classifier.joblib`: Trọng số mô hình tốt nhất (SVM).
   - `scaler.joblib`: Bộ chuẩn hóa `StandardScaler` khớp với 51 features.
   - `config.json`: Toàn bộ cấu hình metadata, tên lớp, số mẫu và chỉ số metrics.
-- **Thư mục `reports/`:**
+- **Thư mục báo cáo:** Mặc định `reports-whole-scene/`; mode `folder` dùng `reports/`.
   - `confusion_matrix.png`: Ma trận nhầm lẫn trực quan trên tập test.
   - `roc_curves.png`: 9 đường cong ROC One-vs-Rest kèm giá trị AUC từng lớp.
   - `model_comparison.png`: Biểu đồ cột so sánh Accuracy và Macro F1 của cả 7 mô hình.
@@ -167,5 +122,4 @@ Sau khi chạy thành công, hệ thống tự động sinh:
   - `classification_report_SVM.txt`: Bảng chi tiết Precision, Recall, F1 theo từng lớp.
 
 Web UI hiển thị biểu đồ này trong mục **Thông tin mô hình → Biểu đồ đánh giá**
-từ file `/reports/feature_importance.png`. Với TorchMLP, permutation importance
-được tính trên validation để không dùng tập test cho phân tích đặc trưng.
+từ file `/reports/feature_importance.png`.

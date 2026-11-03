@@ -8,10 +8,10 @@ Tài liệu hướng dẫn sử dụng bộ máy suy luận (Inference Engine) v
 
 Lớp `FruitClassifier` (trong `src/predict.py`) là lớp đóng gói chuẩn mực phục vụ suy luận độc lập, không phụ thuộc vào dữ liệu huấn luyện.
 
-Nếu model được huấn luyện bằng `--device cuda`, môi trường suy luận cần có PyTorch.
-Model sẽ dùng CUDA nếu khả dụng và tự suy luận trên CPU nếu không có CUDA. Model
-scikit-learn hiện có không cần GPU; cài đặt PyTorch trong requirements không làm
-thay đổi backend suy luận của model đó.
+Pipeline train hiện tại chỉ tạo model scikit-learn trên CPU. Artifact mặc định
+được lưu trong `models-whole-scene/`; khi khởi chạy ứng dụng web, cấu hình
+`FRUIT_MODEL_DIR=models-whole-scene` và
+`FRUIT_REPORTS_DIR=reports-whole-scene` để nạp model đó.
 
 ### Khởi tạo và nạp mô hình
 
@@ -20,8 +20,8 @@ from pathlib import Path
 from PIL import Image
 from src.predict import FruitClassifier
 
-# Khởi tạo đối tượng trỏ đến thư mục chứa model
-classifier = FruitClassifier(model_dir=Path("models"))
+# Khởi tạo đối tượng trỏ đến model ảnh nguyên cảnh mặc định
+classifier = FruitClassifier(model_dir=Path("models-whole-scene"))
 
 # Nạp model, scaler và cấu hình
 classifier.load()
@@ -44,11 +44,11 @@ print("Độ tin cậy:", f"{result['confidence']*100:.1f}%")
 print("Thời gian xử lý:", f"{result['processing_time_ms']} ms")
 ```
 
-Nếu train với `--dataset-mode whole-scene` trên dataset YOLO cũ, nạp đúng
-artifact ở `models-whole-scene` để dùng taxonomy Apple/Banana/Mango:
+Nếu chọn mode `folder`, trỏ tới artifact đã train ở `models/` để dùng taxonomy
+Cam/Chuối/Xoài:
 
 ```python
-classifier = FruitClassifier(model_dir=Path("models-whole-scene")).load()
+classifier = FruitClassifier(model_dir=Path("models")).load()
 ```
 
 ### Dự đoán trực tiếp từ đường dẫn file hoặc chuỗi bytes
@@ -127,7 +127,7 @@ Mở `http://127.0.0.1:8000`. Tài liệu Swagger UI ở `/docs`; OpenAPI JSON �
 | `DELETE /api/history` | Xóa metadata lịch sử trên máy đang chạy backend. |
 | `GET /api/statistics` | Thống kê thật từ các lượt đã ghi trong SQLite. |
 
-`POST /api/predict` hỗ trợ JPG, JPEG, PNG, BMP và WEBP, tối đa 10 MB. API kiểm tra nội dung ảnh bằng Pillow; đổi tên file hoặc `Content-Type` không làm một file không phải ảnh trở thành hợp lệ. Response gồm `predicted_class`, `class_name`, `fruit_type`, `ripeness`, `processing_time_ms` và metadata lịch sử. Trường `confidence`/`probabilities` chỉ được gửi khi model thực sự có `predict_proba`. Dataset hiện hành có 9 lớp Cam/Chuối/Xoài × Chưa chín/Chín/Hỏng; `ripeness` giữ tên field tương thích và có thể mang giá trị `Spoiled`.
+`POST /api/predict` hỗ trợ JPG, JPEG, PNG, BMP và WEBP, tối đa 10 MB. API kiểm tra nội dung ảnh bằng Pillow; đổi tên file hoặc `Content-Type` không làm một file không phải ảnh trở thành hợp lệ. Response gồm `predicted_class`, `class_name`, `fruit_type`, `ripeness`, `processing_time_ms` và metadata lịch sử. Trường `confidence`/`probabilities` chỉ được gửi khi model thực sự có `predict_proba`. Tên lớp và taxonomy phụ thuộc artifact đã nạp; artifact mặc định whole-scene dùng Apple/Banana/Mango × Unripe/Ripe/Overripe, còn artifact folder dùng Orange/Banana/Mango × Unripe/Ripe/Spoiled.
 
 Ảnh upload chỉ được dùng cho inference và không lưu xuống đĩa. SQLite lưu tên file, nhãn, độ tin cậy nếu có, thời gian xử lý và timestamp UTC tại `app/web/data/history.sqlite3` (đường dẫn này bị Git bỏ qua). Thống kê dashboard lấy từ lịch sử cục bộ; metrics kiểm thử trên trang mô hình lấy từ `models/config.json` và có ý nghĩa khác với thống kê sử dụng.
 

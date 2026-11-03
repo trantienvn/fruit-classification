@@ -1,8 +1,23 @@
 # Dữ liệu
 
-## Dataset classification hiện hành
+## Dataset train mặc định: ảnh nguyên cảnh
 
-Pipeline mặc định dùng dataset ảnh đã chia lớp tại
+Pipeline mặc định dùng ảnh nguyên cảnh từ `data/processed/whole-scene/`,
+được tạo từ các split YOLO trong `data/raw/`. Ảnh gốc được giữ nguyên, không
+crop bounding box; ảnh chứa nhiều class hoặc nhãn không hợp lệ bị loại vì
+không thể gán một nhãn cho toàn cảnh. Dataset này dùng taxonomy cũ
+Apple/Banana/Mango × Unripe/Ripe/Overripe. Dataset sinh ra là dữ liệu cục bộ,
+không commit vào repository.
+
+Tạo hoặc cập nhật dataset nguyên cảnh bằng:
+
+```powershell
+python -m src.dataset --source-dir data/raw --output-dir data/processed/whole-scene
+```
+
+## Dataset classification theo thư mục (chế độ tùy chọn)
+
+Chế độ `folder` dùng dataset ảnh đã chia lớp tại
 `data/processed/dataset/{train,val,test}/`. Dataset có 9 lớp: cam, chuối, xoài;
 mỗi loại gồm `Unripe`, `Ripe`, `Spoiled`. Các thư mục `*-hong` được xác nhận là
 trái cây hỏng, không gộp vào nhãn quá chín.
@@ -34,10 +49,10 @@ thông tin nguồn và giấy phép gốc khi chia sẻ dữ liệu.
 
 ## Dataset YOLO cũ
 
-`data/raw/` vẫn giữ dataset YOLO cũ với nhãn Apple/Banana/Mango và các trạng
-thái `Unripe`, `Ripe`, `Overripe`. Dataset này chỉ dùng khi chạy rõ
-`--dataset-mode yolo` hoặc tạo ảnh toàn cảnh theo chế độ tương thích; không
-được dùng làm dataset mặc định Cam/Chuối/Xoài.
+`data/raw/` lưu dataset YOLO với nhãn Apple/Banana/Mango và các trạng thái
+`Unripe`, `Ripe`, `Overripe`. Đây là nguồn để tạo ảnh nguyên cảnh mặc định;
+chế độ `--dataset-mode yolo` vẫn có thể chọn rõ ràng để crop bounding box.
+Dataset này không phải taxonomy Cam/Chuối/Xoài của chế độ `folder`.
 
 ### Cấu trúc YOLO cũ
 
@@ -144,7 +159,7 @@ Với dataset YOLO cũ, export giữ 1.547 ảnh train, 443 validation và 220 t
 lưu riêng trong `models-whole-scene/` và `reports-whole-scene/`; đây là kết quả
 của taxonomy Apple/Banana/Mango cũ.
 
-Để train trên ảnh nguyên cảnh, dùng
-`python -m src.train --dataset-mode whole-scene --data-dir data/processed/whole-scene`.
+Train mặc định dùng ảnh nguyên cảnh với `python -m src.train`. Có thể truyền
+`--dataset-mode whole-scene` tường minh nếu muốn.
 Dataset đã xuất và manifest là dữ liệu tạo sinh cục bộ, không commit vào
 repository.

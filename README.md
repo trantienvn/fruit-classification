@@ -1,22 +1,25 @@
 # Phân loại trạng thái trái cây
 
-Dự án phân loại ảnh trái cây thành 9 lớp: Cam, Chuối, Xoài; mỗi loại gồm
-Chưa chín (Unripe), Chín (Ripe) và Hỏng (Spoiled). Dataset mặc định là ảnh
-được chia thư mục theo lớp tại `data/processed/dataset/`, với các split
-train/val/test có sẵn. Pipeline trích xuất đặc trưng ảnh (màu RGB/HSV, kết cấu
-LBP & GLCM, hình dạng) và huấn luyện các mô hình machine learning truyền thống.
+Dự án phân loại ảnh trái cây thành 9 lớp. Pipeline mặc định dùng ảnh nguyên
+cảnh (không crop bounding box) từ `data/processed/whole-scene/`, giữ các split
+train/val/test và taxonomy Apple/Banana/Mango của dataset YOLO cũ. Có thể chọn
+dataset classification Cam/Chuối/Xoài ở chế độ `folder`. Pipeline trích xuất
+đặc trưng ảnh (màu RGB/HSV, kết cấu LBP & GLCM, hình dạng) và chỉ huấn luyện
+các mô hình machine learning truyền thống trên CPU.
 
 ## Dataset
 
-Dataset classification hiện hành được lưu cục bộ tại `data/processed/dataset/`
-và không được commit vào repository. Cấu trúc lớp, số lượng ảnh và ánh xạ nhãn
-được mô tả trong [data/README.md](data/README.md). Nguồn/giấy phép của bộ dữ
-liệu này chưa được ghi trong repository.
+Dataset ảnh nguyên cảnh mặc định được tạo cục bộ từ `data/raw/` vào
+`data/processed/whole-scene/`; không crop trái cây và loại ảnh nhiều class vì
+không thể gán một nhãn cho toàn cảnh. Dữ liệu sinh ra không được commit vào
+repository.
 
-`data/raw/` vẫn lưu một dataset YOLO cũ Apple/Banana/Mango để tham khảo và
-tương thích ngược; nó không phải nguồn dữ liệu mặc định để train.
+Dataset classification Cam/Chuối/Xoài tại `data/processed/dataset/` là lựa
+chọn thêm, không phải chế độ train mặc định. Cấu trúc lớp, số lượng ảnh và ánh
+xạ nhãn được mô tả trong [data/README.md](data/README.md). Nguồn/giấy phép của
+bộ dữ liệu này chưa được ghi trong repository.
 
-Dataset YOLO cũ **Fruit Ripeness** do Huzaifa công bố trên
+Dataset YOLO **Fruit Ripeness** do Huzaifa công bố trên
 [Roboflow Universe](https://universe.roboflow.com/huzaifa-qgpco/fruit-ripeness-unjex-xsudt),
 sử dụng theo giấy phép
 [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
@@ -34,8 +37,8 @@ các thay đổi.
 ## Yêu cầu
 
 - Windows 10/11, Python 3.14 và [`uv`](https://github.com/astral-sh/uv).
-- Pipeline scikit-learn mặc định không cần GPU và không dùng trọng số pretrained;
-  `requirements.txt` cài PyTorch để có thể huấn luyện MLP trên GPU NVIDIA.
+- Pipeline dùng scikit-learn trên CPU, không yêu cầu GPU, PyTorch hoặc trọng số
+  pretrained.
 - Có kết nối mạng để cài các thư viện trong `requirements.txt`.
 
 ## Cài đặt trên Windows
@@ -64,80 +67,54 @@ lại.
 
 ## Huấn luyện
 
-Dataset classification được đặt tại `data/processed/dataset/`. Chạy pipeline từ thư mục gốc:
-
-```powershell
-python -m src.train --data-dir data/processed/dataset --model-dir models
-```
-
-Pipeline đọc ảnh theo các thư mục lớp trong ba split có sẵn, resize ảnh về
-128×128, trích xuất 51 đặc trưng, so sánh 7 mô hình và đánh giá mô hình tốt
-nhất trên tập test. Mặc định pipeline có chạy GridSearch; để bỏ qua bước này:
-
-```powershell
-python -m src.train --data-dir data/processed/dataset --model-dir models --no-gridsearch
-```
-
-Muốn huấn luyện MLP bằng GPU NVIDIA, cài dependencies bằng `uv pip install -r requirements.txt`
-rồi chạy `python -m src.train --device cuda --no-gridsearch --data-dir data/processed/dataset --model-dir models-gpu`.
-Requirements khóa PyTorch ở wheel CUDA 12.6 tương thích driver NVIDIA 566.07 của máy.
-Máy vẫn cần NVIDIA driver tương thích.
-Xem [hướng dẫn huấn luyện](docs/training.md#6-huấn-luyện-tùy-chọn-trên-gpu-cuda)
-để biết cách kiểm tra CUDA, nạp artifact và tiếp tục train với `--resume`.
-
-Muốn tiếp tục train một TorchMLP đã lưu, dùng lại đúng thư mục artifact với `--resume`:
-
-```powershell
-.\.venv\Scripts\python.exe -m src.train --resume --device cuda --no-gridsearch --data-dir data/processed/dataset --model-dir models-gpu --epochs 30 --batch-size 64
-```
-
-`--epochs` là số epoch tối đa chạy thêm; early stopping có thể dừng sớm. Lệnh nạp
-trọng số cùng scaler/PCA hiện có, rồi cập nhật artifact trong `--model-dir`. Có thể
-đổi `--device cuda` thành `--device cpu` để tiếp tục trên CPU. `--resume` chỉ áp dụng
-cho TorchMLP, không dùng cho các model scikit-learn; mỗi lượt resume khởi tạo lại
-optimizer Adam.
-
-Không dùng tập test để chọn mô hình hoặc điều chỉnh tham số. Kết quả huấn luyện
-và các báo cáo được ghi vào `models/` và `reports/`.
-
-### Huấn luyện trên ảnh toàn cảnh
-
-Dataset YOLO cũ trong `data/raw/` có sẵn các split `train/val/test`. Có thể
-tạo bản classification ảnh nguyên cảnh (không crop bounding box), giữ nguyên
-split gốc:
+Tạo dataset ảnh nguyên cảnh một lần từ các split YOLO trong `data/raw/`:
 
 ```powershell
 python -m src.dataset --source-dir data/raw --output-dir data/processed/whole-scene
 ```
 
-Chỉ ảnh mà mọi bounding box cùng thuộc một class được đưa vào; ảnh thiếu nhãn,
-nhãn lỗi, không có đối tượng hoặc có nhiều class bị loại và thống kê được ghi
-trong `data/processed/whole-scene/manifest.json`. Sau đó train trên ảnh nguyên
-cảnh:
+Sau đó chạy pipeline mặc định từ thư mục gốc:
 
 ```powershell
-python -m src.train --dataset-mode whole-scene --data-dir data/processed/whole-scene --no-gridsearch
+python -m src.train
 ```
 
-Chế độ này mặc định lưu model vào `models-whole-scene/` và báo cáo vào
-`reports-whole-scene/`, không ghi đè model classification hiện hành trong
-`models/`. Chế độ whole-scene chỉ dùng taxonomy Apple/Banana/Mango của dataset
-YOLO cũ. Ảnh có nhiều class trong cùng scene bị loại.
+Pipeline mặc định dùng `data/processed/whole-scene/`, resize toàn ảnh về
+128×128, trích xuất 51 đặc trưng, so sánh 7 mô hình và đánh giá mô hình tốt
+nhất trên tập test. Artifact và báo cáo được lưu trong `models-whole-scene/`
+và `reports-whole-scene/`. Mặc định pipeline có chạy GridSearch; để bỏ qua:
+
+```powershell
+python -m src.train --no-gridsearch
+```
+
+Để dùng dataset classification Cam/Chuối/Xoài theo thư mục, chọn rõ mode và
+đường dẫn dữ liệu/model:
+
+```powershell
+python -m src.train --dataset-mode folder --data-dir data/processed/dataset --model-dir models
+```
+
+Không dùng tập test để chọn mô hình hoặc điều chỉnh tham số. Với mode `folder`,
+artifact và báo cáo được ghi vào `models/` và `reports/`; mode whole-scene dùng
+các thư mục riêng như trên.
 
 ## Chạy Web Application
 
-Sau khi có model trong `models/`, chạy FastAPI từ thư mục gốc:
-
-```powershell
-.\.venv\Scripts\python.exe -m app.web
-```
-
-Để web dùng model được train trên ảnh toàn cảnh, trỏ biến môi trường tới artifact
-đó trước khi chạy:
+Để web dùng model ảnh nguyên cảnh được train mặc định, cấu hình model/report
+directory trước khi chạy FastAPI:
 
 ```powershell
 $env:FRUIT_MODEL_DIR = "models-whole-scene"
 $env:FRUIT_REPORTS_DIR = "reports-whole-scene"
+.\.venv\Scripts\python.exe -m app.web
+```
+
+Web mặc định đọc artifact từ `models/` và `reports/`; để dùng model
+classification Cam/Chuối/Xoài theo thư mục, không cần đổi cấu hình; khi đó chỉ
+cần chạy:
+
+```powershell
 .\.venv\Scripts\python.exe -m app.web
 ```
 

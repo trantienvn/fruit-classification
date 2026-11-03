@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 import io
-import json
-from pathlib import Path
 
 import numpy as np
 import pytest
 from PIL import Image
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.dummy import DummyClassifier
 
 from src.dataset import (
     CLASS_FOLDER_NAMES,
     CLASS_NAMES,
+    DATA_RAW,
+    DATASET_CLASSIFICATION,
+    DATASET_WHOLE_SCENE,
     _parse_yolo_box,
     class_distribution,
     load_classification_split,
@@ -23,7 +25,7 @@ from src.dataset import (
 from src.evaluate import _plot_feature_importance, evaluate_predictions
 from src.features import FEATURE_NAMES, N_FEATURES, extract_features
 from src.predict import FruitClassifier, checkpoint_available
-from src.train import _load_resume_artifacts
+from src.train import GRID_PARAMS, _default_data_dir, _grid_search_best, main
 
 
 # ── Dataset ──────────────────────────────────────────────────────────────────
@@ -116,16 +118,53 @@ def test_prepare_whole_scene_dataset_preserves_splits_and_filters_ambiguous_imag
     assert prepare_whole_scene_dataset(source_dir, output_dir) == summary
 
 
-def test_resume_rejects_artifact_from_different_dataset_mode(tmp_path):
-    (tmp_path / "classifier.joblib").write_bytes(b"")
-    (tmp_path / "scaler.joblib").write_bytes(b"")
-    (tmp_path / "config.json").write_text(
-        json.dumps({"backend": "pytorch", "model_name": "TorchMLP", "dataset_mode": "yolo"}),
-        encoding="utf-8",
-    )
+def test_training_default_dataset_dirs():
+    assert _default_data_dir("whole-scene") == DATASET_WHOLE_SCENE
+    assert _default_data_dir("folder") == DATASET_CLASSIFICATION
+    assert _default_data_dir("yolo") == DATA_RAW
 
-    with pytest.raises(RuntimeError, match="chế độ dữ liệu khác nhau"):
-        _load_resume_artifacts(tmp_path, "cpu", "whole-scene")
+
+def test_training_cli_defaults_to_whole_scene_and_cpu(monkeypatch, tmp_path):
+    data_dir = tmp_path / "whole-scene"
+    for split in ("train", "val", "test"):
+        (data_dir / split).mkdir(parents=True)
+    monkeypatch.setattr("src.train.DATASET_WHOLE_SCENE", data_dir)
+    captured = {}
+
+    def fake_train(**kwargs):
+        captured.update(kwargs)
+        return {"accuracy": 1.0}
+
+    monkeypatch.setattr("src.train.train", fake_train)
+
+    assert main([]) == 0
+    assert captured["data_dir"] == data_dir
+    assert captured["dataset_mode"] == "whole-scene"
+    assert "device" not in captured
+
+
+def test_grid_search_tunes_calibrated_svm_estimator():
+    rng = np.random.default_rng(42)
+    X_train = np.vstack([
+        rng.normal(loc=-1, size=(10, 3)),
+        rng.normal(loc=1, size=(10, 3)),
+    ])
+    y_train = np.array([0] * 10 + [1] * 10)
+    X_val = np.vstack([
+        rng.normal(loc=-1, size=(4, 3)),
+        rng.normal(loc=1, size=(4, 3)),
+    ])
+    y_val = np.array([0] * 4 + [1] * 4)
+    model = _grid_search_best("SVM", X_train, y_train, X_val, y_val)
+
+    assert isinstance(model, CalibratedClassifierCV)
+    assert set(GRID_PARAMS["SVM"]) == {
+        "estimator__C",
+        "estimator__gamma",
+        "estimator__kernel",
+    }
+    assert model.get_params()["estimator__kernel"] == "rbf"
+    assert model.predict(X_val).shape == y_val.shape
 
 
 # ── Features ─────────────────────────────────────────────────────────────────

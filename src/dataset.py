@@ -1,8 +1,8 @@
-"""Đọc dataset YOLO và dataset phân loại theo thư mục.
+"""Đọc dataset ảnh nguyên cảnh, YOLO crop và phân loại theo thư mục.
 
 Quy trình:
-  - Nạp dataset lớp theo thư mục từ data/processed/dataset/
-  - Hỗ trợ dữ liệu YOLO cũ từ data/raw/ cho pipeline tương thích
+  - Mặc định train trên ảnh nguyên cảnh đã xuất từ data/raw/
+  - Hỗ trợ dataset classification theo thư mục và YOLO crop
 
 Dataset classification dùng nhãn:
   Orange, Banana, Mango × Unripe, Ripe, Spoiled
@@ -70,9 +70,10 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 # Kích thước chuẩn hóa ảnh đầu vào
 CROP_SIZE = (128, 128)
 
-# Thư mục dataset mặc định
+# Thư mục dataset
 DATA_RAW = Path("data/raw")
 DATASET_CLASSIFICATION = Path("data/processed/dataset")
+DATASET_WHOLE_SCENE = Path("data/processed/whole-scene")
 
 
 def _parse_yolo_box(line: str, img_w: int, img_h: int) -> tuple[int, int, int, int, int] | None:
@@ -405,7 +406,7 @@ def main(argv: list[str] | None = None) -> int:
         description="Tạo dataset classification từ ảnh nguyên cảnh có nhãn YOLO."
     )
     parser.add_argument("--source-dir", type=Path, default=DATA_RAW)
-    parser.add_argument("--output-dir", type=Path, default=Path("data/processed/whole-scene"))
+    parser.add_argument("--output-dir", type=Path, default=DATASET_WHOLE_SCENE)
     args = parser.parse_args(argv)
 
     try:

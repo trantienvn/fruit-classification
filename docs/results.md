@@ -1,11 +1,17 @@
 # Báo cáo kết quả thực nghiệm mô hình
 
-## Kết quả hiện hành — dataset Cam/Chuối/Xoài
+## Dataset Cam/Chuối/Xoài — phân hoạch hiện tại
 
-Dataset classification tại `data/processed/dataset/` có 1.270 ảnh train,
-361 validation và 184 test. GridSearch chọn SVM với validation accuracy
-94,46%, Macro F1 0,9448. Trên test độc lập, SVM đạt accuracy 91,30%,
-Macro F1 0,9115 và Macro AUC 0,9940.
+Dataset classification tại `data/processed/dataset/` có 9 lớp, mỗi lớp gồm
+140 ảnh train, 30 validation và 30 test (tổng cộng 1.260 train, 270 validation
+và 270 test).
+
+### Kết quả thực nghiệm đã lưu trên phân hoạch trước
+
+Các chỉ số dưới đây là từ báo cáo thực nghiệm đã lưu trước khi cập nhật phân
+hoạch dataset; chưa được đánh giá lại trên các split hiện tại. GridSearch chọn
+SVM với validation accuracy 94,46%, Macro F1 0,9448. Trên test, SVM đạt
+accuracy 91,30%, Macro F1 0,9115 và Macro AUC 0,9940.
 
 | Lớp | Precision | Recall | F1 | Số mẫu |
 |---|---:|---:|---:|---:|

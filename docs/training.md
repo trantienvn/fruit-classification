@@ -9,7 +9,7 @@ Tài liệu chi tiết về quy trình nạp dữ liệu, trích xuất đặc t
 - **Bài toán:** Phân loại đa lớp thành 9 lớp; nhãn tùy theo dataset mode.
 - **Định dạng dữ liệu mặc định:** Ảnh nguyên cảnh tại `data/processed/whole-scene/{train,val,test}/`; giữ nguyên ảnh, không crop bounding box.
 - **Taxonomy mặc định:** Apple/Banana/Mango × Unripe/Ripe/Overripe từ dataset YOLO cũ trong `data/raw/`.
-- **Dataset classification khác:** Có thể chọn rõ mode `folder` cho 1.270 ảnh train, 361 validation và 184 test (Cam/Chuối/Xoài × Unripe/Ripe/Spoiled) tại `data/processed/dataset/`.
+- **Dataset classification khác:** Có thể chọn rõ mode `folder` cho 1.260 ảnh train, 270 validation và 270 test (Cam/Chuối/Xoài × Unripe/Ripe/Spoiled) tại `data/processed/dataset/`; mỗi lớp có 140/30/30 ảnh tương ứng.
 
 ---
 

@@ -22,12 +22,20 @@ Chế độ `folder` dùng dataset ảnh đã chia lớp tại
 mỗi loại gồm `Unripe`, `Ripe`, `Spoiled`. Các thư mục `*-hong` được xác nhận là
 trái cây hỏng, không gộp vào nhãn quá chín.
 
-| Tập | Ảnh |
-|---|---:|
-| Train | 1.270 |
-| Validation | 361 |
-| Test | 184 |
-| **Tổng** | **1.815** |
+Mỗi lớp có 140 ảnh train, 30 ảnh validation và 30 ảnh test:
+
+| Thư mục lớp | Train | Validation | Test | Tổng |
+|---|---:|---:|---:|---:|
+| `cam-chin` | 140 | 30 | 30 | 200 |
+| `cam-chua-chin` | 140 | 30 | 30 | 200 |
+| `cam-hong` | 140 | 30 | 30 | 200 |
+| `chuoi-chin` | 140 | 30 | 30 | 200 |
+| `chuoi-chua-chin` | 140 | 30 | 30 | 200 |
+| `chuoi-hong` | 140 | 30 | 30 | 200 |
+| `xoai-chin` | 140 | 30 | 30 | 200 |
+| `xoai-chua-chin` | 140 | 30 | 30 | 200 |
+| `xoai-hong` | 140 | 30 | 30 | 200 |
+| **Tổng** | **1.260** | **270** | **270** | **1.800** |
 
 Ánh xạ tên thư mục sang nhãn model:
 

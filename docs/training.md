@@ -121,5 +121,7 @@ Sau khi chạy thành công, hệ thống tự động sinh:
   - `feature_importance.png`: Top 20 đặc trưng quan trọng. Dùng importance/|coef| tích hợp nếu model hỗ trợ; nếu không, dùng permutation importance trên validation (mức giảm Macro F1 sau khi xáo trộn từng đặc trưng).
   - `classification_report_SVM.txt`: Bảng chi tiết Precision, Recall, F1 theo từng lớp.
 
-Web UI hiển thị biểu đồ này trong mục **Thông tin mô hình → Biểu đồ đánh giá**
-từ file `/reports/feature_importance.png`.
+Web UI hiển thị các ảnh báo cáo trong mục **Thông tin mô hình → Biểu đồ đánh
+giá**, gồm so sánh thuật toán, ma trận nhầm lẫn, ROC và feature importance khi
+có. Ứng dụng chọn thư mục báo cáo theo `dataset_mode` trong `config.json`;
+`FRUIT_REPORTS_DIR` có thể dùng để chỉ định thư mục khác.

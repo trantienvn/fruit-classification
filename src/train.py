@@ -394,10 +394,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--dataset-mode",
         choices=("folder", "yolo", "whole-scene"),
-        default="whole-scene",
+        default="folder",
         help=(
-            "whole-scene: ảnh nguyên cảnh (mặc định); "
-            "folder: dataset classification theo thư mục; yolo: crop bbox YOLO"
+            "whole-scene: ảnh nguyên cảnh ; "
+            "folder: dataset classification theo thư mục (mặc định); yolo: crop bbox YOLO"
         ),
     )
     parser.add_argument("--pca", action="store_true", help="Bật PCA giảm chiều")

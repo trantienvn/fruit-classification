@@ -1,6 +1,8 @@
 # Thay đổi gần nhất
 
 ## 2026-11-03
+- Web chọn thư mục biểu đồ theo `dataset_mode` của model; trang thông tin mô hình
+  hiển thị ảnh so sánh thuật toán và các báo cáo đánh giá.
 - Dataset train mặc định chuyển sang ảnh nguyên cảnh
   `data/processed/whole-scene/`; mode `folder`/`yolo` vẫn chọn được.
 - Lệnh train chỉ còn pipeline scikit-learn CPU; bỏ tùy chọn CUDA/TorchMLP/resume

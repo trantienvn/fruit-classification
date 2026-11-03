@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,15 +25,32 @@ class Settings:
 
     @classmethod
     def from_environment(cls) -> "Settings":
+        model_dir = Path(os.environ.get("FRUIT_MODEL_DIR", PROJECT_ROOT / "models"))
+        reports_dir = os.environ.get("FRUIT_REPORTS_DIR")
+        if reports_dir is None:
+            try:
+                model_config = json.loads(
+                    (model_dir / "config.json").read_text(encoding="utf-8")
+                )
+            except (OSError, json.JSONDecodeError):
+                model_config = {}
+            report_folder = (
+                "reports-whole-scene"
+                if isinstance(model_config, dict)
+                and model_config.get("dataset_mode") == "whole-scene"
+                else "reports"
+            )
+            reports_dir = model_dir.parent / report_folder
+
         return cls(
-            model_dir=Path(os.environ.get("FRUIT_MODEL_DIR", PROJECT_ROOT / "models")),
+            model_dir=model_dir,
             history_db=Path(
                 os.environ.get(
                     "FRUIT_HISTORY_DB", WEB_ROOT / "data" / "history.sqlite3"
                 )
             ),
             frontend_root=Path(os.environ.get("FRUIT_FRONTEND_DIR", FRONTEND_ROOT)),
-            reports_root=Path(os.environ.get("FRUIT_REPORTS_DIR", PROJECT_ROOT / "reports")),
+            reports_root=Path(reports_dir),
             max_upload_bytes=int(
                 os.environ.get("FRUIT_MAX_UPLOAD_BYTES", MAX_FILE_SIZE_BYTES)
             ),

@@ -13,6 +13,7 @@ function renderReports() {
   container.innerHTML = reports.map(([title, file]) => `<article class="report-card"><h3>${escapeHtml(title)}</h3><img src="/reports/${encodeURIComponent(file)}" alt="${escapeHtml(title)}" loading="lazy"><div class="report-missing is-hidden">Chưa có biểu đồ trong reports/.</div></article>`).join("");
   container.querySelectorAll("img").forEach((image) => image.addEventListener("error", () => {
     image.classList.add("is-hidden");
+    image.nextElementSibling.textContent = "Chưa có ảnh báo cáo tương ứng với model hiện tại.";
     image.nextElementSibling.classList.remove("is-hidden");
   }, { once: true }));
 }

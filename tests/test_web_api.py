@@ -99,6 +99,54 @@ def test_feature_importance_report_is_served(tmp_path: Path) -> None:
     assert response.content == expected_image
 
 
+def test_whole_scene_algorithm_chart_is_shown_from_its_report_directory(
+    tmp_path: Path, monkeypatch
+) -> None:
+    model_dir = tmp_path / "models-whole-scene"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text(
+        json.dumps({"dataset_mode": "whole-scene"}), encoding="utf-8"
+    )
+    expected_image = make_png()
+    reports_dir = tmp_path / "reports-whole-scene"
+    reports_dir.mkdir()
+    (reports_dir / "model_comparison.png").write_bytes(expected_image)
+
+    monkeypatch.setenv("FRUIT_MODEL_DIR", str(model_dir))
+    monkeypatch.setenv("FRUIT_HISTORY_DB", str(tmp_path / "history.sqlite3"))
+    monkeypatch.setenv(
+        "FRUIT_FRONTEND_DIR",
+        str(Path(__file__).parents[1] / "app" / "web" / "frontend"),
+    )
+    monkeypatch.delenv("FRUIT_REPORTS_DIR", raising=False)
+
+    settings = Settings.from_environment()
+    with TestClient(create_app(settings, StubClassifier)) as client:
+        page = client.get("/pages/model-info.html")
+        response = client.get("/reports/model_comparison.png")
+
+    assert settings.reports_root == reports_dir
+    assert 'id="model-reports"' in page.text
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert response.content == expected_image
+
+
+def test_explicit_report_directory_overrides_model_dataset_mode(
+    tmp_path: Path, monkeypatch
+) -> None:
+    model_dir = tmp_path / "models-whole-scene"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text(
+        json.dumps({"dataset_mode": "whole-scene"}), encoding="utf-8"
+    )
+    custom_reports_dir = tmp_path / "custom-reports"
+    monkeypatch.setenv("FRUIT_MODEL_DIR", str(model_dir))
+    monkeypatch.setenv("FRUIT_REPORTS_DIR", str(custom_reports_dir))
+
+    assert Settings.from_environment().reports_root == custom_reports_dir
+
+
 def test_openapi_describes_api_contract(tmp_path: Path) -> None:
     with make_client(tmp_path) as client:
         schema = client.get("/openapi.json").json()

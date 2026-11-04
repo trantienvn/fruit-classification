@@ -238,6 +238,27 @@ def _train_all(
     return results, best_name
 
 
+def _evaluate_tuned_model(
+    model: object,
+    X_val: np.ndarray,
+    y_val: np.ndarray,
+    class_names: tuple[str, ...],
+    fit_time_s: float,
+    tune_time_s: float,
+) -> dict:
+    """Measure the tuned estimator on validation and separate fit/CV timings."""
+    start = time.perf_counter()
+    predictions = model.predict(X_val)  # type: ignore[union-attr]
+    infer_time_ms = (time.perf_counter() - start) * 1000 / max(len(y_val), 1)
+    metrics = evaluate_predictions(y_val.tolist(), predictions.tolist(), class_names=class_names)
+    return {
+        **metrics,
+        "train_time_s": round(fit_time_s, 3),
+        "infer_time_ms": round(infer_time_ms, 4),
+        "tune_time_s": round(tune_time_s, 3),
+    }
+
+
 def _run_feature_ablations(
     X_train: np.ndarray,
     y_train: np.ndarray,
@@ -289,8 +310,8 @@ def _train_fruit_specific_models(
     use_pca: bool,
 ) -> tuple[list[dict], dict[str, Pipeline]]:
     """Chọn riêng từng loại quả trên val, refit trên train và đánh giá test."""
-    results: list[dict] = []
     fruit_models: dict[str, Pipeline] = {}
+    selected_models = []
     fruits = sorted({name.split()[0] for name in class_names})
     artifact_dir = model_dir / "per-fruit"
 
@@ -328,13 +349,17 @@ def _train_fruit_specific_models(
         ])
         final_model.fit(X_fit[fit_mask], y_fit_local)
 
+        fruit_models[fruit] = final_model
+        selected_models.append((fruit, class_ids, local_id, local_names, best_name, best_score, final_model))
+
+    results: list[dict] = []
+    for fruit, class_ids, local_id, local_names, best_name, best_score, final_model in selected_models:
         test_mask = np.isin(y_test, class_ids)
         y_test_local = np.asarray([local_id[int(label)] for label in y_test[test_mask]])
         test_prediction = final_model.predict(X_test[test_mask])
         test_metrics = evaluate_predictions(
             y_test_local.tolist(), test_prediction.tolist(), class_names=local_names
         )
-        fruit_models[fruit] = final_model
         fruit_dir = artifact_dir / fruit.lower()
         fruit_dir.mkdir(parents=True, exist_ok=True)
         joblib.dump(final_model, fruit_dir / "classifier.joblib")
@@ -481,17 +506,17 @@ def train(
             tune_start = time.perf_counter()
             tuned = _grid_search_best(name, X_train, y_train, use_pca=use_pca)
             tune_time = time.perf_counter() - tune_start
-            infer_start = time.perf_counter()
-            y_pred_va = tuned.predict(X_val)  # type: ignore[union-attr]
-            infer_time_ms = (time.perf_counter() - infer_start) * 1000 / max(len(y_val), 1)
-            m = evaluate_predictions(y_val.tolist(), y_pred_va.tolist(), class_names=class_names)
+            tuned_name = name + "_tuned"
+            val_results[tuned_name] = _evaluate_tuned_model(
+                tuned,
+                X_val,
+                y_val,
+                class_names,
+                val_results[name]["train_time_s"],
+                tune_time,
+            )
+            m = val_results[tuned_name]
             print(f"  {name} (tuned): val F1 = {m['macro_f1']:.4f}")
-            val_results[name + "_tuned"] = {
-                **m,
-                "train_time_s": round(tune_time, 3),
-                "infer_time_ms": round(infer_time_ms, 4),
-                "tune_time_s": round(tune_time, 3),
-            }
             if m["macro_f1"] > best_f1:
                 best_f1 = m["macro_f1"]
                 best_tuned = tuned
@@ -622,7 +647,7 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     pca_group = parser.add_mutually_exclusive_group()
-    pca_group.add_argument("--pca", dest="use_pca", action="store_true", help="Bật PCA 95% phương sai (mặc định)")
+    pca_group.add_argument("--pca", dest="use_pca", action="store_true", help="Bật PCA 95%% phương sai (mặc định)")
     pca_group.add_argument("--no-pca", dest="use_pca", action="store_false", help="Tắt PCA")
     parser.set_defaults(use_pca=USE_PCA)
     parser.add_argument("--no-gridsearch", action="store_true", help="Tắt GridSearch")

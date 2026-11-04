@@ -14,7 +14,7 @@ LBP_N_BINS = 10
 COLOR_FEATURE_NAMES = (
   [f"hist_rgb_{channel}_{index}" for channel in "rgb" for index in range(COLOR_HIST_BINS)]
   + [f"hist_hsv_{channel}_{index}" for channel in "hsv" for index in range(COLOR_HIST_BINS)]
-  + [f"{stat}_{channel}" for space, channels in (("rgb", "rgb"), ("hsv", "hsv"), ("lab", "lab"))
+  + [f"{stat}_{space}_{channel}" for space, channels in (("rgb", "rgb"), ("hsv", "hsv"), ("lab", "lab"))
      for stat in ("mean", "std") for channel in channels]
   + ["ratio_green", "ratio_yellow", "ratio_orange", "ratio_brown_black"]
 )

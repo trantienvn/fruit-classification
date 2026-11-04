@@ -50,6 +50,7 @@ from src.predict import FruitClassifier, checkpoint_available
 from src.train import (
     GRID_PARAMS,
     _default_data_dir,
+    _evaluate_tuned_model,
     _grid_search_best,
     _train_all,
     main,
@@ -245,6 +246,7 @@ def test_extract_features_shape():
     feat = extract_features(img)
     assert feat.shape == (N_FEATURES,), f"Expected ({N_FEATURES},), got {feat.shape}"
     assert feat.dtype == np.float64
+    assert len(set(FEATURE_NAMES)) == N_FEATURES
 
 
 def test_extract_features_finite():
@@ -300,6 +302,18 @@ def test_evaluate_predictions_partial():
     assert metrics["accuracy"] == 0.75
     assert 0.0 <= metrics["macro_f1"] <= 1.0
     assert "report" in metrics
+
+
+def test_tuned_model_result_keeps_fit_and_tuning_times_separate():
+    X = np.array([[0.0], [1.0], [2.0], [3.0]])
+    y = np.array([0, 0, 1, 1])
+    model = DummyClassifier(strategy="most_frequent").fit(X, y)
+
+    result = _evaluate_tuned_model(model, X, y, ("Unripe", "Ripe"), 0.25, 1.5)
+
+    assert result["train_time_s"] == 0.25
+    assert result["tune_time_s"] == 1.5
+    assert result["infer_time_ms"] >= 0
 
 
 def test_evaluate_predictions_with_class_names():

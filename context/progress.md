@@ -1,18 +1,16 @@
 # Tiến độ
 
-- **Hoàn thành:** dataset loaders/export whole-scene, 51 features, 7 model
-  pipeline CPU, evaluation/reporting, inference, FastAPI web và frontend.
-- **Mặc định hiện tại:** whole-scene; `folder` và `yolo` vẫn là mode tùy chọn.
-- **Thay đổi gần nhất:** bỏ CUDA/TorchMLP/resume khỏi lệnh train và gỡ PyTorch
-  khỏi `requirements.txt`; context đã được tinh gọn ngày 2026-11-03.
-- **Kiểm thử gần nhất:** Web API 11 passed; toàn bộ suite 33 passed, 1 failed
-  do mặc định `folder` trong thay đổi chưa commit của `src/train.py` không khớp
-  với test đang kỳ vọng `whole-scene`. `py_compile` và `git diff --check` đạt.
-- Chưa chạy train lại trên dataset thật sau khi đổi mặc định. Dataset whole-scene
-  cần được xuất trước nếu chưa có sẵn.
+- **Hoàn thành:** pipeline scikit-learn CPU với taxonomy Cam/Chuối/Xoài ×
+  Unripe/Ripe/Spoiled, 90 đặc trưng mask-based, PCA 95%, CV stratified 5-fold,
+  train-only augmentation, ablation, so sánh global/per-fruit và báo cáo.
+- **Mặc định hiện tại:** `folder` tại `data/processed/dataset/`; `whole-scene`
+  và `yolo` là mode tùy chọn.
+- **Kiểm thử gần nhất:** `python -m pytest tests -q`: 42 passed, 1 cảnh báo
+  deprecation Starlette/httpx; CLI help và `git diff --check` đạt.
+- Theo chỉ đạo người dùng, không chạy train lại sau bugfix cuối. Kết quả/artifact
+  của lần train trước không được coi là kết quả của phiên bản code cuối.
 - Web tự chọn `reports/` hoặc `reports-whole-scene/` theo `dataset_mode` của
   model; có thể ghi đè bằng `FRUIT_REPORTS_DIR`. Trang **Thông tin mô hình**
   hiển thị các ảnh báo cáo hiện có.
-- Pipeline đã huấn luyện Logistic Regression như một ứng viên phân loại và
-  đưa điểm validation vào `model_comparison.png`; kiểm thử xác nhận ảnh chứa
-  nhãn thuật toán và được lưu thành PNG.
+- `src.audit` kiểm tra số lượng, ảnh lỗi, kích thước và duplicate chính xác;
+  duplicate được lọc theo thứ tự test > val > train khi nạp dữ liệu.

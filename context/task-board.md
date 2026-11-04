@@ -4,6 +4,8 @@
 
 | ID | Task | Trạng thái | Kết quả |
 |---|---|---|---|
+| TASK-R01 | Hoàn thiện pipeline ML theo yêu cầu phân loại độ chín | IN_PROGRESS | COPILOT đang rà soát và triển khai; không dùng test để tune; không ghi số liệu giả |
+| TASK-V02 | Xác nhận Logistic Regression trong biểu đồ báo cáo | DONE | Kiểm thử huấn luyện LogisticRegression và sinh ảnh so sánh có nhãn thuật toán |
 | TASK-V01 | Lưu và hiển thị biểu đồ thuật toán | DONE | Web chọn đúng thư mục báo cáo theo `dataset_mode`; 11 test web đạt |
 | TASK-O01 | Sửa GridSearch SVM calibration | DONE | Clone estimator, tham số `estimator__*`, regression test |
 | TASK-P01 | Whole-scene mặc định, train CPU | DONE | Bỏ GPU/TorchMLP khỏi CLI và requirements |
@@ -23,3 +25,22 @@
   `whole-scene`, nhưng thay đổi chưa commit trong `src/train.py` hiện đặt mặc định
   `folder`; không sửa thay đổi này trong task biểu đồ.
 - `py_compile` và `git diff --check` đạt.
+
+## Kiểm thử TASK-V02
+
+- Kiểm thử Logistic Regression tạo biểu đồ: 1 passed.
+- `python -m pytest tests\test_pipeline.py -q -k "not
+  training_cli_defaults_to_whole_scene_and_cpu"`: 21 passed.
+- Test pipeline đầy đủ: 21 passed, 1 failed vì test đòi default
+  `whole-scene` trong khi `src/train.py` hiện đặt `folder`; không liên quan
+  đến Logistic Regression hay thay đổi task này.
+
+## TASK-R01
+
+- Agent: COPILOT
+- Status: IN_PROGRESS
+- Priority: HIGH
+- Started: 2026-11-04
+- Scope: `src/`, `tests/`, `docs/training.md`, `README.md`, context status files
+- Expected: pipeline dùng taxonomy Cam/Chuối/Xoài × 3 trạng thái, không rò rỉ khi CV, xuất báo cáo và nêu rõ phần nào cần chạy trên dữ liệu thật.
+- Verification: kiểm thử pipeline không cần dataset; xác minh CLI/test; không tuyên bố kết quả thực nghiệm khi chưa chạy train.

@@ -13,3 +13,6 @@
 - Web tự chọn `reports/` hoặc `reports-whole-scene/` theo `dataset_mode` của
   model; có thể ghi đè bằng `FRUIT_REPORTS_DIR`. Trang **Thông tin mô hình**
   hiển thị các ảnh báo cáo hiện có.
+- Pipeline đã huấn luyện Logistic Regression như một ứng viên phân loại và
+  đưa điểm validation vào `model_comparison.png`; kiểm thử xác nhận ảnh chứa
+  nhãn thuật toán và được lưu thành PNG.

@@ -1,23 +1,22 @@
 # Phân loại trạng thái trái cây
 
-Dự án phân loại ảnh trái cây thành 9 lớp. Pipeline mặc định dùng ảnh nguyên
-cảnh (không crop bounding box) từ `data/processed/whole-scene/`, giữ các split
-train/val/test và taxonomy Apple/Banana/Mango của dataset YOLO cũ. Có thể chọn
-dataset classification Cam/Chuối/Xoài ở chế độ `folder`. Pipeline trích xuất
-đặc trưng ảnh (màu RGB/HSV, kết cấu LBP & GLCM, hình dạng) và chỉ huấn luyện
-các mô hình machine learning truyền thống trên CPU.
+Dự án phân loại ảnh trái cây thành 9 lớp. Pipeline mặc định dùng dataset
+Cam/Chuối/Xoài × Unripe/Ripe/Spoiled tại `data/processed/dataset/`. Pipeline
+tách vùng quả bằng OpenCV, trích xuất đặc trưng màu/kết cấu/hình dạng và chỉ
+huấn luyện các mô hình machine learning truyền thống bằng scikit-learn trên CPU.
 
 ## Dataset
 
-Dataset ảnh nguyên cảnh mặc định được tạo cục bộ từ `data/raw/` vào
-`data/processed/whole-scene/`; không crop trái cây và loại ảnh nhiều class vì
-không thể gán một nhãn cho toàn cảnh. Dữ liệu sinh ra không được commit vào
-repository.
+Kiểm tra số lượng lớp, ảnh lỗi, kích thước và ảnh trùng bằng:
 
-Dataset classification Cam/Chuối/Xoài tại `data/processed/dataset/` là lựa
-chọn thêm, không phải chế độ train mặc định. Cấu trúc lớp, số lượng ảnh và ánh
-xạ nhãn được mô tả trong [data/README.md](data/README.md). Nguồn/giấy phép của
-bộ dữ liệu này chưa được ghi trong repository.
+```powershell
+python -m src.audit --data-dir data/processed/dataset
+```
+
+Dataset classification tại `data/processed/dataset/` giữ nguyên các split đã
+cung cấp. Cấu trúc lớp, số lượng ảnh và nguồn dữ liệu được mô tả trong
+[data/README.md](data/README.md). Ảnh trùng chính xác được loại khỏi train nếu
+đã có ở validation/test; test được ưu tiên giữ nguyên.
 
 Dataset YOLO **Fruit Ripeness** do Huzaifa công bố trên
 [Roboflow Universe](https://universe.roboflow.com/huzaifa-qgpco/fruit-ripeness-unjex-xsudt),
@@ -67,42 +66,39 @@ lại.
 
 ## Huấn luyện
 
-Tạo dataset ảnh nguyên cảnh một lần từ các split YOLO trong `data/raw/`:
+Chạy kiểm toán dữ liệu và pipeline mặc định từ thư mục gốc:
 
 ```powershell
-python -m src.dataset --source-dir data/raw --output-dir data/processed/whole-scene
-```
-
-Sau đó chạy pipeline mặc định từ thư mục gốc:
-
-```powershell
+python -m src.audit --data-dir data/processed/dataset
 python -m src.train
 ```
 
-Pipeline mặc định dùng `data/processed/whole-scene/`, resize toàn ảnh về
-128×128, trích xuất 51 đặc trưng, so sánh 7 mô hình và đánh giá mô hình tốt
-nhất trên tập test. Artifact và báo cáo được lưu trong `models-whole-scene/`
-và `reports-whole-scene/`. Mặc định pipeline có chạy GridSearch; để bỏ qua:
+Pipeline resize ảnh về 128×128, trích xuất 90 đặc trưng trong mask, so sánh
+9 estimator, chạy ablation và chọn mô hình bằng validation. GridSearchCV dùng
+StratifiedKFold 5-fold trên train; test chỉ đánh giá sau khi đã chọn model.
+Artifact và báo cáo được lưu trong `models/` và `reports/`. Báo cáo gồm CSV,
+confusion matrix, ROC/AUC, learning curve, feature importance, mask mẫu và ảnh
+dự đoán sai. Để bỏ qua GridSearch:
 
 ```powershell
 python -m src.train --no-gridsearch
 ```
 
-Để dùng dataset classification Cam/Chuối/Xoài theo thư mục, chọn rõ mode và
-đường dẫn dữ liệu/model:
+Dataset YOLO Apple/Banana/Mango cũ vẫn có thể chạy tường minh bằng mode
+`whole-scene`, với artifact riêng:
 
 ```powershell
-python -m src.train --dataset-mode folder --data-dir data/processed/dataset --model-dir models
+python -m src.dataset --source-dir data/raw --output-dir data/processed/whole-scene
+python -m src.train --dataset-mode whole-scene --data-dir data/processed/whole-scene --model-dir models-whole-scene
 ```
 
-Không dùng tập test để chọn mô hình hoặc điều chỉnh tham số. Với mode `folder`,
-artifact và báo cáo được ghi vào `models/` và `reports/`; mode whole-scene dùng
-các thư mục riêng như trên.
+Không dùng tập test để chọn mô hình hoặc điều chỉnh tham số. Hàm tiện ích
+`src.predict.predict(image_path)` trả về `(nhãn, xác suất)`.
 
 ## Chạy Web Application
 
-Để web dùng model ảnh nguyên cảnh được train mặc định, cấu hình model/report
-directory trước khi chạy FastAPI:
+Để web dùng model ảnh nguyên cảnh YOLO, cấu hình model/report directory trước
+khi chạy FastAPI:
 
 ```powershell
 $env:FRUIT_MODEL_DIR = "models-whole-scene"

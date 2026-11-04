@@ -22,20 +22,27 @@ Chế độ `folder` dùng dataset ảnh đã chia lớp tại
 mỗi loại gồm `Unripe`, `Ripe`, `Spoiled`. Các thư mục `*-hong` được xác nhận là
 trái cây hỏng, không gộp vào nhãn quá chín.
 
-Mỗi lớp có 140 ảnh train, 30 ảnh validation và 30 ảnh test:
+Mỗi lớp có 140 ảnh train và 30 ảnh test; lớp `chuoi-chin` có thêm một ảnh
+validation:
 
 | Thư mục lớp | Train | Validation | Test | Tổng |
 |---|---:|---:|---:|---:|
 | `cam-chin` | 140 | 30 | 30 | 200 |
 | `cam-chua-chin` | 140 | 30 | 30 | 200 |
 | `cam-hong` | 140 | 30 | 30 | 200 |
-| `chuoi-chin` | 140 | 30 | 30 | 200 |
+| `chuoi-chin` | 140 | 31 | 30 | 201 |
 | `chuoi-chua-chin` | 140 | 30 | 30 | 200 |
 | `chuoi-hong` | 140 | 30 | 30 | 200 |
 | `xoai-chin` | 140 | 30 | 30 | 200 |
 | `xoai-chua-chin` | 140 | 30 | 30 | 200 |
 | `xoai-hong` | 140 | 30 | 30 | 200 |
-| **Tổng** | **1.260** | **270** | **270** | **1.800** |
+| **Tổng** | **1.260** | **271** | **270** | **1.801** |
+
+Kiểm tra cục bộ ngày 2026-11-04: cả 1.801 ảnh đều giải mã được; có 14 kích
+thước ảnh khác nhau. Phát hiện 2 nhóm trùng byte chính xác, trong đó 1 nhóm
+nằm giữa train/validation. Pipeline loại bản sao khỏi split ưu tiên thấp hơn
+trước khi trích xuất đặc trưng, giữ test trước validation trước train. Tỷ lệ
+tổng thể sau kiểm đếm xấp xỉ 70/15/15; không thay đổi split nguồn.
 
 Ánh xạ tên thư mục sang nhãn model:
 

@@ -1,6 +1,8 @@
 # Thay đổi gần nhất
 
 ## 2026-11-03
+- Xác nhận Logistic Regression được huấn luyện cùng các thuật toán phân loại
+  khác và xuất hiện trong biểu đồ `model_comparison.png`; thêm kiểm thử hồi quy.
 - Web chọn thư mục biểu đồ theo `dataset_mode` của model; trang thông tin mô hình
   hiển thị ảnh so sánh thuật toán và các báo cáo đánh giá.
 - Dataset train mặc định chuyển sang ảnh nguyên cảnh

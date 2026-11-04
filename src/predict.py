@@ -146,11 +146,14 @@ class FruitClassifier:
     def _run_inference(self, arr: np.ndarray) -> dict[str, Any]:
         """Chạy inference trên ảnh đã tiền xử lý."""
         feat = extract_features(arr).reshape(1, -1)
-        feat_scaled = self._scaler.transform(feat)  # type: ignore[union-attr]
-        if self._pca is not None:
-            feat_scaled = self._pca.transform(feat_scaled)
+        if self._config.get("pipeline_includes_preprocessing"):
+            model_input = feat
+        else:
+            model_input = self._scaler.transform(feat)  # type: ignore[union-attr]
+            if self._pca is not None:
+                model_input = self._pca.transform(model_input)
 
-        class_id = int(self._classifier.predict(feat_scaled)[0])  # type: ignore[union-attr]
+        class_id = int(self._classifier.predict(model_input)[0])  # type: ignore[union-attr]
         if not 0 <= class_id < len(self._class_names):
             raise ModelNotReadyError(
                 f"Model dự đoán class_id={class_id}, ngoài phạm vi cấu hình."
@@ -166,14 +169,14 @@ class FruitClassifier:
         probs: dict[str, float] = {}
         confidence = 1.0
         if hasattr(self._classifier, "predict_proba"):
-            prob_arr = self._classifier.predict_proba(feat_scaled)[0]  # type: ignore[union-attr]
+            prob_arr = self._classifier.predict_proba(model_input)[0]  # type: ignore[union-attr]
             classes = self._class_names
             if len(prob_arr) != len(classes):
                 raise ModelNotReadyError("Số xác suất model trả về không khớp cấu hình lớp.")
             probs = {classes[i]: float(p) for i, p in enumerate(prob_arr)}
             confidence = float(prob_arr[class_id])
         elif hasattr(self._classifier, "decision_function"):
-            scores = self._classifier.decision_function(feat_scaled)[0]  # type: ignore[union-attr]
+            scores = self._classifier.decision_function(model_input)[0]  # type: ignore[union-attr]
             exp_scores = np.exp(scores - np.max(scores))
             prob_arr = exp_scores / exp_scores.sum()
             classes = self._class_names
@@ -243,6 +246,16 @@ def get_classifier(model_dir: Path | str = DEFAULT_MODEL_DIR) -> FruitClassifier
         _classifier_instance = FruitClassifier(model_dir)
         _classifier_instance.load()
     return _classifier_instance
+
+
+def predict(
+    image_path: Path | str,
+    model_dir: Path | str = DEFAULT_MODEL_DIR,
+) -> tuple[str, float]:
+    """Dự đoán nhanh từ đường dẫn ảnh, trả về (nhãn, xác suất lớp dự đoán)."""
+    classifier = FruitClassifier(model_dir).load()
+    result = classifier.predict_from_path(image_path)
+    return str(result["class_name"]), float(result["confidence"])
 
 
 def checkpoint_available(path: str | Path = DEFAULT_MODEL_DIR) -> bool:

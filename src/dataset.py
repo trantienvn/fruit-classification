@@ -11,6 +11,7 @@ Dataset classification dùng nhãn:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import shutil
 import sys
@@ -399,6 +400,48 @@ def class_distribution(
     from collections import Counter
     counts = Counter(labels)
     return {class_names[i]: counts.get(i, 0) for i in range(len(class_names))}
+
+
+def deduplicate_splits(
+    train_images: list[np.ndarray],
+    train_labels: list[int],
+    val_images: list[np.ndarray],
+    val_labels: list[int],
+    test_images: list[np.ndarray],
+    test_labels: list[int],
+) -> tuple[
+    tuple[list[np.ndarray], list[int]],
+    tuple[list[np.ndarray], list[int]],
+    tuple[list[np.ndarray], list[int]],
+    dict[str, int],
+]:
+    """Deduplicate exact resized images, preferring test, then val, then train."""
+    split_data = {
+        "test": (test_images, test_labels),
+        "val": (val_images, val_labels),
+        "train": (train_images, train_labels),
+    }
+    seen: dict[str, int] = {}
+    kept: dict[str, tuple[list[np.ndarray], list[int]]] = {}
+    dropped = {name: 0 for name in split_data}
+
+    for split, (images, labels) in split_data.items():
+        kept_images: list[np.ndarray] = []
+        kept_labels: list[int] = []
+        for image, label in zip(images, labels):
+            digest = hashlib.sha256(np.ascontiguousarray(image).tobytes()).hexdigest()
+            previous_label = seen.get(digest)
+            if previous_label is not None:
+                if previous_label != label:
+                    raise ValueError("Ảnh trùng chính xác nhưng có nhãn khác nhau giữa các split.")
+                dropped[split] += 1
+                continue
+            seen[digest] = label
+            kept_images.append(image)
+            kept_labels.append(label)
+        kept[split] = (kept_images, kept_labels)
+
+    return (kept["train"], kept["val"], kept["test"], dropped)
 
 
 def main(argv: list[str] | None = None) -> int:

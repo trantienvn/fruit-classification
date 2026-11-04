@@ -200,6 +200,7 @@ def test_training_cli_defaults_to_folder_taxonomy_and_cpu(monkeypatch, tmp_path)
     assert main([]) == 0
     assert captured["data_dir"] == data_dir
     assert captured["dataset_mode"] == "folder"
+    assert captured["use_pca"] is True
     assert "device" not in captured
 
 

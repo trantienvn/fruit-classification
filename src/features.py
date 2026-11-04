@@ -99,9 +99,9 @@ def _color_features(img_rgb: np.ndarray, mask: np.ndarray) -> np.ndarray:
 
   hue, _, value = hsv.T
   ratios = [
-    np.mean((hue >= 30) & (hue <= 85)),
-    np.mean((hue >= 15) & (hue < 35)),
-    np.mean((hue >= 5) & (hue < 25)),
+    np.mean((hue >= 35) & (hue <= 85)),
+    np.mean((hue >= 20) & (hue < 35)),
+    np.mean((hue >= 5) & (hue < 20)),
     np.mean((value < 80) | ((hue >= 5) & (hue < 25) & (value < 150))),
   ]
   return np.asarray([*histograms, *stats, *ratios], dtype=np.float64)

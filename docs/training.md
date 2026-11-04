@@ -97,10 +97,10 @@ python -m src.dataset --source-dir data/raw --output-dir data/processed/whole-sc
 python -m src.train --dataset-mode whole-scene --data-dir data/processed/whole-scene --model-dir models-whole-scene
 ```
 
-Để bật PCA giảm chiều cho dataset mặc định:
+PCA 95% phương sai được bật mặc định. Để tắt và đối chiếu:
 
 ```powershell
-python -m src.train --pca
+python -m src.train --no-pca
 ```
 
 ## 6. Kết quả đầu ra
@@ -111,16 +111,17 @@ Sau khi chạy thành công, hệ thống tự động sinh:
   - `per-fruit/`: Pipeline riêng theo từng loại quả.
   - `scaler.joblib`: Bộ chuẩn hóa tương thích với artifact cũ.
   - `config.json`: Toàn bộ cấu hình metadata, tên lớp, số mẫu và chỉ số metrics.
-- **Thư mục báo cáo:** Mặc định `reports-whole-scene/`; mode `folder` dùng `reports/`.
+- **Thư mục báo cáo:** Mặc định `reports/`; mode `whole-scene` dùng `reports-whole-scene/`.
   - `confusion_matrix.png`: Ma trận nhầm lẫn trực quan trên tập test.
   - `roc_curves.png`: 9 đường cong ROC One-vs-Rest kèm giá trị AUC từng lớp.
   - `model_comparison.png` và `model_comparison.csv`: So sánh 9 estimator trên validation, gồm thời gian fit và inference/ảnh.
   - `ablation_comparison.csv` và `ablation_comparison.png`: Màu; màu+kết cấu; màu+kết cấu+hình dạng.
   - `per_fruit_comparison.csv`: So sánh model chung và model riêng theo quả.
   - `learning_curve.png`: Learning curve 5-fold chỉ trên train.
+  - `learning_curve.csv`, `classification_metrics.csv`, `roc_auc.csv`, `summary.md`: số liệu theo điểm train, lớp, AUC và kết luận tự sinh từ lần chạy.
   - `mask_samples/` và `misclassified/`: mask train mẫu và ảnh test dự đoán sai.
   - `feature_importance.png`: Top 20 đặc trưng quan trọng. Dùng importance/|coef| tích hợp nếu model hỗ trợ; nếu không, dùng permutation importance trên validation (mức giảm Macro F1 sau khi xáo trộn từng đặc trưng).
-  - `classification_report_SVM.txt`: Bảng chi tiết Precision, Recall, F1 theo từng lớp.
+  - `classification_report_RandomForest.txt`: Bảng chi tiết Precision, Recall, F1 theo từng lớp (tên file theo model được chọn).
 
 Web UI hiển thị các ảnh báo cáo trong mục **Thông tin mô hình → Biểu đồ đánh
 giá**, gồm so sánh thuật toán, ma trận nhầm lẫn, ROC và feature importance khi

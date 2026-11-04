@@ -109,7 +109,7 @@ GRID_PARAMS: dict[str, dict] = {
 }
 
 # Dùng PCA nếu True (tắt mặc định — thực nghiệm xác nhận)
-USE_PCA = False
+USE_PCA = True
 PCA_VARIANCE = 0.95  # giữ 95% phương sai
 
 
@@ -398,6 +398,11 @@ def _save_pipeline(
     """Lưu toàn bộ pipeline cần thiết để inference."""
     model_dir.mkdir(parents=True, exist_ok=True)
 
+    if isinstance(model, Pipeline):
+        scaler = model.named_steps["scaler"]
+        fitted_pca = model.named_steps["pca"]
+        pca = fitted_pca if isinstance(fitted_pca, PCA) else None
+
     joblib.dump(model, model_dir / "classifier.joblib")
     joblib.dump(scaler, model_dir / "scaler.joblib")
     if pca is not None:
@@ -553,7 +558,7 @@ def train(
         reports_dir = model_dir.parent / "reports-whole-scene"
     else:
         reports_dir = model_dir.parent / "reports"
-    save_mask_samples(train_images, str(reports_dir / "mask_samples"))
+    save_mask_samples(train_images, str(reports_dir / "mask_samples"), y_train)
     full_report(
         y_test.tolist(), y_pred_test.tolist(),
         class_names=class_names,
@@ -616,7 +621,10 @@ def main(argv: list[str] | None = None) -> int:
             "folder: dataset classification theo thư mục (mặc định); yolo: crop bbox YOLO"
         ),
     )
-    parser.add_argument("--pca", action="store_true", help="Bật PCA giảm chiều")
+    pca_group = parser.add_mutually_exclusive_group()
+    pca_group.add_argument("--pca", dest="use_pca", action="store_true", help="Bật PCA 95% phương sai (mặc định)")
+    pca_group.add_argument("--no-pca", dest="use_pca", action="store_false", help="Tắt PCA")
+    parser.set_defaults(use_pca=USE_PCA)
     parser.add_argument("--no-gridsearch", action="store_true", help="Tắt GridSearch")
     args = parser.parse_args(argv)
 
@@ -637,7 +645,7 @@ def main(argv: list[str] | None = None) -> int:
         test_metrics = train(
             data_dir=data_dir,
             model_dir=args.model_dir,
-            use_pca=args.pca,
+            use_pca=args.use_pca,
             run_gridsearch=not args.no_gridsearch,
             dataset_mode=args.dataset_mode,
         )

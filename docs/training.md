@@ -6,9 +6,9 @@ Tài liệu chi tiết về quy trình nạp dữ liệu, trích xuất đặc t
 
 ## 1. Cấu trúc bài toán và Dataset
 
-- **Bài toán:** Phân loại đa lớp thành 9 lớp; nhãn tùy theo dataset mode.
-- **Định dạng dữ liệu mặc định:** Dataset phân loại theo thư mục tại `data/processed/dataset/{train,val,test}/`.
-- **Taxonomy mặc định:** Cam/Chuối/Xoài × Unripe/Ripe/Spoiled.
+- **Bài toán:** Phân loại đa lớp thành 9 lớp.
+- **Định dạng dữ liệu:** Ảnh nguyên cảnh theo split tại `data/processed/whole-scene/{train,val,test}/`.
+- **Taxonomy:** Apple/Banana/Mango × Unripe/Ripe/Overripe.
 - **Split hiện có:** 1.260 ảnh train, 271 validation, 270 test; giữ nguyên phân hoạch nguồn, tỷ lệ tổng thể xấp xỉ 70/15/15.
 
 ---
@@ -25,18 +25,18 @@ Mỗi ảnh được chuyển RGB, resize về `128 × 128`, median blur và ph�
 
 Toàn bộ 90 đặc trưng được chuẩn hóa trong scikit-learn Pipeline; scaler/PCA chỉ fit trên phần train của từng fold CV.
 
-### Dataset YOLO cũ (tùy chọn)
+### Chuẩn bị dữ liệu nguyên cảnh
 
 Dataset YOLO trong `data/raw/` được chuyển thành bộ classification dùng nguyên
 ảnh gốc. Pipeline giữ nguyên split train/val/test có sẵn; chỉ nhận ảnh mà tất cả
 bounding box cùng mang một nhãn. Ảnh không có nhãn, nhãn sai định dạng hoặc
 nhiều class bị loại vì không thể gán một nhãn classification duy nhất cho cảnh.
 Ảnh được resize thành 128×128, cùng cách resize mà `FruitClassifier` dùng khi
-inference. Đây không phải dataset mặc định.
+inference. Đây là dữ liệu duy nhất được pipeline train hỗ trợ.
 
 ```powershell
 python -m src.dataset --source-dir data/raw --output-dir data/processed/whole-scene
-python -m src.train --dataset-mode whole-scene --data-dir data/processed/whole-scene --model-dir models-whole-scene
+python -m src.train
 ```
 
 Manifest ghi số ảnh giữ lại/loại theo split và class. Model được lưu mặc định
@@ -44,9 +44,8 @@ vào `models-whole-scene/`, báo cáo vào `reports-whole-scene/`; truyền
 `--model-dir` nếu muốn chọn thư mục khác. Không dùng chung model directory giữa
 hai chế độ.
 
-Artifact của chế độ này vẫn dùng taxonomy Apple/Banana/Mango cũ và được lưu
-riêng trong `models-whole-scene/`. Muốn dùng taxonomy Cam/Chuối/Xoài, chọn rõ
-`--dataset-mode folder --data-dir data/processed/dataset --model-dir models`.
+Artifact dùng taxonomy Apple/Banana/Mango và được lưu trong
+`models-whole-scene/`.
 
 ---
 
@@ -76,7 +75,7 @@ Mô hình có hiệu năng tốt nhất sau tinh chỉnh sẽ được chọn l�
 
 ## 5. Hướng dẫn chạy huấn luyện
 
-### Chạy huấn luyện mặc định (Cam/Chuối/Xoài, CPU)
+### Chạy huấn luyện mặc định (Apple/Banana/Mango, CPU)
 
 ```powershell
 python -m src.train
@@ -94,7 +93,7 @@ không nhận ảnh tăng cường. Không có tùy chọn CUDA/GPU hoặc backe
 
 ```powershell
 python -m src.dataset --source-dir data/raw --output-dir data/processed/whole-scene
-python -m src.train --dataset-mode whole-scene --data-dir data/processed/whole-scene --model-dir models-whole-scene
+python -m src.train
 ```
 
 PCA 95% phương sai được bật mặc định. Để tắt và đối chiếu:
@@ -106,12 +105,12 @@ python -m src.train --no-pca
 ## 6. Kết quả đầu ra
 
 Sau khi chạy thành công, hệ thống tự động sinh:
-- **Thư mục model:** Mặc định `models/`.
+- **Thư mục model:** Mặc định `models-whole-scene/`.
   - `classifier.joblib`: Pipeline tốt nhất (scaler/PCA/model).
   - `per-fruit/`: Pipeline riêng theo từng loại quả.
   - `scaler.joblib`: Bộ chuẩn hóa tương thích với artifact cũ.
   - `config.json`: Toàn bộ cấu hình metadata, tên lớp, số mẫu và chỉ số metrics.
-- **Thư mục báo cáo:** Mặc định `reports/`; mode `whole-scene` dùng `reports-whole-scene/`.
+- **Thư mục báo cáo:** Mặc định `reports-whole-scene/`.
   - `confusion_matrix.png`: Ma trận nhầm lẫn trực quan trên tập test.
   - `roc_curves.png`: 9 đường cong ROC One-vs-Rest kèm giá trị AUC từng lớp.
   - `model_comparison.png` và `model_comparison.csv`: So sánh 9 estimator trên validation, gồm thời gian fit và inference/ảnh.
@@ -125,5 +124,5 @@ Sau khi chạy thành công, hệ thống tự động sinh:
 
 Web UI hiển thị các ảnh báo cáo trong mục **Thông tin mô hình → Biểu đồ đánh
 giá**, gồm so sánh thuật toán, ma trận nhầm lẫn, ROC và feature importance khi
-có. Ứng dụng chọn thư mục báo cáo theo `dataset_mode` trong `config.json`;
-`FRUIT_REPORTS_DIR` có thể dùng để chỉ định thư mục khác.
+có. Ứng dụng dùng `reports-whole-scene/`; `FRUIT_REPORTS_DIR` có thể chỉ định
+thư mục báo cáo khác.

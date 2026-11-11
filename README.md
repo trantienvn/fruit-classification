@@ -84,12 +84,12 @@ dự đoán sai. Để bỏ qua GridSearch:
 python -m src.train --no-gridsearch
 ```
 
-Dataset YOLO Apple/Banana/Mango cũ vẫn có thể chạy tường minh bằng mode
-`whole-scene`, với artifact riêng:
+Pipeline train sử dụng dataset YOLO Apple/Banana/Mango đã xuất thành ảnh nguyên
+cảnh, với artifact riêng:
 
 ```powershell
 python -m src.dataset --source-dir data/raw --output-dir data/processed/whole-scene
-python -m src.train --dataset-mode whole-scene --data-dir data/processed/whole-scene --model-dir models-whole-scene
+python -m src.train
 ```
 
 Không dùng tập test để chọn mô hình hoặc điều chỉnh tham số. Hàm tiện ích

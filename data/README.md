@@ -15,12 +15,14 @@ Tạo hoặc cập nhật dataset nguyên cảnh bằng:
 python -m src.dataset --source-dir data/raw --output-dir data/processed/whole-scene
 ```
 
-## Dataset classification theo thư mục (chế độ tùy chọn)
+## Dataset classification theo thư mục
 
-Chế độ `folder` dùng dataset ảnh đã chia lớp tại
-`data/processed/dataset/{train,val,test}/`. Dataset có 9 lớp: cam, chuối, xoài;
+Dataset ảnh đã chia lớp nằm tại `data/processed/dataset/{train,val,test}/`.
+Dataset có 9 lớp: cam, chuối, xoài;
 mỗi loại gồm `Unripe`, `Ripe`, `Spoiled`. Các thư mục `*-hong` được xác nhận là
 trái cây hỏng, không gộp vào nhãn quá chín.
+
+Đây là dữ liệu riêng, không được pipeline train whole-scene hỗ trợ.
 
 Mỗi lớp có 140 ảnh train và 30 ảnh test; lớp `chuoi-chin` có thêm một ảnh
 validation:
@@ -65,9 +67,9 @@ thông tin nguồn và giấy phép gốc khi chia sẻ dữ liệu.
 ## Dataset YOLO cũ
 
 `data/raw/` lưu dataset YOLO với nhãn Apple/Banana/Mango và các trạng thái
-`Unripe`, `Ripe`, `Overripe`. Đây là nguồn để tạo ảnh nguyên cảnh mặc định;
-chế độ `--dataset-mode yolo` vẫn có thể chọn rõ ràng để crop bounding box.
-Dataset này không phải taxonomy Cam/Chuối/Xoài của chế độ `folder`.
+`Unripe`, `Ripe`, `Overripe`. Đây là nguồn để tạo dataset ảnh nguyên cảnh mà
+pipeline train sử dụng. Có thể dùng các hàm tiện ích trong `src.dataset` để
+đọc/crop bounding box, nhưng CLI huấn luyện chỉ hỗ trợ dataset whole-scene.
 
 ### Cấu trúc YOLO cũ
 
@@ -174,7 +176,6 @@ Với dataset YOLO cũ, export giữ 1.547 ảnh train, 443 validation và 220 t
 lưu riêng trong `models-whole-scene/` và `reports-whole-scene/`; đây là kết quả
 của taxonomy Apple/Banana/Mango cũ.
 
-Train mặc định dùng ảnh nguyên cảnh với `python -m src.train`. Có thể truyền
-`--dataset-mode whole-scene` tường minh nếu muốn.
+Train dùng ảnh nguyên cảnh với `python -m src.train`.
 Dataset đã xuất và manifest là dữ liệu tạo sinh cục bộ, không commit vào
 repository.

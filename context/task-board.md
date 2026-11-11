@@ -4,9 +4,10 @@
 
 | ID | Task | Trạng thái | Kết quả |
 |---|---|---|---|
+| TASK-D03 | Cố định dataset train whole-scene | DONE | Bỏ CLI mode và metadata; 42 test đạt, CLI help và git diff --check đạt |
 | TASK-R01 | Hoàn thiện pipeline ML theo yêu cầu phân loại độ chín | DONE | Code hoàn thiện, 42 test đạt; không chạy lại train theo chỉ đạo người dùng |
 | TASK-V02 | Xác nhận Logistic Regression trong biểu đồ báo cáo | DONE | Kiểm thử huấn luyện LogisticRegression và sinh ảnh so sánh có nhãn thuật toán |
-| TASK-V01 | Lưu và hiển thị biểu đồ thuật toán | DONE | Web chọn đúng thư mục báo cáo theo `dataset_mode`; 11 test web đạt |
+| TASK-V01 | Lưu và hiển thị biểu đồ thuật toán | DONE | Web chọn đúng thư mục báo cáo theo cấu hình model; 11 test web đạt |
 | TASK-O01 | Sửa GridSearch SVM calibration | DONE | Clone estimator, tham số `estimator__*`, regression test |
 | TASK-P01 | Whole-scene mặc định, train CPU | DONE | Bỏ GPU/TorchMLP khỏi CLI và requirements |
 | TASK-Q01 | Rút gọn context | DONE | Tóm tắt trạng thái hiện tại, bỏ lịch sử obsolete |

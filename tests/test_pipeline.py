@@ -18,7 +18,6 @@ from src.dataset import (
     CLASS_FOLDER_NAMES,
     CLASS_NAMES,
     DATA_RAW,
-    DATASET_CLASSIFICATION,
     DATASET_WHOLE_SCENE,
     _parse_yolo_box,
     class_distribution,
@@ -179,17 +178,15 @@ def test_prepare_whole_scene_dataset_preserves_splits_and_filters_ambiguous_imag
     assert prepare_whole_scene_dataset(source_dir, output_dir) == summary
 
 
-def test_training_default_dataset_dirs():
-    assert _default_data_dir("whole-scene") == DATASET_WHOLE_SCENE
-    assert _default_data_dir("folder") == DATASET_CLASSIFICATION
-    assert _default_data_dir("yolo") == DATA_RAW
+def test_training_default_dataset_dir():
+    assert _default_data_dir() == DATASET_WHOLE_SCENE
 
 
-def test_training_cli_defaults_to_folder_taxonomy_and_cpu(monkeypatch, tmp_path):
+def test_training_cli_uses_whole_scene_and_has_no_dataset_mode(monkeypatch, tmp_path, capsys):
     data_dir = tmp_path / "dataset"
     for split in ("train", "val", "test"):
         (data_dir / split).mkdir(parents=True)
-    monkeypatch.setattr("src.train.DATASET_CLASSIFICATION", data_dir)
+    monkeypatch.setattr("src.train.DATASET_WHOLE_SCENE", data_dir)
     captured = {}
 
     def fake_train(**kwargs):
@@ -198,9 +195,13 @@ def test_training_cli_defaults_to_folder_taxonomy_and_cpu(monkeypatch, tmp_path)
 
     monkeypatch.setattr("src.train.train", fake_train)
 
+    with pytest.raises(SystemExit) as help_exit:
+        main(["--help"])
+    assert help_exit.value.code == 0
+    assert "--dataset-mode" not in capsys.readouterr().out
+
     assert main([]) == 0
     assert captured["data_dir"] == data_dir
-    assert captured["dataset_mode"] == "folder"
     assert captured["use_pca"] is True
     assert "device" not in captured
 

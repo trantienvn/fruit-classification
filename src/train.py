@@ -1,7 +1,7 @@
 """Pipeline huấn luyện CPU — phân loại 9 class kết hợp (loại × độ chín).
 
 Quy trình:
-  1. Nạp ảnh nguyên cảnh từ data/processed/whole-scene/ theo các split có sẵn
+    1. Nạp ảnh nguyên cảnh từ data/processed/whole-scene/ theo các split có sẵn
   2. Trích xuất đặc trưng (51 features)
   3. Chuẩn hóa với StandardScaler
   4. (Tùy chọn) Giảm chiều với PCA
@@ -12,7 +12,7 @@ Quy trình:
   9. Lưu model tốt nhất + preprocessing pipeline + metadata
 
 Chạy:
-  python -m src.train --data-dir data/processed/whole-scene
+    python -m src.train
 """
 
 from __future__ import annotations
@@ -46,15 +46,10 @@ from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 
 from src.dataset import (
-    CLASS_NAMES,
-    DATA_RAW,
-    DATASET_CLASSIFICATION,
     DATASET_WHOLE_SCENE,
     LEGACY_CLASS_NAMES,
     deduplicate_splits,
-    load_classification_split,
     load_scene_split,
-    load_split,
 )
 from src.evaluate import evaluate_predictions, full_report
 from src.features import (
@@ -115,16 +110,12 @@ PCA_VARIANCE = 0.95  # giữ 95% phương sai
 
 # ── Hàm tiện ích ──────────────────────────────────────────────────────────────
 
-def _default_data_dir(dataset_mode: str) -> Path:
-    """Trả về thư mục dữ liệu mặc định tương ứng với chế độ."""
-    return {
-        "folder": DATASET_CLASSIFICATION,
-        "yolo": DATA_RAW,
-        "whole-scene": DATASET_WHOLE_SCENE,
-    }[dataset_mode]
+def _default_data_dir() -> Path:
+    """Trả về thư mục dữ liệu nguyên cảnh mặc định."""
+    return DATASET_WHOLE_SCENE
 
 
-def _load_data(data_dir: Path, dataset_mode: str) -> tuple[
+def _load_data(data_dir: Path) -> tuple[
     np.ndarray, np.ndarray,
     np.ndarray, np.ndarray,
     np.ndarray, np.ndarray,
@@ -133,24 +124,19 @@ def _load_data(data_dir: Path, dataset_mode: str) -> tuple[
     dict[str, int],
 ]:
     """Nạp và trích xuất features từ ba split."""
-    split_loader = {
-        "folder": load_classification_split,
-        "whole-scene": load_scene_split,
-        "yolo": load_split,
-    }[dataset_mode]
     print("Đang nạp tập train...")
     t0 = time.perf_counter()
-    train_imgs, y_train = split_loader(data_dir, "train")
+    train_imgs, y_train = load_scene_split(data_dir, "train")
     print(f"  {len(y_train)} mẫu — {time.perf_counter()-t0:.1f}s")
 
     print("Đang nạp tập val...")
     t0 = time.perf_counter()
-    val_imgs, y_val = split_loader(data_dir, "val")
+    val_imgs, y_val = load_scene_split(data_dir, "val")
     print(f"  {len(y_val)} mẫu — {time.perf_counter()-t0:.1f}s")
 
     print("Đang nạp tập test...")
     t0 = time.perf_counter()
-    test_imgs, y_test = split_loader(data_dir, "test")
+    test_imgs, y_test = load_scene_split(data_dir, "test")
     print(f"  {len(y_test)} mẫu — {time.perf_counter()-t0:.1f}s")
 
     (train_imgs, y_train), (val_imgs, y_val), (test_imgs, y_test), duplicates = deduplicate_splits(
@@ -458,28 +444,22 @@ def train(
     model_dir: Path | None = None,
     use_pca: bool = USE_PCA,
     run_gridsearch: bool = True,
-    dataset_mode: str = "folder",
 ) -> dict:
     """Chạy pipeline các mô hình scikit-learn trên CPU."""
-    if dataset_mode not in {"folder", "yolo", "whole-scene"}:
-        raise ValueError("dataset_mode phải là 'folder', 'yolo' hoặc 'whole-scene'.")
     if data_dir is None:
-        data_dir = _default_data_dir(dataset_mode)
+        data_dir = _default_data_dir()
     if model_dir is None:
-        model_dir = Path(
-            "models-whole-scene" if dataset_mode == "whole-scene" else "models"
-        )
-    class_names = CLASS_NAMES if dataset_mode == "folder" else LEGACY_CLASS_NAMES
+        model_dir = Path("models-whole-scene")
+    class_names = LEGACY_CLASS_NAMES
     print("=" * 60)
     print("PIPELINE HUẤN LUYỆN — PHÂN LOẠI TRẠNG THÁI TRÁI CÂY")
     print(f"Dataset: {data_dir}")
-    print(f"Chế độ dữ liệu: {dataset_mode}")
     print(f"Model dir: {model_dir}")
     print("Thiết bị huấn luyện: CPU")
     print("=" * 60)
 
     # 1. Nạp và trích xuất features
-    X_train, y_train, X_val, y_val, X_test, y_test, train_images, test_images, duplicate_counts = _load_data(data_dir, dataset_mode)
+    X_train, y_train, X_val, y_val, X_test, y_test, train_images, test_images, duplicate_counts = _load_data(data_dir)
 
     # 2. Chuẩn hóa
     X_tr, X_va, X_te, scaler, pca = _preprocess(X_train, X_val, X_test, use_pca)
@@ -579,10 +559,7 @@ def train(
     print(f"  Macro F1 : {test_metrics['macro_f1']:.4f}")
 
     # 6. Xuất biểu đồ và báo cáo
-    if dataset_mode == "whole-scene":
-        reports_dir = model_dir.parent / "reports-whole-scene"
-    else:
-        reports_dir = model_dir.parent / "reports"
+    reports_dir = model_dir.parent / "reports-whole-scene"
     save_mask_samples(train_images, str(reports_dir / "mask_samples"), y_train)
     full_report(
         y_test.tolist(), y_pred_test.tolist(),
@@ -620,7 +597,6 @@ def train(
             "gridsearch": use_gridsearch,
             "backend": "scikit-learn",
             "device": "cpu",
-            "dataset_mode": dataset_mode,
             "duplicate_images_dropped": duplicate_counts,
             "per_fruit_models": sorted(per_fruit_models),
             "selected_validation_metrics": {
@@ -637,15 +613,6 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Huấn luyện mô hình phân loại trái cây")
     parser.add_argument("--data-dir", type=Path, default=None)
     parser.add_argument("--model-dir", type=Path, default=None)
-    parser.add_argument(
-        "--dataset-mode",
-        choices=("folder", "yolo", "whole-scene"),
-        default="folder",
-        help=(
-            "whole-scene: ảnh nguyên cảnh ; "
-            "folder: dataset classification theo thư mục (mặc định); yolo: crop bbox YOLO"
-        ),
-    )
     pca_group = parser.add_mutually_exclusive_group()
     pca_group.add_argument("--pca", dest="use_pca", action="store_true", help="Bật PCA 95%% phương sai (mặc định)")
     pca_group.add_argument("--no-pca", dest="use_pca", action="store_false", help="Tắt PCA")
@@ -653,8 +620,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-gridsearch", action="store_true", help="Tắt GridSearch")
     args = parser.parse_args(argv)
 
-    data_dir = args.data_dir or _default_data_dir(args.dataset_mode)
-    image_root = data_dir / "images" if args.dataset_mode == "yolo" else data_dir
+    data_dir = args.data_dir or _default_data_dir()
+    image_root = data_dir
     missing_splits = [
         split for split in ("train", "val", "test")
         if not (image_root / split).is_dir()
@@ -672,7 +639,6 @@ def main(argv: list[str] | None = None) -> int:
             model_dir=args.model_dir,
             use_pca=args.use_pca,
             run_gridsearch=not args.no_gridsearch,
-            dataset_mode=args.dataset_mode,
         )
     except (FileNotFoundError, OSError, RuntimeError, ValueError) as exc:
         print(f"LỖI: {exc}")

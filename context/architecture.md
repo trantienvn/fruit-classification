@@ -7,8 +7,8 @@
 3. `src/train.py` chuẩn hóa, huấn luyện 7 mô hình scikit-learn trên CPU, chọn
    theo validation, đánh giá test và lưu classifier/scaler/config.
 4. Artifact mặc định: `models-whole-scene/`, báo cáo:
-   `reports-whole-scene/`. Mode `folder` mặc định dùng `models/` và
-   `reports/`; có thể chỉ định thư mục khác.
+   `reports-whole-scene/`. Có thể chỉ định thư mục model và dữ liệu khác qua
+   tham số CLI; pipeline train luôn đọc cấu trúc whole-scene.
 5. `src/predict.py` nạp artifact; `app/web/` dùng classifier cho REST API và
    frontend. API contract nằm tại `contracts/api-contract.md`.
 

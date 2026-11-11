@@ -99,14 +99,11 @@ def test_feature_importance_report_is_served(tmp_path: Path) -> None:
     assert response.content == expected_image
 
 
-def test_whole_scene_algorithm_chart_is_shown_from_its_report_directory(
+def test_algorithm_chart_is_shown_from_the_default_report_directory(
     tmp_path: Path, monkeypatch
 ) -> None:
     model_dir = tmp_path / "models-whole-scene"
     model_dir.mkdir()
-    (model_dir / "config.json").write_text(
-        json.dumps({"dataset_mode": "whole-scene"}), encoding="utf-8"
-    )
     expected_image = make_png()
     reports_dir = tmp_path / "reports-whole-scene"
     reports_dir.mkdir()
@@ -132,14 +129,11 @@ def test_whole_scene_algorithm_chart_is_shown_from_its_report_directory(
     assert response.content == expected_image
 
 
-def test_explicit_report_directory_overrides_model_dataset_mode(
+def test_explicit_report_directory_overrides_default(
     tmp_path: Path, monkeypatch
 ) -> None:
     model_dir = tmp_path / "models-whole-scene"
     model_dir.mkdir()
-    (model_dir / "config.json").write_text(
-        json.dumps({"dataset_mode": "whole-scene"}), encoding="utf-8"
-    )
     custom_reports_dir = tmp_path / "custom-reports"
     monkeypatch.setenv("FRUIT_MODEL_DIR", str(model_dir))
     monkeypatch.setenv("FRUIT_REPORTS_DIR", str(custom_reports_dir))

@@ -2,8 +2,9 @@
 
 Dự án phân loại ảnh trái cây thành 9 lớp. Pipeline mặc định dùng dataset
 Cam/Chuối/Xoài × Unripe/Ripe/Spoiled tại `data/processed/dataset/`. Pipeline
-tách vùng quả bằng OpenCV, trích xuất đặc trưng màu/kết cấu/hình dạng và chỉ
-huấn luyện các mô hình machine learning truyền thống bằng scikit-learn trên CPU.
+chuyển đổi ảnh 64×64 RGB sang vector số chuẩn hóa `[0, 1]` (12.288 chiều,
+không trích xuất đặc trưng thủ công), giảm chiều bằng PCA và huấn luyện các
+mô hình machine learning truyền thống bằng scikit-learn trên CPU.
 
 ## Dataset
 
@@ -64,32 +65,53 @@ lại.
 > được kích hoạt trước khi chạy các lệnh kế tiếp, hoặc dùng đường dẫn trực tiếp
 > `.\.venv\Scripts\python.exe`.
 
+## Tiền xử lý dữ liệu
+
+Chuyển đổi toàn bộ ảnh từ `data/processed/dataset/` sang ma trận số chuẩn hóa
+`[0, 1]` (64×64 RGB = 12.288 chiều, lưu tại `data/processed/numeric/numeric_dataset.npz`):
+
+```powershell
+python -m src.preprocess
+```
+
+Dùng `--force` để xử lý lại khi cần, hoặc `--data-dir` để chọn dataset khác:
+
+```powershell
+python -m src.preprocess --force
+```
+
+Mỗi lần train (`python -m src.train`), chương trình tự động nạp bộ dữ liệu số
+`.npz` đã qua xử lý. Nếu chưa có file `.npz` hoặc dataset ảnh thay đổi,
+`train` sẽ tự động chạy tiền xử lý trước rồi huấn luyện từ dữ liệu số đó.
+
 ## Huấn luyện
 
 Chạy kiểm toán dữ liệu và pipeline mặc định từ thư mục gốc:
 
 ```powershell
 python -m src.audit --data-dir data/processed/dataset
+python -m src.preprocess
 python -m src.train
 ```
 
-Pipeline resize ảnh về 128×128, trích xuất 90 đặc trưng trong mask, so sánh
-9 estimator, chạy ablation và chọn mô hình bằng validation. GridSearchCV dùng
+Pipeline chuẩn hóa pixel với `StandardScaler`, giảm chiều bằng PCA (95% phương
+sai), so sánh 9 estimator và chọn mô hình bằng validation. GridSearchCV dùng
 StratifiedKFold 5-fold trên train; test chỉ đánh giá sau khi đã chọn model.
 Artifact và báo cáo được lưu trong `models/` và `reports/`. Báo cáo gồm CSV,
-confusion matrix, ROC/AUC, learning curve, feature importance, mask mẫu và ảnh
-dự đoán sai. Để bỏ qua GridSearch:
+confusion matrix, ROC/AUC, learning curve, feature importance và ảnh dự đoán
+sai. Để bỏ qua GridSearch:
 
 ```powershell
 python -m src.train --no-gridsearch
 ```
 
-Pipeline train sử dụng dataset YOLO Apple/Banana/Mango đã xuất thành ảnh nguyên
-cảnh, với artifact riêng:
+Để chạy trên dataset YOLO Apple/Banana/Mango đã xuất thành ảnh nguyên cảnh
+(`models-whole-scene/` và `reports-whole-scene/`):
 
 ```powershell
 python -m src.dataset --source-dir data/raw --output-dir data/processed/whole-scene
-python -m src.train
+python -m src.preprocess --data-dir data/processed/whole-scene
+python -m src.train --data-dir data/processed/whole-scene
 ```
 
 Không dùng tập test để chọn mô hình hoặc điều chỉnh tham số. Hàm tiện ích

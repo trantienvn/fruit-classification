@@ -141,6 +141,15 @@ def test_explicit_report_directory_overrides_default(
     assert Settings.from_environment().reports_root == custom_reports_dir
 
 
+def test_default_settings_use_folder_models_and_reports(monkeypatch) -> None:
+    monkeypatch.delenv("FRUIT_MODEL_DIR", raising=False)
+    monkeypatch.delenv("FRUIT_REPORTS_DIR", raising=False)
+
+    settings = Settings.from_environment()
+    assert settings.model_dir.name == "models"
+    assert settings.reports_root.name == "reports"
+
+
 def test_openapi_describes_api_contract(tmp_path: Path) -> None:
     with make_client(tmp_path) as client:
         schema = client.get("/openapi.json").json()

@@ -23,13 +23,17 @@ import time
 from pathlib import Path
 from typing import Any
 
-import cv2
 import joblib
 import numpy as np
 from PIL import Image, UnidentifiedImageError
 
-from src.dataset import CLASS_NAMES, CROP_SIZE, FRUIT_NAMES, RIPENESS_NAMES
-from src.features import extract_features
+from src.dataset import CLASS_NAMES
+from src.preprocess import (
+    PIXEL_CHANNELS,
+    PIXEL_IMAGE_SIZE,
+    REPRESENTATION_NAME,
+    image_to_numeric_vector,
+)
 
 # Thư mục model mặc định
 DEFAULT_MODEL_DIR = Path("models")
@@ -96,10 +100,24 @@ class FruitClassifier:
             raise ModelNotReadyError(f"Danh sách class_names trong {config_path} không hợp lệ.")
         if self._config.get("n_classes", len(class_names)) != len(class_names):
             raise ModelNotReadyError(f"Số lớp trong {config_path} không khớp class_names.")
+
+        crop_size = tuple(int(v) for v in self._config.get("crop_size", PIXEL_IMAGE_SIZE))
+        if len(crop_size) != 2 or crop_size[0] <= 0 or crop_size[1] <= 0:
+            raise ModelNotReadyError(f"crop_size trong {config_path} không hợp lệ.")
+        expected_features = crop_size[0] * crop_size[1] * PIXEL_CHANNELS
+        feature_type = self._config.get("feature_type")
+        if feature_type != REPRESENTATION_NAME or self._config.get("n_features") != expected_features:
+            raise ModelNotReadyError(
+                f"Model trong {model_dir} dùng cấu hình đặc trưng cũ ({feature_type or 'handcrafted'}, "
+                f"n_features={self._config.get('n_features')}). "
+                "Hãy chạy lại `python -m src.train` để huấn luyện trên dữ liệu pixel số."
+            )
+
         self._class_names = class_names
         self._classifier = joblib.load(clf_path)
         self._scaler = joblib.load(scaler_path)
 
+        self._pca = None
         pca_path = model_dir / PCA_FILE
         if self._config.get("use_pca") and pca_path.is_file():
             self._pca = joblib.load(pca_path)
@@ -139,13 +157,14 @@ class FruitClassifier:
     def _preprocess_image(self, img: Image.Image) -> np.ndarray:
         """Chuyển PIL Image → ndarray uint8 RGB (crop_size)."""
         img_rgb = img.convert("RGB")
-        crop_size = tuple(self._config.get("crop_size", CROP_SIZE))
+        crop_size = tuple(int(v) for v in self._config.get("crop_size", PIXEL_IMAGE_SIZE))
         img_resized = img_rgb.resize(crop_size, Image.LANCZOS)  # type: ignore[arg-type]
         return np.array(img_resized, dtype=np.uint8)
 
     def _run_inference(self, arr: np.ndarray) -> dict[str, Any]:
-        """Chạy inference trên ảnh đã tiền xử lý."""
-        feat = extract_features(arr).reshape(1, -1)
+        """Chạy inference trên vector pixel số chuẩn hóa [0, 1]."""
+        crop_size = tuple(int(v) for v in self._config.get("crop_size", PIXEL_IMAGE_SIZE))
+        feat = image_to_numeric_vector(arr, image_size=crop_size).reshape(1, -1)
         if self._config.get("pipeline_includes_preprocessing"):
             model_input = feat
         else:

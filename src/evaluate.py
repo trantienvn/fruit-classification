@@ -364,19 +364,33 @@ def _plot_feature_importance(
     top_n: int = 20,
 ) -> bool:
     """Vẽ built-in importance hoặc permutation importance trên validation."""
+    from sklearn.pipeline import Pipeline
+
+    target_model = model
+    eval_X = X_eval
+    target_names = feature_names
+    if isinstance(model, Pipeline) and "model" in model.named_steps:
+        target_model = model.named_steps["model"]
+        pca_step = model.named_steps.get("pca")
+        if eval_X is not None and pca_step is not None and pca_step != "passthrough":
+            eval_X = model[:-1].transform(eval_X)
+            target_names = [f"PC_{index + 1}" for index in range(eval_X.shape[1])]
+
     importance = None
     importance_std = None
-    if hasattr(model, "feature_importances_"):
-        importance = model.feature_importances_  # type: ignore[union-attr]
-    elif hasattr(model, "coef_"):
-        coef = model.coef_  # type: ignore[union-attr]
+    if hasattr(target_model, "feature_importances_"):
+        importance = target_model.feature_importances_  # type: ignore[union-attr]
+    elif hasattr(target_model, "coef_"):
+        coef = target_model.coef_  # type: ignore[union-attr]
         importance = np.abs(coef).mean(axis=0)
-    elif X_eval is not None and y_eval is not None:
+    elif eval_X is not None and y_eval is not None:
+        if len(target_names) > 500:
+            return False
         from sklearn.inspection import permutation_importance
 
         result = permutation_importance(
-            model,
-            X_eval,
+            target_model,
+            eval_X,
             y_eval,
             scoring=_macro_f1_scorer,
             n_repeats=5,
@@ -389,11 +403,11 @@ def _plot_feature_importance(
     if importance is None:
         return False
     importance = np.asarray(importance).reshape(-1)
-    if len(importance) != len(feature_names) or not np.all(np.isfinite(importance)):
+    if len(importance) != len(target_names) or not np.all(np.isfinite(importance)):
         raise ValueError("Số lượng hoặc giá trị feature importance không hợp lệ.")
 
     idx = np.argsort(importance)[-min(top_n, len(importance)):]
-    top_names = [feature_names[i] for i in idx]
+    top_names = [target_names[i] for i in idx]
     top_vals = importance[idx]
     errors = importance_std[idx] if importance_std is not None else None
     displayed_n = len(idx)
@@ -430,10 +444,9 @@ def full_report(
     ablation_results: dict[str, dict] | None = None,
     per_fruit_results: list[dict] | None = None,
     selected_val_metrics: dict | None = None,
+    feature_names: list[str] | None = None,
 ) -> None:
     """Tạo toàn bộ biểu đồ và in classification report."""
-    from src.features import FEATURE_NAMES
-
     save_dir.mkdir(parents=True, exist_ok=True)
     class_list = list(class_names)
     y_t = np.array(y_true)
@@ -477,12 +490,15 @@ def full_report(
 
     # Feature importance: prefer validation data for model-agnostic estimates.
     if model is not None:
-        feature_names = FEATURE_NAMES
-        if X_val is not None and X_val.shape[1] != len(feature_names):
-            feature_names = [f"component_{index + 1}" for index in range(X_val.shape[1])]
+        resolved_names = feature_names
+        if resolved_names is None:
+            from src.features import FEATURE_NAMES
+            resolved_names = FEATURE_NAMES
+        if X_val is not None and X_val.shape[1] != len(resolved_names):
+            resolved_names = [f"component_{index + 1}" for index in range(X_val.shape[1])]
         generated = _plot_feature_importance(
             model,
-            feature_names,
+            resolved_names,
             save_dir / "feature_importance.png",
             X_eval=X_val,
             y_eval=np.asarray(y_val) if y_val is not None else None,

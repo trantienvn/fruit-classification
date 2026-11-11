@@ -4,6 +4,7 @@
 
 | ID | Task | Trạng thái | Kết quả |
 |---|---|---|---|
+| TASK-ENV01 | Khôi phục `.venv` dùng Python 3.14 | DONE | Python 3.14.10; requirements cài đủ, pip check sạch; 42 test đạt, 1 cảnh báo Starlette/httpx |
 | TASK-D03 | Cố định dataset train whole-scene | DONE | Bỏ CLI mode và metadata; 42 test đạt, CLI help và git diff --check đạt |
 | TASK-R01 | Hoàn thiện pipeline ML theo yêu cầu phân loại độ chín | DONE | Code hoàn thiện, 42 test đạt; không chạy lại train theo chỉ đạo người dùng |
 | TASK-V02 | Xác nhận Logistic Regression trong biểu đồ báo cáo | DONE | Kiểm thử huấn luyện LogisticRegression và sinh ảnh so sánh có nhãn thuật toán |

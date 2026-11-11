@@ -8,10 +8,11 @@ Tài liệu hướng dẫn sử dụng bộ máy suy luận (Inference Engine) v
 
 Lớp `FruitClassifier` (trong `src/predict.py`) là lớp đóng gói chuẩn mực phục vụ suy luận độc lập, không phụ thuộc vào dữ liệu huấn luyện.
 
-Pipeline train hiện tại chỉ tạo model scikit-learn trên CPU. Artifact mặc định
-được lưu trong `models-whole-scene/`; khi khởi chạy ứng dụng web, cấu hình
-`FRUIT_MODEL_DIR=models-whole-scene` và
-`FRUIT_REPORTS_DIR=reports-whole-scene` để nạp model đó.
+Pipeline train hiện tại tạo model scikit-learn trên CPU dùng biểu diễn pixel
+số `64×64` RGB chuẩn hóa `[0, 1]` (`12.288` chiều). Artifact mặc định được lưu
+trong `models/` và báo cáo trong `reports/` (ứng dụng web mặc định đọc hai thư
+mục này); nếu dùng bộ YOLO whole-scene, cấu hình
+`FRUIT_MODEL_DIR=models-whole-scene` và `FRUIT_REPORTS_DIR=reports-whole-scene`.
 
 ### Khởi tạo và nạp mô hình
 
@@ -20,8 +21,8 @@ from pathlib import Path
 from PIL import Image
 from src.predict import FruitClassifier
 
-# Khởi tạo đối tượng trỏ đến model ảnh nguyên cảnh mặc định
-classifier = FruitClassifier(model_dir=Path("models-whole-scene"))
+# Khởi tạo đối tượng trỏ đến model mặc định (models/)
+classifier = FruitClassifier(model_dir=Path("models"))
 
 # Nạp model, scaler và cấu hình
 classifier.load()
@@ -134,9 +135,10 @@ Mở `http://127.0.0.1:8000`. Tài liệu Swagger UI ở `/docs`; OpenAPI JSON �
 Có thể đổi cấu hình mà không sửa code bằng các biến `FRUIT_MODEL_DIR`, `FRUIT_HISTORY_DB`, `FRUIT_FRONTEND_DIR`, `FRUIT_REPORTS_DIR` và `FRUIT_MAX_UPLOAD_BYTES`. Nếu model chưa tồn tại, API vẫn phục vụ giao diện và `/api/health` báo `degraded`; endpoint dự đoán trả HTTP 503.
 
 Để web dùng model ảnh toàn cảnh, đặt `FRUIT_MODEL_DIR=models-whole-scene` và
-`FRUIT_REPORTS_DIR=reports-whole-scene` trước khi khởi chạy. Chế độ này nhận
-ảnh toàn cảnh và resize trực tiếp về 128×128; ảnh có nhiều loại quả cùng lúc
-không nằm trong phạm vi nhãn mà model được huấn luyện.
+`FRUIT_REPORTS_DIR=reports-whole-scene` trước khi khởi chạy. Ảnh đầu vào khi
+dự đoán được resize về đúng `crop_size` trong `config.json` (mặc định `64×64`)
+và chuẩn hóa pixel RGB về `[0, 1]` giống hệt lúc tiền xử lý/huấn luyện; ảnh có
+nhiều loại quả cùng lúc không nằm trong phạm vi nhãn mà model được huấn luyện.
 
 ### Các màn hình giao diện
 

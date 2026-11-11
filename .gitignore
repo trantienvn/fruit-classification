@@ -11,6 +11,7 @@ models/
 models-whole-scene/
 data/raw/
 data/processed/
+data/processed/numeric/
 reports-whole-scene/
 models-gpu/
 reports-gpu/

@@ -18,7 +18,7 @@ from src.dataset import (
     CLASS_FOLDER_NAMES,
     CLASS_NAMES,
     DATA_RAW,
-    DATASET_WHOLE_SCENE,
+    DATASET_CLASSIFICATION,
     _parse_yolo_box,
     class_distribution,
     deduplicate_splits,
@@ -179,14 +179,14 @@ def test_prepare_whole_scene_dataset_preserves_splits_and_filters_ambiguous_imag
 
 
 def test_training_default_dataset_dir():
-    assert _default_data_dir() == DATASET_WHOLE_SCENE
+    assert _default_data_dir() == DATASET_CLASSIFICATION
 
 
-def test_training_cli_uses_whole_scene_and_has_no_dataset_mode(monkeypatch, tmp_path, capsys):
+def test_training_cli_uses_classification_dataset_and_has_no_dataset_mode(monkeypatch, tmp_path, capsys):
     data_dir = tmp_path / "dataset"
     for split in ("train", "val", "test"):
         (data_dir / split).mkdir(parents=True)
-    monkeypatch.setattr("src.train.DATASET_WHOLE_SCENE", data_dir)
+    monkeypatch.setattr("src.train.DATASET_CLASSIFICATION", data_dir)
     captured = {}
 
     def fake_train(**kwargs):

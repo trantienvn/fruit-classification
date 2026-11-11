@@ -1,51 +1,43 @@
 # Hướng dẫn huấn luyện mô hình (ML Pipeline)
 
-Tài liệu chi tiết về quy trình nạp dữ liệu, trích xuất đặc trưng và huấn luyện các mô hình Machine Learning truyền thống phân loại trạng thái trái cây.
+Tài liệu chi tiết về quy trình chuyển đổi ảnh sang dữ liệu số và huấn luyện các mô hình Machine Learning truyền thống phân loại trạng thái trái cây.
 
 ---
 
 ## 1. Cấu trúc bài toán và Dataset
 
 - **Bài toán:** Phân loại đa lớp thành 9 lớp.
-- **Định dạng dữ liệu:** Ảnh nguyên cảnh theo split tại `data/processed/whole-scene/{train,val,test}/`.
-- **Taxonomy:** Apple/Banana/Mango × Unripe/Ripe/Overripe.
-- **Split hiện có:** 1.260 ảnh train, 271 validation, 270 test; giữ nguyên phân hoạch nguồn, tỷ lệ tổng thể xấp xỉ 70/15/15.
+- **Định dạng dữ liệu mặc định:** Bộ classification theo thư mục tại `data/processed/dataset/{train,val,test}/`.
+- **Taxonomy mặc định:** Cam/Chuối/Xoài (`Orange`, `Banana`, `Mango`) × `Unripe`, `Ripe`, `Spoiled`.
+- **Split hiện có:** 1.260 ảnh train, 271 validation, 270 test; giữ nguyên phân hoạch nguồn, tỷ lệ tổng thể xấp xỉ 70/15/15. (Pipeline cũng tự nhận diện `data/processed/whole-scene/` nếu truyền `--data-dir`).
 
 ---
 
-## 2. Quy trình trích xuất 90 đặc trưng (Feature Extraction)
+## 2. Chuyển đổi ảnh sang dữ liệu dạng số (`src.preprocess`)
 
-Mỗi ảnh được chuyển RGB, resize về `128 × 128`, median blur và phân đoạn bằng Otsu trên S/xám, morphology; adaptive threshold là fallback. Đặc trưng màu và kết cấu chỉ tính trong mask vùng quả:
+Thay vì trích xuất 90 đặc trưng thủ công, mỗi ảnh được chuyển sang hệ màu RGB, resize về `64 × 64` (`Image.LANCZOS`), chuẩn hóa giá trị pixel về `[0.0, 1.0]` kiểu `float32` và làm phẳng thành vector số `12.288` chiều (`64 × 64 × 3`).
 
-1. **Màu sắc (70 chiều):** RGB và HSV histogram, mỗi kênh có 8 bins; mean/std của RGB, HSV và Lab; tỷ lệ xanh, vàng, cam và nâu/đen.
-2. **Kết cấu (14 chiều):**
-   - *Local Binary Pattern (LBP):* Bán kính $R=1$, số điểm lân cận $P=8$, phương pháp uniform histogram $\rightarrow$ 10 chiều.
-   - *GLCM:* contrast, homogeneity, energy, correlation ở khoảng cách $d=1$, góc $0^\circ$ $\rightarrow$ 4 chiều.
-3. **Hình dạng (6 chiều):** Tỷ lệ diện tích, chu vi chuẩn hóa, tỷ lệ rộng/cao, aspect ratio và circularity từ contour mask.
+Bước tiền xử lý loại ảnh trùng chính xác (ưu tiên giữ `test > val > train`) và lưu toàn bộ dữ liệu số vào `data/processed/numeric/numeric_dataset.npz` kèm `manifest.json`:
 
-Toàn bộ 90 đặc trưng được chuẩn hóa trong scikit-learn Pipeline; scaler/PCA chỉ fit trên phần train của từng fold CV.
+```powershell
+python -m src.preprocess
+```
 
-### Chuẩn bị dữ liệu nguyên cảnh
+Mỗi lần chạy `python -m src.train`, chương trình tự động kiểm tra hash dataset và nạp trực tiếp ma trận số từ `.npz` (chỉ chạy lại tiền xử lý nếu chưa có cache hoặc dataset ảnh thay đổi).
 
-Dataset YOLO trong `data/raw/` được chuyển thành bộ classification dùng nguyên
-ảnh gốc. Pipeline giữ nguyên split train/val/test có sẵn; chỉ nhận ảnh mà tất cả
-bounding box cùng mang một nhãn. Ảnh không có nhãn, nhãn sai định dạng hoặc
-nhiều class bị loại vì không thể gán một nhãn classification duy nhất cho cảnh.
-Ảnh được resize thành 128×128, cùng cách resize mà `FruitClassifier` dùng khi
-inference. Đây là dữ liệu duy nhất được pipeline train hỗ trợ.
+Toàn bộ `12.288` chiều pixel được chuẩn hóa bằng `StandardScaler` và giảm chiều bằng PCA (giữ 95% phương sai mặc định); scaler/PCA chỉ `fit` trên phần train của từng fold CV.
+
+### Dùng dataset YOLO ảnh toàn cảnh (tùy chọn)
+
+Nếu muốn chạy trên bộ YOLO đã xuất ảnh toàn cảnh (taxonomy `Apple/Banana/Mango`):
 
 ```powershell
 python -m src.dataset --source-dir data/raw --output-dir data/processed/whole-scene
-python -m src.train
+python -m src.preprocess --data-dir data/processed/whole-scene
+python -m src.train --data-dir data/processed/whole-scene
 ```
 
-Manifest ghi số ảnh giữ lại/loại theo split và class. Model được lưu mặc định
-vào `models-whole-scene/`, báo cáo vào `reports-whole-scene/`; truyền
-`--model-dir` nếu muốn chọn thư mục khác. Không dùng chung model directory giữa
-hai chế độ.
-
-Artifact dùng taxonomy Apple/Banana/Mango và được lưu trong
-`models-whole-scene/`.
+Manifest ghi số ảnh giữ lại/loại theo split và class. Khi dùng `data/processed/dataset/`, model mặc định lưu vào `models/` và báo cáo vào `reports/`. Khi dùng `whole-scene`, model lưu vào `models-whole-scene/` và báo cáo vào `reports-whole-scene/`.
 
 ---
 
@@ -75,9 +67,10 @@ Mô hình có hiệu năng tốt nhất sau tinh chỉnh sẽ được chọn l�
 
 ## 5. Hướng dẫn chạy huấn luyện
 
-### Chạy huấn luyện mặc định (Apple/Banana/Mango, CPU)
+### Chạy huấn luyện mặc định (Cam/Chuối/Xoài, CPU)
 
 ```powershell
+python -m src.preprocess
 python -m src.train
 ```
 
@@ -87,14 +80,11 @@ python -m src.train
 python -m src.train --no-gridsearch
 ```
 
-Pipeline so sánh 9 estimator scikit-learn trên CPU. Augmentation (xoay/lật/đổi
-sáng) chỉ áp dụng cho train sau khi chọn model; validation, test và các fold CV
-không nhận ảnh tăng cường. Không có tùy chọn CUDA/GPU hoặc backend PyTorch.
-
-```powershell
-python -m src.dataset --source-dir data/raw --output-dir data/processed/whole-scene
-python -m src.train
-```
+Pipeline so sánh 9 estimator scikit-learn trên CPU dựa trên dữ liệu pixel số
+đã lưu trong `.npz`. Augmentation (xoay/lật/đổi sáng) chỉ áp dụng cho train
+sau khi chọn model và được chuyển sang cùng dạng vector pixel chuẩn hóa `[0, 1]`;
+validation, test và các fold CV không nhận ảnh tăng cường. Không có tùy chọn
+CUDA/GPU hoặc backend PyTorch.
 
 PCA 95% phương sai được bật mặc định. Để tắt và đối chiếu:
 
@@ -105,24 +95,23 @@ python -m src.train --no-pca
 ## 6. Kết quả đầu ra
 
 Sau khi chạy thành công, hệ thống tự động sinh:
-- **Thư mục model:** Mặc định `models-whole-scene/`.
+- **Thư mục model:** Mặc định `models/` (hoặc `models-whole-scene/` với dataset whole-scene).
   - `classifier.joblib`: Pipeline tốt nhất (scaler/PCA/model).
   - `per-fruit/`: Pipeline riêng theo từng loại quả.
   - `scaler.joblib`: Bộ chuẩn hóa tương thích với artifact cũ.
-  - `config.json`: Toàn bộ cấu hình metadata, tên lớp, số mẫu và chỉ số metrics.
-- **Thư mục báo cáo:** Mặc định `reports-whole-scene/`.
+  - `config.json`: Toàn bộ cấu hình metadata (`feature_type: "pixels_rgb_0_1"`, `crop_size: [64, 64]`, `n_features: 12288`), tên lớp, số mẫu và chỉ số metrics.
+- **Thư mục báo cáo:** Mặc định `reports/` (hoặc `reports-whole-scene/`).
   - `confusion_matrix.png`: Ma trận nhầm lẫn trực quan trên tập test.
   - `roc_curves.png`: 9 đường cong ROC One-vs-Rest kèm giá trị AUC từng lớp.
   - `model_comparison.png` và `model_comparison.csv`: So sánh 9 estimator trên validation, gồm thời gian fit và inference/ảnh.
-  - `ablation_comparison.csv` và `ablation_comparison.png`: Màu; màu+kết cấu; màu+kết cấu+hình dạng.
   - `per_fruit_comparison.csv`: So sánh model chung và model riêng theo quả.
   - `learning_curve.png`: Learning curve 5-fold chỉ trên train.
   - `learning_curve.csv`, `classification_metrics.csv`, `roc_auc.csv`, `summary.md`: số liệu theo điểm train, lớp, AUC và kết luận tự sinh từ lần chạy.
-  - `mask_samples/` và `misclassified/`: mask train mẫu và ảnh test dự đoán sai.
-  - `feature_importance.png`: Top 20 đặc trưng quan trọng. Dùng importance/|coef| tích hợp nếu model hỗ trợ; nếu không, dùng permutation importance trên validation (mức giảm Macro F1 sau khi xáo trộn từng đặc trưng).
-  - `classification_report_RandomForest.txt`: Bảng chi tiết Precision, Recall, F1 theo từng lớp (tên file theo model được chọn).
+  - `misclassified/`: ảnh test dự đoán sai.
+  - `feature_importance.png`: Top 20 thành phần/tọa độ quan trọng (nếu model hoặc PCA hỗ trợ).
+  - `classification_report_<Model>.txt`: Bảng chi tiết Precision, Recall, F1 theo từng lớp (tên file theo model được chọn).
 
 Web UI hiển thị các ảnh báo cáo trong mục **Thông tin mô hình → Biểu đồ đánh
 giá**, gồm so sánh thuật toán, ma trận nhầm lẫn, ROC và feature importance khi
-có. Ứng dụng dùng `reports-whole-scene/`; `FRUIT_REPORTS_DIR` có thể chỉ định
-thư mục báo cáo khác.
+có. Ứng dụng mặc định dùng `models/` và `reports/`; `FRUIT_MODEL_DIR` và
+`FRUIT_REPORTS_DIR` có thể chỉ định thư mục khác.

@@ -1,17 +1,18 @@
 """Pipeline huấn luyện CPU — phân loại 9 class kết hợp (loại × độ chín).
 
 Quy trình:
-    1. Nạp ảnh nguyên cảnh từ data/processed/whole-scene/ theo các split có sẵn
-  2. Trích xuất đặc trưng (51 features)
-  3. Chuẩn hóa với StandardScaler
-  4. (Tùy chọn) Giảm chiều với PCA
-  5. Huấn luyện 7 mô hình: KNN, NaiveBayes, LR, SVM, DT, RF, GBM
-  6. So sánh trên tập val
-  7. GridSearchCV cho 3 mô hình tốt nhất
-  8. Đánh giá cuối trên tập test
-  9. Lưu model tốt nhất + preprocessing pipeline + metadata
+  1. Nạp bộ dữ liệu dạng số (.npz) từ bước tiền xử lý ảnh -> vector pixel RGB [0, 1]
+     (tự động chạy `src.preprocess` nếu chưa có cache hoặc dataset đã thay đổi)
+  2. Chuẩn hóa với StandardScaler
+  3. (Tùy chọn) Giảm chiều với PCA (mặc định giữ 95% phương sai)
+  4. Huấn luyện 9 estimator scikit-learn trên CPU
+  5. So sánh trên tập val
+  6. GridSearchCV cho 3 mô hình tốt nhất
+  7. Đánh giá cuối trên tập test
+  8. Lưu model tốt nhất + preprocessing pipeline + metadata
 
 Chạy:
+    python -m src.preprocess
     python -m src.train
 """
 
@@ -33,31 +34,29 @@ import numpy as np
 from sklearn.base import clone
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.decomposition import PCA
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.dummy import DummyClassifier
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 
-from src.dataset import (
-    DATASET_WHOLE_SCENE,
-    LEGACY_CLASS_NAMES,
-    deduplicate_splits,
-    load_scene_split,
-)
+from src.dataset import DATASET_CLASSIFICATION
 from src.evaluate import evaluate_predictions, full_report
-from src.features import (
-    FEATURE_GROUPS,
-    N_FEATURES,
+from src.preprocess import (
+    DEFAULT_CACHE_DIR,
+    REPRESENTATION_NAME,
     augment_training_images,
-    build_feature_matrix,
-    save_mask_samples,
+    cache_is_valid,
+    images_to_numeric_matrix,
+    load_preprocessed,
+    numeric_vectors_to_images,
+    pixel_feature_names,
+    preprocess,
 )
 
 # ── Cấu hình mô hình ──────────────────────────────────────────────────────────
@@ -103,7 +102,6 @@ GRID_PARAMS: dict[str, dict] = {
     },
 }
 
-# Dùng PCA nếu True (tắt mặc định — thực nghiệm xác nhận)
 USE_PCA = True
 PCA_VARIANCE = 0.95  # giữ 95% phương sai
 
@@ -111,58 +109,60 @@ PCA_VARIANCE = 0.95  # giữ 95% phương sai
 # ── Hàm tiện ích ──────────────────────────────────────────────────────────────
 
 def _default_data_dir() -> Path:
-    """Trả về thư mục dữ liệu nguyên cảnh mặc định."""
-    return DATASET_WHOLE_SCENE
+    """Trả về thư mục dữ liệu mặc định (dataset classification Cam/Chuối/Xoài)."""
+    return DATASET_CLASSIFICATION
 
 
-def _load_data(data_dir: Path) -> tuple[
+def _load_data(
+    data_dir: Path,
+    cache_dir: Path | None = None,
+    force_preprocess: bool = False,
+) -> tuple[
     np.ndarray, np.ndarray,
     np.ndarray, np.ndarray,
     np.ndarray, np.ndarray,
     list[np.ndarray],
     list[np.ndarray],
     dict[str, int],
+    tuple[str, ...],
+    tuple[int, int],
+    str,
 ]:
-    """Nạp và trích xuất features từ ba split."""
-    print("Đang nạp tập train...")
-    t0 = time.perf_counter()
-    train_imgs, y_train = load_scene_split(data_dir, "train")
-    print(f"  {len(y_train)} mẫu — {time.perf_counter()-t0:.1f}s")
+    """Nạp dữ liệu số đã tiền xử lý (.npz); tự tiền xử lý nếu cache chưa hợp lệ."""
+    resolved_cache_dir = cache_dir or DEFAULT_CACHE_DIR
+    if force_preprocess or not cache_is_valid(
+        data_dir=data_dir, cache_dir=resolved_cache_dir
+    ):
+        print("Chưa có dữ liệu số hoặc dataset đã thay đổi — đang chạy tiền xử lý...")
+        preprocess(data_dir=data_dir, cache_dir=resolved_cache_dir, force=True)
+    else:
+        print("Phát hiện bộ dữ liệu số đã qua xử lý — nạp trực tiếp từ .npz...")
 
-    print("Đang nạp tập val...")
-    t0 = time.perf_counter()
-    val_imgs, y_val = load_scene_split(data_dir, "val")
-    print(f"  {len(y_val)} mẫu — {time.perf_counter()-t0:.1f}s")
+    data = load_preprocessed(cache_dir=resolved_cache_dir)
+    image_size_arr = data["image_size"]
+    image_size = (int(image_size_arr[0]), int(image_size_arr[1]))
+    class_names = tuple(str(name) for name in data["class_names"])
+    dataset_mode = str(data["dataset_mode"][0]) if "dataset_mode" in data else "folder"
+    duplicates = dict(data.get("duplicates_dropped", {"train": 0, "val": 0, "test": 0}))
 
-    print("Đang nạp tập test...")
-    t0 = time.perf_counter()
-    test_imgs, y_test = load_scene_split(data_dir, "test")
-    print(f"  {len(y_test)} mẫu — {time.perf_counter()-t0:.1f}s")
-
-    (train_imgs, y_train), (val_imgs, y_val), (test_imgs, y_test), duplicates = deduplicate_splits(
-        train_imgs, y_train, val_imgs, y_val, test_imgs, y_test
-    )
-    dropped = sum(duplicates.values())
-    if dropped:
-        print(f"  Loại {dropped} ảnh trùng chính xác (test > val > train): {duplicates}")
-
-    print("\nTrích xuất đặc trưng...")
-    t0 = time.perf_counter()
-    X_train = build_feature_matrix(train_imgs)
-    X_val = build_feature_matrix(val_imgs)
-    X_test = build_feature_matrix(test_imgs)
-    print(f"  Xong — {time.perf_counter()-t0:.1f}s | shape train: {X_train.shape}")
+    X_train = data["X_train"]
+    X_test = data["X_test"]
+    train_imgs = numeric_vectors_to_images(X_train, image_size=image_size)
+    test_imgs = numeric_vectors_to_images(X_test, image_size=image_size)
 
     return (
         X_train,
-        np.array(y_train),
-        X_val,
-        np.array(y_val),
+        data["y_train"],
+        data["X_val"],
+        data["y_val"],
         X_test,
-        np.array(y_test),
+        data["y_test"],
         train_imgs,
         test_imgs,
         duplicates,
+        class_names,
+        image_size,
+        dataset_mode,
     )
 
 
@@ -200,12 +200,13 @@ def _train_all(
     results: dict[str, dict] = {}
     print("\n── Huấn luyện các mô hình ──")
     for name, model in MODELS.items():
+        estimator = clone(model)
         t0 = time.perf_counter()
-        model.fit(X_tr, y_tr)  # type: ignore[union-attr]
+        estimator.fit(X_tr, y_tr)  # type: ignore[union-attr]
         t_train = time.perf_counter() - t0
 
         t0 = time.perf_counter()
-        y_pred = model.predict(X_va)  # type: ignore[union-attr]
+        y_pred = estimator.predict(X_va)  # type: ignore[union-attr]
         t_infer = time.perf_counter() - t0
 
         metrics = evaluate_predictions(y_va.tolist(), y_pred.tolist(), class_names=class_names)
@@ -243,43 +244,6 @@ def _evaluate_tuned_model(
         "infer_time_ms": round(infer_time_ms, 4),
         "tune_time_s": round(tune_time_s, 3),
     }
-
-
-def _run_feature_ablations(
-    X_train: np.ndarray,
-    y_train: np.ndarray,
-    X_val: np.ndarray,
-    y_val: np.ndarray,
-    class_names: tuple[str, ...],
-    use_pca: bool,
-) -> dict[str, dict]:
-    """Chọn mô hình theo validation cho màu, màu+kết cấu và toàn bộ feature."""
-    variants = {
-        "color": ("color",),
-        "color+texture": ("color", "texture"),
-        "color+texture+shape": ("color", "texture", "shape"),
-    }
-    results = {}
-    for variant, groups in variants.items():
-        columns = np.concatenate([
-            np.arange(FEATURE_GROUPS[group].start, FEATURE_GROUPS[group].stop)
-            for group in groups
-        ])
-        X_train_variant = X_train[:, columns]
-        X_val_variant = X_val[:, columns]
-        X_tr, X_va, _, _, _ = _preprocess(
-            X_train_variant, X_val_variant, X_val_variant, use_pca
-        )
-        model_results, best_name = _train_all(
-            X_tr, y_train, X_va, y_val, class_names
-        )
-        best = model_results[best_name]
-        results[variant] = {
-            "best_model": best_name,
-            "accuracy": best["accuracy"],
-            "macro_f1": best["macro_f1"],
-        }
-    return results
 
 
 def _train_fruit_specific_models(
@@ -405,6 +369,8 @@ def _save_pipeline(
     test_metrics: dict,
     training_meta: dict,
     class_names: tuple[str, ...],
+    n_features: int,
+    image_size: tuple[int, int],
 ) -> None:
     """Lưu toàn bộ pipeline cần thiết để inference."""
     model_dir.mkdir(parents=True, exist_ok=True)
@@ -423,10 +389,11 @@ def _save_pipeline(
         "model_name": model_name,
         "n_classes": len(class_names),
         "class_names": list(class_names),
-        "n_features": N_FEATURES,
+        "n_features": int(n_features),
+        "feature_type": REPRESENTATION_NAME,
         "use_pca": pca is not None,
         "pipeline_includes_preprocessing": isinstance(model, Pipeline),
-        "crop_size": [128, 128],
+        "crop_size": [int(image_size[0]), int(image_size[1])],
         "val_metrics": val_metrics,
         "test_metrics": test_metrics,
         **training_meta,
@@ -444,34 +411,46 @@ def train(
     model_dir: Path | None = None,
     use_pca: bool = USE_PCA,
     run_gridsearch: bool = True,
+    cache_dir: Path | None = None,
+    force_preprocess: bool = False,
 ) -> dict:
-    """Chạy pipeline các mô hình scikit-learn trên CPU."""
+    """Chạy pipeline các mô hình scikit-learn trên bộ dữ liệu số (.npz)."""
     if data_dir is None:
         data_dir = _default_data_dir()
-    if model_dir is None:
-        model_dir = Path("models-whole-scene")
-    class_names = LEGACY_CLASS_NAMES
+
     print("=" * 60)
     print("PIPELINE HUẤN LUYỆN — PHÂN LOẠI TRẠNG THÁI TRÁI CÂY")
     print(f"Dataset: {data_dir}")
-    print(f"Model dir: {model_dir}")
+    print("Biểu diễn đầu vào: Pixel RGB chuẩn hóa [0, 1] (dữ liệu số)")
     print("Thiết bị huấn luyện: CPU")
     print("=" * 60)
 
-    # 1. Nạp và trích xuất features
-    X_train, y_train, X_val, y_val, X_test, y_test, train_images, test_images, duplicate_counts = _load_data(data_dir)
-
-    # 2. Chuẩn hóa
-    X_tr, X_va, X_te, scaler, pca = _preprocess(X_train, X_val, X_test, use_pca)
-
-    # 3. So sánh nhóm đặc trưng chỉ trên train/validation.
-    ablation_results = _run_feature_ablations(
-        X_train, y_train, X_val, y_val, class_names, use_pca
+    # 1. Nạp bộ dữ liệu dạng số (.npz)
+    (
+        X_train, y_train,
+        X_val, y_val,
+        X_test, y_test,
+        train_images, test_images,
+        duplicate_counts,
+        class_names,
+        image_size,
+        dataset_mode,
+    ) = _load_data(
+        data_dir,
+        cache_dir=cache_dir,
+        force_preprocess=force_preprocess,
     )
 
-    # 4. Huấn luyện tất cả mô hình
+    if model_dir is None:
+        model_dir = Path("models-whole-scene" if dataset_mode == "whole-scene" else "models")
+    print(f"Model dir: {model_dir} (mode={dataset_mode}, shape={X_train.shape})")
+
+    # 2. Chuẩn hóa & PCA
+    X_tr, X_va, X_te, scaler, pca = _preprocess(X_train, X_val, X_test, use_pca)
+
+    # 3. Huấn luyện tất cả mô hình
     val_results, best_name = _train_all(X_tr, y_train, X_va, y_val, class_names)
-    available_models = MODELS
+    available_models = dict(MODELS)
     use_gridsearch = run_gridsearch
 
     # 4. GridSearch cho top-3 mô hình tốt nhất
@@ -504,12 +483,12 @@ def train(
 
         if best_tuned is not None:
             best_name = tuned_best_name
-            available_models[best_name] = best_tuned  # type: ignore[assignment]
+            available_models[best_name] = best_tuned
             print(f"\nMô hình tốt nhất sau GridSearch: {best_name} — val F1 = {best_f1:.4f}")
         else:
             print(f"\nGiữ nguyên mô hình ban đầu: {best_name} — val F1 = {best_f1:.4f}")
 
-    # Refit a single inference pipeline on train only, regardless of model family.
+    # Refit pipeline trên train + augmentation (chuyển ảnh augmented thành vector số cùng chuẩn)
     selected_estimator = available_models[best_name]
     best_model = Pipeline([
         ("scaler", StandardScaler()),
@@ -517,8 +496,10 @@ def train(
         ("model", clone(selected_estimator.named_steps["model"]) if isinstance(selected_estimator, Pipeline) else clone(selected_estimator)),
     ])
     augmented_images, augmented_labels = augment_training_images(train_images, y_train)
-    augmented_features = build_feature_matrix(augmented_images[len(train_images):])
-    X_fit = np.vstack([X_train, augmented_features])
+    augmented_vectors = images_to_numeric_matrix(
+        augmented_images[len(train_images):], image_size=image_size
+    )
+    X_fit = np.vstack([X_train, augmented_vectors])
     y_fit = np.concatenate([y_train, np.asarray(augmented_labels[len(y_train):])])
     best_model.fit(X_fit, y_fit)
 
@@ -547,7 +528,7 @@ def train(
         "test_macro_f1": "",
     })
 
-    # 5. Evaluate the held-out test split once, after model selection is complete.
+    # 5. Đánh giá tập test độc lập một lần duy nhất
     y_pred_test = best_model.predict(X_test)  # type: ignore[union-attr]
     test_metrics = evaluate_predictions(
         y_test.tolist(), y_pred_test.tolist(), class_names=class_names
@@ -559,8 +540,9 @@ def train(
     print(f"  Macro F1 : {test_metrics['macro_f1']:.4f}")
 
     # 6. Xuất biểu đồ và báo cáo
-    reports_dir = model_dir.parent / "reports-whole-scene"
-    save_mask_samples(train_images, str(reports_dir / "mask_samples"), y_train)
+    reports_dir = model_dir.parent / (
+        "reports-whole-scene" if dataset_mode == "whole-scene" else "reports"
+    )
     full_report(
         y_test.tolist(), y_pred_test.tolist(),
         class_names=class_names,
@@ -574,9 +556,10 @@ def train(
         X_train=X_train,
         y_train=y_train.tolist(),
         test_images=test_images,
-        ablation_results=ablation_results,
+        ablation_results=None,
         per_fruit_results=per_fruit_results,
         selected_val_metrics=selected_val,
+        feature_names=pixel_feature_names(image_size),
     )
 
     # 7. Lưu pipeline
@@ -587,6 +570,8 @@ def train(
         val_metrics=val_summary,
         test_metrics={k: test_metrics[k] for k in ("accuracy", "macro_f1")},
         class_names=class_names,
+        n_features=int(X_train.shape[1]),
+        image_size=image_size,
         training_meta={
             "n_train": int(len(y_train)),
             "n_train_after_augmentation": int(len(y_fit)),
@@ -597,6 +582,7 @@ def train(
             "gridsearch": use_gridsearch,
             "backend": "scikit-learn",
             "device": "cpu",
+            "dataset_mode": dataset_mode,
             "duplicate_images_dropped": duplicate_counts,
             "per_fruit_models": sorted(per_fruit_models),
             "selected_validation_metrics": {
@@ -613,22 +599,27 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Huấn luyện mô hình phân loại trái cây")
     parser.add_argument("--data-dir", type=Path, default=None)
     parser.add_argument("--model-dir", type=Path, default=None)
+    parser.add_argument("--cache-dir", type=Path, default=None)
     pca_group = parser.add_mutually_exclusive_group()
     pca_group.add_argument("--pca", dest="use_pca", action="store_true", help="Bật PCA 95%% phương sai (mặc định)")
     pca_group.add_argument("--no-pca", dest="use_pca", action="store_false", help="Tắt PCA")
     parser.set_defaults(use_pca=USE_PCA)
     parser.add_argument("--no-gridsearch", action="store_true", help="Tắt GridSearch")
+    parser.add_argument(
+        "--force-preprocess",
+        action="store_true",
+        help="Ép chuyển đổi lại bộ dữ liệu số .npz trước khi huấn luyện",
+    )
     args = parser.parse_args(argv)
 
     data_dir = args.data_dir or _default_data_dir()
-    image_root = data_dir
     missing_splits = [
         split for split in ("train", "val", "test")
-        if not (image_root / split).is_dir()
+        if not (data_dir / split).is_dir()
     ]
     if missing_splits:
         print(
-            f"LỖI: Thiếu split {', '.join(missing_splits)} trong {image_root}. "
+            f"LỖI: Thiếu split {', '.join(missing_splits)} trong {data_dir}. "
             "Hãy kiểm tra --data-dir hoặc chạy bước chuẩn bị dataset."
         )
         return 2
@@ -639,6 +630,8 @@ def main(argv: list[str] | None = None) -> int:
             model_dir=args.model_dir,
             use_pca=args.use_pca,
             run_gridsearch=not args.no_gridsearch,
+            cache_dir=args.cache_dir,
+            force_preprocess=args.force_preprocess,
         )
     except (FileNotFoundError, OSError, RuntimeError, ValueError) as exc:
         print(f"LỖI: {exc}")

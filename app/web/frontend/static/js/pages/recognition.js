@@ -5,6 +5,11 @@ const MAX_BYTES = 10 * 1024 * 1024;
 const PREDICT_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5M10.8 7.5v6.6m-3.3-3.3h6.6"/></svg>';
 const READY_BUTTON_HTML = `${PREDICT_ICON} Phân loại ảnh`;
 const REPEAT_BUTTON_HTML = `${PREDICT_ICON} Phân loại lại ảnh`;
+const RIPENESS_THEMES = new Map([
+  ["Unripe", "unripe"],
+  ["Ripe", "ripe"],
+  ["Spoiled", "spoiled"],
+]);
 let selectedFile = null;
 let previewUrl = null;
 
@@ -41,11 +46,11 @@ function enableDrop(target) {
     event.preventDefault();
     dragDepth = 0;
     target.classList.remove("is-dragging");
-    setFile(event.dataTransfer?.files?.[0]);
+    setFile(event.dataTransfer?.files?.[0], true);
   });
 }
 
-function setFile(file) {
+function setFile(file, wasDropped = false) {
   if (!file) return;
   if (file.size > MAX_BYTES) {
     const hasCurrentFile = Boolean(selectedFile);
@@ -61,6 +66,7 @@ function setFile(file) {
   if (previewUrl) URL.revokeObjectURL(previewUrl);
   selectedFile = file;
   previewUrl = URL.createObjectURL(file);
+  delete document.documentElement.dataset.ripeness;
   const preview = document.querySelector("#image-preview");
   preview.src = previewUrl;
   preview.onload = () => {
@@ -68,13 +74,21 @@ function setFile(file) {
     document.querySelector("#preview-size").textContent = `${(file.size / 1024).toFixed(1)} KB · ${preview.naturalWidth} × ${preview.naturalHeight} px`;
   };
   document.querySelector("#drop-zone").classList.add("is-hidden");
-  document.querySelector("#image-preview-wrap").classList.remove("is-hidden");
+  const previewWrap = document.querySelector("#image-preview-wrap");
+  previewWrap.classList.remove("is-hidden", "is-drop-confirmed");
+  if (wasDropped) {
+    void previewWrap.offsetWidth;
+    previewWrap.classList.add("is-drop-confirmed");
+  }
   const button = document.querySelector("#predict-button");
   button.disabled = Boolean(button.querySelector(".spinner"));
   resetResult();
 }
 
 function showPrediction(data) {
+  const theme = RIPENESS_THEMES.get(data.ripeness);
+  if (theme) document.documentElement.dataset.ripeness = theme;
+  else delete document.documentElement.dataset.ripeness;
   document.querySelector("#result-empty").classList.add("is-hidden");
   document.querySelector("#result-content").classList.remove("is-hidden");
   document.querySelector("#result-state").textContent = "Đã phân loại";
@@ -104,7 +118,11 @@ export function mount() {
   const input = document.querySelector("#image-file");
   const dropZone = document.querySelector("#drop-zone");
   const inputPanel = document.querySelector(".recognition-input");
+  const previewWrap = document.querySelector("#image-preview-wrap");
   const button = document.querySelector("#predict-button");
+  previewWrap.addEventListener("animationend", (event) => {
+    if (event.animationName === "drop-confirm") previewWrap.classList.remove("is-drop-confirmed");
+  });
   input.addEventListener("change", () => {
     setFile(input.files?.[0]);
     input.value = "";
@@ -113,6 +131,7 @@ export function mount() {
   document.querySelector("#clear-image").addEventListener("click", () => {
     selectedFile = null;
     input.value = "";
+    delete document.documentElement.dataset.ripeness;
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     previewUrl = null;
     document.querySelector("#image-preview-wrap").classList.add("is-hidden");

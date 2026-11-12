@@ -4,6 +4,7 @@
 
 | ID | Task | Trạng thái | Kết quả |
 |---|---|---|---|
+| TASK-UI01 | Đổi màu giao diện theo độ chín và hiệu ứng thả ảnh | DONE — COPILOT | Ba nhãn Unripe/Ripe/Spoiled đổi palette; vùng xem trước nháy màu khi thả ảnh. Verify: `tests\\test_web_api.py` (12 passed), `node --check`, trình duyệt kiểm tra cả ba palette và animation |
 | TASK-ENV01 | Khôi phục `.venv` dùng Python 3.14 | DONE | Python 3.14.10; requirements cài đủ, pip check sạch; 42 test đạt, 1 cảnh báo Starlette/httpx |
 | TASK-D03 | Cố định dataset train whole-scene | DONE | Bỏ CLI mode và metadata; 42 test đạt, CLI help và git diff --check đạt |
 | TASK-R01 | Hoàn thiện pipeline ML theo yêu cầu phân loại độ chín | DONE | Code hoàn thiện, 42 test đạt; không chạy lại train theo chỉ đạo người dùng |

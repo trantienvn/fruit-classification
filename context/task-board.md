@@ -4,6 +4,7 @@
 
 | ID | Task | Trạng thái | Kết quả |
 |---|---|---|---|
+| TASK-DOC02 | Viết mô tả tính năng và quy trình chương trình | DONE — COPILOT | Tạo `reports/program.md`: mô tả UI/API/model, công nghệ, pipeline ảnh→model và diễn giải metrics; nêu rõ artifact chưa được xác minh sau bugfix cuối. Verify: rà nội dung và `git diff --check`; không chạy train |
 | TASK-RPT01 | Bổ sung sơ đồ và biểu đồ train theo mục lục | DONE — COPILOT | Sinh lưu đồ train/inference, phân bố split, mẫu augmentation, CV/GridSearch, metrics từng lớp, thời gian và so sánh model theo quả. Verify: `pytest tests -q` (54 passed, 3 warnings); không chạy train thật |
 | TASK-UI01 | Đổi màu giao diện theo độ chín và hiệu ứng thả ảnh | DONE — COPILOT | Ba nhãn Unripe/Ripe/Spoiled đổi palette; vùng xem trước nháy màu khi thả ảnh. Verify: `tests\\test_web_api.py` (12 passed), `node --check`, trình duyệt kiểm tra cả ba palette và animation |
 | TASK-ENV01 | Khôi phục `.venv` dùng Python 3.14 | DONE | Python 3.14.10; requirements cài đủ, pip check sạch; 42 test đạt, 1 cảnh báo Starlette/httpx |

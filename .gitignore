@@ -16,3 +16,6 @@ reports-whole-scene/
 models-gpu/
 reports-gpu/
 reports/
+!reports/
+reports/*
+!reports/program.md

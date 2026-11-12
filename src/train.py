@@ -334,10 +334,10 @@ def _grid_search_best(
     X_train: np.ndarray,
     y_train: np.ndarray,
     use_pca: bool = False,
-) -> object:
+) -> tuple[object, dict]:
     """Tune trên train folds với preprocessing được fit riêng trong từng fold."""
     if name not in GRID_PARAMS:
-        return MODELS[name]
+        return MODELS[name], {}
 
     base_model = Pipeline([
         ("scaler", StandardScaler()),
@@ -356,7 +356,10 @@ def _grid_search_best(
     t0 = time.perf_counter()
     gs.fit(X_train, y_train)
     print(f"  Xong — {time.perf_counter()-t0:.1f}s | best params: {gs.best_params_}")
-    return gs.best_estimator_
+    return gs.best_estimator_, {
+        "cv_macro_f1": float(gs.best_score_),
+        "best_params": dict(gs.best_params_),
+    }
 
 
 def _save_pipeline(
@@ -463,10 +466,12 @@ def train(
 
         for name in top3_eligible:
             tune_start = time.perf_counter()
-            tuned = _grid_search_best(name, X_train, y_train, use_pca=use_pca)
+            tuned, search_details = _grid_search_best(
+                name, X_train, y_train, use_pca=use_pca
+            )
             tune_time = time.perf_counter() - tune_start
             tuned_name = name + "_tuned"
-            val_results[tuned_name] = _evaluate_tuned_model(
+            tuned_metrics = _evaluate_tuned_model(
                 tuned,
                 X_val,
                 y_val,
@@ -474,6 +479,8 @@ def train(
                 val_results[name]["train_time_s"],
                 tune_time,
             )
+            tuned_metrics.update(search_details)
+            val_results[tuned_name] = tuned_metrics
             m = val_results[tuned_name]
             print(f"  {name} (tuned): val F1 = {m['macro_f1']:.4f}")
             if m["macro_f1"] > best_f1:
@@ -499,6 +506,20 @@ def train(
     augmented_vectors = images_to_numeric_matrix(
         augmented_images[len(train_images):], image_size=image_size
     )
+    augmentation_samples = []
+    seen_classes = set()
+    for index, label in enumerate(y_train):
+        class_id = int(label)
+        if class_id in seen_classes:
+            continue
+        augmentation_samples.append((
+            train_images[index],
+            augmented_images[len(train_images) + index],
+            class_names[class_id],
+        ))
+        seen_classes.add(class_id)
+        if len(augmentation_samples) == min(6, len(class_names)):
+            break
     X_fit = np.vstack([X_train, augmented_vectors])
     y_fit = np.concatenate([y_train, np.asarray(augmented_labels[len(y_train):])])
     best_model.fit(X_fit, y_fit)
@@ -560,6 +581,7 @@ def train(
         per_fruit_results=per_fruit_results,
         selected_val_metrics=selected_val,
         feature_names=pixel_feature_names(image_size),
+        augmentation_samples=augmentation_samples,
     )
 
     # 7. Lưu pipeline

@@ -218,7 +218,7 @@ def test_grid_search_tunes_calibrated_svm_estimator():
         rng.normal(loc=1, size=(4, 3)),
     ])
     y_val = np.array([0] * 4 + [1] * 4)
-    model = _grid_search_best("SVM-RBF", X_train, y_train)
+    model, search_details = _grid_search_best("SVM-RBF", X_train, y_train)
 
     assert isinstance(model, Pipeline)
     assert isinstance(model.named_steps["scaler"], StandardScaler)
@@ -230,6 +230,8 @@ def test_grid_search_tunes_calibrated_svm_estimator():
     }
     assert model.get_params()["model__estimator__kernel"] == "rbf"
     assert model.predict(X_val).shape == y_val.shape
+    assert 0.0 <= search_details["cv_macro_f1"] <= 1.0
+    assert search_details["best_params"]
 
 
 # ── Features ─────────────────────────────────────────────────────────────────
@@ -406,10 +408,32 @@ def test_full_report_writes_required_metrics_and_plots(tmp_path):
 
     full_report(
         y_test.tolist(), y_pred.tolist(), class_names, "LogisticRegression",
-        {"LogisticRegression": {"accuracy": 0.5, "macro_f1": 0.4}},
+        {
+            "LogisticRegression": {
+                "accuracy": 0.5,
+                "macro_f1": 0.4,
+                "train_time_s": 0.01,
+                "infer_time_ms": 0.05,
+            },
+            "LogisticRegression_tuned": {
+                "accuracy": 0.6,
+                "macro_f1": 0.5,
+                "train_time_s": 0.01,
+                "infer_time_ms": 0.04,
+                "cv_macro_f1": 0.45,
+                "best_params": {"model__C": 1.0},
+            },
+        },
         tmp_path, model=model, X_test=X_test, X_val=X_val, y_val=y_val.tolist(),
         X_train=X_train, y_train=y_train.tolist(),
         test_images=[np.zeros((8, 8, 3), dtype=np.uint8) for _ in y_test],
+        augmentation_samples=[
+            (
+                np.zeros((8, 8, 3), dtype=np.uint8),
+                np.ones((8, 8, 3), dtype=np.uint8),
+                "Orange Unripe",
+            )
+        ],
         ablation_results={"color": {"best_model": "LR", "accuracy": 0.5, "macro_f1": 0.4}},
         per_fruit_results=[{"scope": "global", "fruit": "all", "model": "LR", "val_macro_f1": 0.4, "test_accuracy": 0.5, "test_macro_f1": 0.4}],
     )
@@ -419,8 +443,17 @@ def test_full_report_writes_required_metrics_and_plots(tmp_path):
         "model_comparison.csv", "learning_curve.png", "learning_curve.csv",
         "classification_metrics.csv", "summary.md", "ablation_comparison.csv",
         "per_fruit_comparison.csv", "misclassified.csv",
+        "training_pipeline.png", "inference_pipeline.png",
+        "data_distribution.png", "class_metrics.png",
+        "augmentation_examples.png", "grid_search_results.png",
+        "grid_search_results.csv", "model_timing.png",
+        "per_fruit_comparison.png",
     ):
         assert (tmp_path / filename).is_file(), filename
+
+    grid_search_csv = (tmp_path / "grid_search_results.csv").read_text(encoding="utf-8-sig")
+    assert "0.45" in grid_search_csv
+    assert "model__C" in grid_search_csv
 
 
 def test_feature_importance_uses_permutation_for_models_without_builtin_importance(tmp_path):

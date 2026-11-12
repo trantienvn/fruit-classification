@@ -101,10 +101,17 @@ Sau khi chạy thành công, hệ thống tự động sinh:
   - `scaler.joblib`: Bộ chuẩn hóa tương thích với artifact cũ.
   - `config.json`: Toàn bộ cấu hình metadata (`feature_type: "pixels_rgb_0_1"`, `crop_size: [64, 64]`, `n_features: 12288`), tên lớp, số mẫu và chỉ số metrics.
 - **Thư mục báo cáo:** Mặc định `reports/` (hoặc `reports-whole-scene/`).
+  - `training_pipeline.png`: Sơ đồ luồng tiền xử lý, chọn/tinh chỉnh mô hình, đánh giá và lưu artifact.
+  - `inference_pipeline.png`: Sơ đồ luồng triển khai từ upload ảnh đến phản hồi API và lưu metadata.
+  - `data_distribution.png`: Số ảnh theo lớp trong các split train, validation và test của lần chạy.
+  - `augmentation_examples.png`: Ảnh train gốc đặt cạnh ảnh tăng cường; chỉ tạo khi có mẫu train.
   - `confusion_matrix.png`: Ma trận nhầm lẫn trực quan trên tập test.
+  - `class_metrics.png`: Precision, Recall và F1 theo từng lớp trên tập test.
   - `roc_curves.png`: 9 đường cong ROC One-vs-Rest kèm giá trị AUC từng lớp.
   - `model_comparison.png` và `model_comparison.csv`: So sánh 9 estimator trên validation, gồm thời gian fit và inference/ảnh.
-  - `per_fruit_comparison.csv`: So sánh model chung và model riêng theo quả.
+  - `grid_search_results.png` và `grid_search_results.csv`: Điểm CV tốt nhất, Macro F1 validation trước/sau tinh chỉnh và siêu tham số được chọn; chỉ tạo khi bật GridSearch.
+  - `model_timing.png`: Thời gian fit sau tiền xử lý và thời gian dự đoán trung bình theo mô hình.
+  - `per_fruit_comparison.png` và `per_fruit_comparison.csv`: So sánh model chung và model riêng theo quả trên test.
   - `learning_curve.png`: Learning curve 5-fold chỉ trên train.
   - `learning_curve.csv`, `classification_metrics.csv`, `roc_auc.csv`, `summary.md`: số liệu theo điểm train, lớp, AUC và kết luận tự sinh từ lần chạy.
   - `misclassified/`: ảnh test dự đoán sai.
@@ -115,3 +122,7 @@ Web UI hiển thị các ảnh báo cáo trong mục **Thông tin mô hình → 
 giá**, gồm so sánh thuật toán, ma trận nhầm lẫn, ROC và feature importance khi
 có. Ứng dụng mặc định dùng `models/` và `reports/`; `FRUIT_MODEL_DIR` và
 `FRUIT_REPORTS_DIR` có thể chỉ định thư mục khác.
+
+Các hình thống kê và đánh giá được dựng từ dữ liệu thực của lần chạy. Những
+hình lý thuyết trong chương cơ sở lý thuyết không được sinh tự động bởi lệnh
+huấn luyện.

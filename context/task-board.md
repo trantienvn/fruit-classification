@@ -4,6 +4,7 @@
 
 | ID | Task | Trạng thái | Kết quả |
 |---|---|---|---|
+| TASK-RPT01 | Bổ sung sơ đồ và biểu đồ train theo mục lục | DONE — COPILOT | Sinh lưu đồ train/inference, phân bố split, mẫu augmentation, CV/GridSearch, metrics từng lớp, thời gian và so sánh model theo quả. Verify: `pytest tests -q` (54 passed, 3 warnings); không chạy train thật |
 | TASK-UI01 | Đổi màu giao diện theo độ chín và hiệu ứng thả ảnh | DONE — COPILOT | Ba nhãn Unripe/Ripe/Spoiled đổi palette; vùng xem trước nháy màu khi thả ảnh. Verify: `tests\\test_web_api.py` (12 passed), `node --check`, trình duyệt kiểm tra cả ba palette và animation |
 | TASK-ENV01 | Khôi phục `.venv` dùng Python 3.14 | DONE | Python 3.14.10; requirements cài đủ, pip check sạch; 42 test đạt, 1 cảnh báo Starlette/httpx |
 | TASK-D03 | Cố định dataset train whole-scene | DONE | Bỏ CLI mode và metadata; 42 test đạt, CLI help và git diff --check đạt |

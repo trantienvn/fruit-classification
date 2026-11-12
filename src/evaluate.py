@@ -17,6 +17,7 @@ Biểu đồ lưu vào reports/:
 from __future__ import annotations
 
 import csv
+import json
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,7 @@ matplotlib.use("Agg")  # không cần display
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
 from sklearn.metrics import (
     ConfusionMatrixDisplay,
     accuracy_score,
@@ -38,6 +40,322 @@ from sklearn.metrics import (
 )
 from sklearn.preprocessing import label_binarize
 from sklearn.model_selection import StratifiedKFold, learning_curve
+
+
+def _plot_flow_diagram(
+    title: str,
+    steps: tuple[tuple[str, str], ...],
+    save_path: Path,
+) -> None:
+    """Vẽ lưu đồ dọc từ các bước và mô tả ngắn."""
+    fig, ax = plt.subplots(figsize=(10, 10))
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.axis("off")
+    centers = np.linspace(0.91, 0.09, len(steps))
+    box_width, box_height = 0.86, 0.095
+
+    for upper, lower in zip(centers, centers[1:]):
+        ax.add_patch(FancyArrowPatch(
+            (0.5, upper - box_height / 2),
+            (0.5, lower + box_height / 2),
+            arrowstyle="-|>",
+            mutation_scale=13,
+            linewidth=1.2,
+            color="#718477",
+        ))
+
+    for index, ((title, description), center) in enumerate(zip(steps, centers)):
+        box = FancyBboxPatch(
+            (0.5 - box_width / 2, center - box_height / 2),
+            box_width,
+            box_height,
+            boxstyle="round,pad=0.012,rounding_size=0.015",
+            facecolor="#edf3ea" if index % 2 == 0 else "#f7f8f4",
+            edgecolor="#78917c",
+            linewidth=1.1,
+        )
+        ax.add_patch(box)
+        ax.text(
+            0.5,
+            center,
+            f"{title}\n{description}",
+            ha="center",
+            va="center",
+            fontsize=9,
+            color="#26372e",
+        )
+
+    ax.set_title(title, fontsize=15, fontweight="bold", pad=18)
+    fig.tight_layout()
+    fig.savefig(save_path, dpi=160, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _plot_training_pipeline(save_path: Path, model_count: int, tuned_count: int) -> None:
+    """Vẽ sơ đồ đúng theo luồng xử lý dữ liệu và huấn luyện hiện hành."""
+    steps = (
+        ("Dữ liệu có nhãn", "Dùng các split train / validation / test đã chuẩn bị"),
+        ("Tiền xử lý ảnh", "RGB → resize → vector pixel chuẩn hóa [0, 1]"),
+        ("So sánh mô hình", f"Fit {model_count} estimator trên train, chọn bằng macro F1 validation"),
+        ("Tinh chỉnh", f"Top {tuned_count} mô hình · Stratified 5-fold CV trên train"),
+        ("Tăng cường và fit cuối", "Chỉ tăng cường ảnh train; không thay đổi validation / test"),
+        ("Đánh giá theo loại quả", "Chọn và fit mô hình riêng theo từng loại bằng train / validation"),
+        ("Đánh giá độc lập", "Đo kết quả trên test sau khi đã chọn mô hình"),
+        ("Lưu kết quả", "Model, metadata và biểu đồ dựa trên dữ liệu lần chạy"),
+    )
+    _plot_flow_diagram("Quy trình huấn luyện và đánh giá", steps, save_path)
+
+
+def _plot_inference_pipeline(save_path: Path) -> None:
+    """Vẽ luồng triển khai từ ảnh tải lên đến kết quả trả về trình duyệt."""
+    steps = (
+        ("Người dùng chọn ảnh", "Trình duyệt gửi file đến API /api/predict"),
+        ("Xác thực ảnh", "Kiểm tra nội dung, định dạng và giới hạn dung lượng"),
+        ("Tiền xử lý inference", "Đọc RGB, resize và tạo vector pixel chuẩn hóa"),
+        ("Phân loại", "Pipeline đã nạp: scaler → PCA tùy chọn → classifier"),
+        ("Lưu lịch sử", "Ghi nhãn và metadata; không lưu ảnh tải lên"),
+        ("Trả kết quả", "API JSON trả nhãn, độ tin cậy và thời gian xử lý"),
+    )
+    _plot_flow_diagram("Luồng triển khai nhận diện ảnh", steps, save_path)
+
+
+def _plot_dataset_distribution(
+    y_train: np.ndarray,
+    y_val: np.ndarray,
+    y_test: np.ndarray,
+    class_names: list[str],
+    save_path: Path,
+) -> None:
+    """Vẽ số mẫu từng lớp trong các split thực tế."""
+    n_classes = len(class_names)
+    distributions = []
+    for split_name, labels in (("Train", y_train), ("Validation", y_val), ("Test", y_test)):
+        class_ids = np.asarray(labels, dtype=int)
+        if class_ids.ndim != 1 or np.any(class_ids < 0) or np.any(class_ids >= n_classes):
+            raise ValueError(f"Nhãn trong split {split_name} nằm ngoài class_names.")
+        distributions.append(np.bincount(class_ids, minlength=n_classes))
+
+    positions = np.arange(n_classes)
+    width = 0.24
+    fig, ax = plt.subplots(figsize=(12, 6))
+    for index, (name, counts, color) in enumerate(zip(
+        ("Train", "Validation", "Test"),
+        distributions,
+        ("#4C72B0", "#55A868", "#DD8452"),
+    )):
+        ax.bar(positions + (index - 1) * width, counts, width, label=name, color=color)
+
+    ax.set_xticks(positions)
+    ax.set_xticklabels([name.replace(" ", "\n") for name in class_names], fontsize=8)
+    ax.set_ylabel("Số ảnh")
+    ax.set_title("Phân bố lớp theo tập dữ liệu", fontsize=13, fontweight="bold")
+    ax.legend()
+    ax.set_ylim(bottom=0)
+    fig.tight_layout()
+    fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _plot_class_metrics(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    class_names: list[str],
+    save_path: Path,
+) -> None:
+    """Vẽ precision, recall và F1 thực tế cho từng lớp trên test."""
+    report = classification_report(
+        y_true,
+        y_pred,
+        labels=list(range(len(class_names))),
+        target_names=class_names,
+        zero_division=0,
+        output_dict=True,
+    )
+    positions = np.arange(len(class_names))
+    height = 0.24
+    fig, ax = plt.subplots(figsize=(11, 6))
+    for offset, metric, color in (
+        (-height, "precision", "#4C72B0"),
+        (0, "recall", "#55A868"),
+        (height, "f1-score", "#DD8452"),
+    ):
+        values = [float(report[name][metric]) for name in class_names]
+        ax.barh(positions + offset, values, height, label=metric.title(), color=color)
+
+    ax.set_yticks(positions)
+    ax.set_yticklabels(class_names, fontsize=8)
+    ax.invert_yaxis()
+    ax.set_xlim(0, 1.05)
+    ax.set_xlabel("Điểm số")
+    ax.set_title("Precision, Recall và F1 theo lớp — tập Test", fontsize=13, fontweight="bold")
+    ax.legend(loc="lower right")
+    fig.tight_layout()
+    fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _plot_augmentation_examples(
+    samples: list[tuple[np.ndarray, np.ndarray, str]],
+    save_path: Path,
+) -> bool:
+    """Đặt cạnh nhau một số ảnh train thật và phiên bản tăng cường."""
+    if not samples:
+        return False
+
+    fig, axes = plt.subplots(len(samples), 2, figsize=(7, 2.5 * len(samples)), squeeze=False)
+    for row, (original, augmented, label) in enumerate(samples):
+        axes[row, 0].imshow(original)
+        axes[row, 0].set_title(f"Ảnh train · {label}", fontsize=9)
+        axes[row, 1].imshow(augmented)
+        axes[row, 1].set_title("Ảnh tăng cường", fontsize=9)
+        axes[row, 0].axis("off")
+        axes[row, 1].axis("off")
+    fig.suptitle("Ví dụ tăng cường dữ liệu train", fontsize=13, fontweight="bold")
+    fig.tight_layout()
+    fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return True
+
+
+def _plot_grid_search_results(
+    all_results: dict[str, dict],
+    save_dir: Path,
+) -> bool:
+    """Lưu điểm CV, validation trước/sau tinh chỉnh và siêu tham số tốt nhất."""
+    rows = []
+    for name, tuned in all_results.items():
+        if not name.endswith("_tuned") or "cv_macro_f1" not in tuned:
+            continue
+        base_name = name.removesuffix("_tuned")
+        baseline = all_results.get(base_name, {})
+        rows.append({
+            "model": base_name,
+            "cv_macro_f1": float(tuned["cv_macro_f1"]),
+            "validation_macro_f1_before": float(baseline.get("macro_f1", 0)),
+            "validation_macro_f1_after": float(tuned.get("macro_f1", 0)),
+            "best_params": tuned.get("best_params", {}),
+        })
+
+    if not rows:
+        return False
+
+    with (save_dir / "grid_search_results.csv").open("w", newline="", encoding="utf-8-sig") as output:
+        writer = csv.DictWriter(
+            output,
+            fieldnames=(
+                "model",
+                "cv_macro_f1",
+                "validation_macro_f1_before",
+                "validation_macro_f1_after",
+                "best_params",
+            ),
+        )
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({
+                **row,
+                "best_params": json.dumps(row["best_params"], ensure_ascii=False, sort_keys=True),
+            })
+
+    positions = np.arange(len(rows))
+    width = 0.24
+    fig, ax = plt.subplots(figsize=(max(8, len(rows) * 2.5), 5))
+    for index, (key, label, color) in enumerate((
+        ("cv_macro_f1", "CV macro F1 tốt nhất", "#4C72B0"),
+        ("validation_macro_f1_before", "Validation trước tinh chỉnh", "#55A868"),
+        ("validation_macro_f1_after", "Validation sau tinh chỉnh", "#DD8452"),
+    )):
+        ax.bar(
+            positions + (index - 1) * width,
+            [row[key] for row in rows],
+            width,
+            label=label,
+            color=color,
+        )
+    ax.set_xticks(positions)
+    ax.set_xticklabels([row["model"] for row in rows], rotation=20, ha="right")
+    ax.set_ylim(0, 1.05)
+    ax.set_ylabel("Macro F1")
+    ax.set_title("Kiểm định chéo và tinh chỉnh siêu tham số", fontsize=13, fontweight="bold")
+    ax.legend(fontsize=8)
+    fig.tight_layout()
+    fig.savefig(save_dir / "grid_search_results.png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return True
+
+
+def _plot_model_timing(all_results: dict[str, dict], save_path: Path) -> bool:
+    """So sánh thời gian fit và dự đoán/ảnh của các estimator ban đầu."""
+    rows = [
+        (name, values)
+        for name, values in all_results.items()
+        if not name.endswith("_tuned")
+        and "train_time_s" in values
+        and "infer_time_ms" in values
+    ]
+    if not rows:
+        return False
+
+    names = [name for name, _ in rows]
+    positions = np.arange(len(names))
+    fig, axes = plt.subplots(1, 2, figsize=(13, max(5, len(rows) * 0.42)), sharey=True)
+    axes[0].barh(positions, [float(values["train_time_s"]) for _, values in rows], color="#4C72B0")
+    axes[0].set_xlabel("Giây")
+    axes[0].set_title("Thời gian fit sau tiền xử lý")
+    axes[1].barh(positions, [float(values["infer_time_ms"]) for _, values in rows], color="#55A868")
+    axes[1].set_xlabel("ms / ảnh")
+    axes[1].set_title("Thời gian dự đoán")
+    axes[0].set_yticks(positions)
+    axes[0].set_yticklabels(names, fontsize=8)
+    axes[0].invert_yaxis()
+    fig.suptitle("Thời gian huấn luyện và suy luận theo mô hình", fontsize=13, fontweight="bold")
+    fig.tight_layout()
+    fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return True
+
+
+def _plot_per_fruit_comparison(results: list[dict], save_path: Path) -> bool:
+    """So sánh accuracy và Macro F1 test giữa model toàn cục/theo loại quả."""
+    rows = [
+        row for row in results
+        if row.get("test_accuracy") not in (None, "")
+        and row.get("test_macro_f1") not in (None, "")
+    ]
+    if not rows:
+        return False
+
+    labels = ["Toàn cục" if row["fruit"] == "all" else row["fruit"] for row in rows]
+    positions = np.arange(len(rows))
+    width = 0.36
+    fig, ax = plt.subplots(figsize=(max(8, len(rows) * 2.2), 5))
+    accuracy = ax.bar(
+        positions - width / 2,
+        [float(row["test_accuracy"]) for row in rows],
+        width,
+        label="Accuracy",
+        color="#4C72B0",
+    )
+    macro_f1 = ax.bar(
+        positions + width / 2,
+        [float(row["test_macro_f1"]) for row in rows],
+        width,
+        label="Macro F1",
+        color="#DD8452",
+    )
+    ax.bar_label(accuracy, fmt="%.3f", fontsize=8, padding=2)
+    ax.bar_label(macro_f1, fmt="%.3f", fontsize=8, padding=2)
+    ax.set_xticks(positions)
+    ax.set_xticklabels(labels)
+    ax.set_ylim(0, 1.08)
+    ax.set_ylabel("Điểm số")
+    ax.set_title("So sánh mô hình toàn cục và theo loại quả — Test", fontsize=13, fontweight="bold")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return True
 
 
 def _macro_f1_scorer(model: object, X: np.ndarray, y_true: np.ndarray) -> float:
@@ -445,6 +763,7 @@ def full_report(
     per_fruit_results: list[dict] | None = None,
     selected_val_metrics: dict | None = None,
     feature_names: list[str] | None = None,
+    augmentation_samples: list[tuple[np.ndarray, np.ndarray, str]] | None = None,
 ) -> None:
     """Tạo toàn bộ biểu đồ và in classification report."""
     save_dir.mkdir(parents=True, exist_ok=True)
@@ -454,8 +773,41 @@ def full_report(
 
     print("\n── Xuất biểu đồ báo cáo ──")
 
+    base_model_count = sum(not name.endswith("_tuned") for name in all_val_results)
+    tuned_model_count = sum(
+        name.endswith("_tuned") and "cv_macro_f1" in metrics
+        for name, metrics in all_val_results.items()
+    )
+    _plot_training_pipeline(
+        save_dir / "training_pipeline.png",
+        model_count=base_model_count,
+        tuned_count=tuned_model_count,
+    )
+    print(f"  Đã lưu: {save_dir / 'training_pipeline.png'}")
+    _plot_inference_pipeline(save_dir / "inference_pipeline.png")
+    print(f"  Đã lưu: {save_dir / 'inference_pipeline.png'}")
+
+    if y_train is not None and y_val is not None:
+        _plot_dataset_distribution(
+            np.asarray(y_train),
+            np.asarray(y_val),
+            y_t,
+            class_list,
+            save_dir / "data_distribution.png",
+        )
+        print(f"  Đã lưu: {save_dir / 'data_distribution.png'}")
+
+    if augmentation_samples:
+        augmentation_path = save_dir / "augmentation_examples.png"
+        if _plot_augmentation_examples(augmentation_samples, augmentation_path):
+            print(f"  Đã lưu: {augmentation_path}")
+
     # Confusion matrix
     _plot_confusion_matrix(y_t, y_p, class_list, save_dir / "confusion_matrix.png")
+    _plot_class_metrics(
+        y_t, y_p, class_list, save_dir / "class_metrics.png"
+    )
+    print(f"  Đã lưu: {save_dir / 'class_metrics.png'}")
 
     # ROC curves (nếu model hỗ trợ predict_proba)
     X_eval = X_test if X_test is not None else X_val
@@ -474,10 +826,18 @@ def full_report(
     # So sánh models
     _plot_model_comparison(all_val_results, save_dir / "model_comparison.png")
     _save_model_comparison_csv(all_val_results, save_dir / "model_comparison.csv")
+    if _plot_grid_search_results(all_val_results, save_dir):
+        print(f"  Đã lưu: {save_dir / 'grid_search_results.png'}.")
+    if _plot_model_timing(all_val_results, save_dir / "model_timing.png"):
+        print(f"  Đã lưu: {save_dir / 'model_timing.png'}")
     if ablation_results:
         _save_ablation_report(ablation_results, save_dir)
     if per_fruit_results:
         _save_per_fruit_report(per_fruit_results, save_dir)
+        if _plot_per_fruit_comparison(
+            per_fruit_results, save_dir / "per_fruit_comparison.png"
+        ):
+            print(f"  Đã lưu: {save_dir / 'per_fruit_comparison.png'}")
 
     learning_scores = None
     if model is not None and X_train is not None and y_train is not None:

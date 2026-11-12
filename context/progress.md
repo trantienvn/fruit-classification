@@ -12,5 +12,8 @@
 - Web mặc định dùng `reports-whole-scene/`; có thể ghi đè bằng
   `FRUIT_REPORTS_DIR`. Trang **Thông tin mô hình**
   hiển thị các ảnh báo cáo hiện có.
+- Mỗi lần train sinh thêm lưu đồ train/inference, phân bố lớp theo split, ví dụ
+  augmentation thật, điểm CV/GridSearch, metrics theo lớp, thời gian và so sánh
+  model toàn cục/theo quả; xem danh sách tại `docs/training.md`.
 - `src.audit` kiểm tra số lượng, ảnh lỗi, kích thước và duplicate chính xác;
   duplicate được lọc theo thứ tự test > val > train khi nạp dữ liệu.

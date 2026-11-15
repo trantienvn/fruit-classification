@@ -15,6 +15,9 @@
 - Mỗi lần train sinh thêm lưu đồ train/inference, phân bố lớp theo split, ví dụ
   augmentation thật, điểm CV/GridSearch, metrics theo lớp, thời gian và so sánh
   model toàn cục/theo quả; xem danh sách tại `docs/training.md`.
+- Có lệnh tùy chọn `python -m src.train_epochs --epochs 50` để train SGD theo
+  epoch; mỗi lần chạy lưu model, CSV lịch sử và biểu đồ Macro-F1/log loss trong
+  thư mục run riêng. Đã xác minh bằng dữ liệu tổng hợp, không chạy dataset thật.
 - `src.audit` kiểm tra số lượng, ảnh lỗi, kích thước và duplicate chính xác;
   duplicate được lọc theo thứ tự test > val > train khi nạp dữ liệu.
 

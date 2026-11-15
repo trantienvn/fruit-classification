@@ -92,6 +92,27 @@ PCA 95% phương sai được bật mặc định. Để tắt và đối chiế
 python -m src.train --no-pca
 ```
 
+### Huấn luyện theo epoch và theo dõi biểu đồ
+
+Để huấn luyện bổ sung bằng SGD theo từng epoch, đồng thời xem diễn biến
+Macro-F1 và log loss của train/validation:
+
+```powershell
+python -m src.train_epochs --epochs 50
+```
+
+Mỗi lần chạy tạo một thư mục riêng theo thời gian trong
+`reports/epoch-runs/` (hoặc `reports-whole-scene/epoch-runs/`):
+
+- `epoch_training.png`: biểu đồ Macro-F1 và log loss theo epoch.
+- `epoch_history.csv`: chỉ số train/validation của từng epoch.
+- `epoch_summary.json`: epoch tốt nhất theo validation Macro-F1.
+
+Model của epoch tốt nhất được lưu tương ứng trong
+`models/epoch-runs/` hoặc `models-whole-scene/epoch-runs/`. Tùy chọn `--no-pca`
+tắt PCA; có thể điều chỉnh tốc độ học bằng `--learning-rate`. Lệnh `src.train`
+và pipeline chọn mô hình mặc định không thay đổi.
+
 ## 6. Kết quả đầu ra
 
 Sau khi chạy thành công, hệ thống tự động sinh:

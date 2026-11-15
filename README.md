@@ -105,6 +105,13 @@ sai. Để bỏ qua GridSearch:
 python -m src.train --no-gridsearch
 ```
 
+Để chạy thêm huấn luyện SGD theo epoch và lưu biểu đồ/lịch sử riêng cho mỗi
+lần chạy:
+
+```powershell
+python -m src.train_epochs --epochs 50
+```
+
 Để chạy trên dataset YOLO Apple/Banana/Mango đã xuất thành ảnh nguyên cảnh
 (`models-whole-scene/` và `reports-whole-scene/`):
 

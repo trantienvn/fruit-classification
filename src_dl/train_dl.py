@@ -81,9 +81,7 @@ def _build_estimators(
         (
             "TorchMLP_CUDA",
             TorchMLPClassifier(device=device, epochs=epochs, lr=lr, random_state=42),
-            {
-                "clf__hidden_dim1": [256, 512],
-            },
+            {},
         ),
         (
             "LogisticRegression",
@@ -157,9 +155,32 @@ def _train_one(
     y_train: np.ndarray,
     use_pca: bool,
     no_gridsearch: bool,
+    X_val: np.ndarray | None = None,
+    y_val: np.ndarray | None = None,
 ) -> tuple[Any, float]:
-    """Huấn luyện một bộ phân loại với GridSearchCV (hoặc không)."""
+    """Huấn luyện một bộ phân loại (TorchMLP huấn luyện trực tiếp 1 lần kèm eval_set, sklearn dùng GridSearch)."""
     pipeline = _build_pipeline(estimator, use_pca)
+    is_torch_model = "Torch" in name or isinstance(estimator, TorchMLPClassifier)
+
+    # Đối với mô hình PyTorch sâu: huấn luyện trực tiếp 1 lần duy nhất kèm theo dõi Validation Loss
+    if is_torch_model:
+        logger.info(f"  Huấn luyện mô hình mạng sâu {name} trực tiếp ({estimator.epochs} epochs)...")
+        t0 = time.perf_counter()
+        X_train_proc = X_train
+        X_val_proc = X_val
+        for step_name in ("scaler", "pca"):
+            if step_name in pipeline.named_steps:
+                transformer = pipeline.named_steps[step_name]
+                X_train_proc = transformer.fit_transform(X_train_proc)
+                if X_val is not None:
+                    X_val_proc = transformer.transform(X_val_proc)
+
+        eval_set = (X_val_proc, y_val) if (X_val is not None and y_val is not None) else None
+        clf = pipeline.named_steps["clf"]
+        clf.fit(X_train_proc, y_train, eval_set=eval_set)
+        elapsed = time.perf_counter() - t0
+        logger.info(f"  {name} hoàn tất trong {elapsed:.1f}s")
+        return pipeline, 0.0
 
     if no_gridsearch or not param_grid:
         logger.info(f"  Huấn luyện {name} (không GridSearch)...")
@@ -171,9 +192,7 @@ def _train_one(
         logger.info(f"  {name} xong trong {elapsed:.1f}s")
         return pipeline, 0.0
 
-    is_torch_model = "Torch" in name or isinstance(estimator, TorchMLPClassifier)
-    effective_n_jobs = 1 if is_torch_model else N_JOBS
-
+    effective_n_jobs = N_JOBS
     cv = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=42)
     grid = GridSearchCV(
         pipeline,
@@ -428,6 +447,8 @@ def train(
                 name, est, param_grid,
                 X_train, y_train,
                 use_pca, no_gridsearch,
+                X_val=X_val,
+                y_val=y_val,
             )
 
             # Đánh giá trên val
@@ -463,19 +484,10 @@ def train(
     best = top_results[0]
     best_pipeline = best["pipeline"]
 
-    # Nếu mô hình tốt nhất là TorchMLP, huấn luyện theo dõi chi tiết trên train + val để vẽ biểu đồ Loss chuẩn
+    # Nếu mô hình tốt nhất là TorchMLP, xuất sơ đồ Loss từ history_ đã ghi nhận trong quá trình huấn luyện
     clf = best_pipeline.named_steps.get("clf")
-    if isinstance(clf, TorchMLPClassifier):
-        X_train_proc = X_train
-        X_val_proc = X_val
-        for step_name in ("scaler", "pca"):
-            if step_name in best_pipeline.named_steps:
-                transformer = best_pipeline.named_steps[step_name]
-                X_train_proc = transformer.transform(X_train_proc)
-                X_val_proc = transformer.transform(X_val_proc)
-
-        logger.info("[train_dl] Ghi nhận tiến trình Loss qua từng epoch cho mô hình tốt nhất...")
-        clf.fit(X_train_proc, y_train, eval_set=(X_val_proc, y_val))
+    if isinstance(clf, TorchMLPClassifier) and getattr(clf, "history_", None):
+        logger.info("[train_dl] Xuất sơ đồ xu hướng Loss và Accuracy qua từng epoch...")
         plot_loss_curve(clf.history_, report_dir, title_suffix=f"{best['name']} ({epochs} Epochs)")
         _sync_report_to_web(report_dir)
 

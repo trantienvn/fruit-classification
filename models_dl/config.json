@@ -19,20 +19,20 @@
   ],
   "n_classes": 9,
   "best_model": "TorchMLP_CUDA",
-  "best_val_f1": 0.97419,
-  "best_val_acc": 0.97417,
+  "best_val_f1": 0.970475,
+  "best_val_acc": 0.97048,
   "test_accuracy": 0.981481,
-  "test_f1": 0.981452,
+  "test_f1": 0.981464,
   "test_metrics": {
     "accuracy": 0.981481,
-    "macro_f1": 0.981452
+    "macro_f1": 0.981464
   },
+  "total_epochs": 3,
   "n_features": 576,
   "use_pca": true,
   "pca_ratio": 0.95,
   "cv_folds": 5,
   "top_k_trained": 3,
   "device": "cuda",
-  "total_epochs": 25,
-  "last_trained_epochs": 10
+  "last_trained_epochs": 1
 }

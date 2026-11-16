@@ -1,31 +1,32 @@
 ======================================================================
-BÁO CÁO HUẤN LUYỆN — src_dl (CNN Embedding + sklearn)
+BÁO CÁO HUẤN LUYỆN — src_dl (CNN Embedding + PyTorch / sklearn)
 ======================================================================
 Backbone: mobilenetv3_small | Embedding dim: 576
 Feature type: cnn_mobilenetv3_small
-PCA: Có | CV folds: 5
+Mô hình tốt nhất: TorchMLP_CUDA
+Tổng Epochs: 1
 
 --- Kết quả Val (sắp xếp theo F1-macro) ---
-   1. TorchMLP_CUDA              val_F1=0.9742  val_acc=0.9742
+   1. TorchMLP_CUDA              val_F1=0.9705  val_acc=0.9705
 
 --- Kết quả Test (mô hình tốt nhất) ---
   Mô hình: TorchMLP_CUDA
-  Test accuracy: 0.9852
-  Test F1-macro: 0.9850
+  Test accuracy: 0.9815
+  Test F1-macro: 0.9813
 
   Classification Report:
                  precision    recall  f1-score   support
 
        cam-chin       0.97      1.00      0.98        30
   cam-chua-chin       1.00      1.00      1.00        30
-       cam-hong       1.00      0.90      0.95        30
+       cam-hong       0.96      0.90      0.93        30
      chuoi-chin       1.00      0.97      0.98        30
 chuoi-chua-chin       1.00      1.00      1.00        30
      chuoi-hong       1.00      1.00      1.00        30
       xoai-chin       0.97      1.00      0.98        30
  xoai-chua-chin       1.00      1.00      1.00        30
-      xoai-hong       0.94      1.00      0.97        30
+      xoai-hong       0.94      0.97      0.95        30
 
-       accuracy                           0.99       270
-      macro avg       0.99      0.99      0.99       270
-   weighted avg       0.99      0.99      0.99       270
+       accuracy                           0.98       270
+      macro avg       0.98      0.98      0.98       270
+   weighted avg       0.98      0.98      0.98       270

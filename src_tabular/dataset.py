@@ -21,7 +21,6 @@ from pathlib import Path
 from typing import Tuple
 
 import numpy as np
-import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +52,7 @@ def generate_fruit_quality_dataset(
     n_samples: int = 4000,
     random_state: int = 42,
     save_path: Path | None = None,
-) -> pd.DataFrame:
+) -> Any:
     """
     Tạo bộ dữ liệu chuẩn hóa Fruit Quality với 4.000 mẫu dựa trên phân phối thực tế.
 
@@ -61,6 +60,7 @@ def generate_fruit_quality_dataset(
         Score = 0.35*Size + 0.30*Weight + 0.40*Sweetness + 0.25*Crunchiness + 0.30*Juiciness - 0.20*Acidity + 0.15*Ripeness + noise
         Quality = 'Good' nếu Score >= 0, ngược lại 'Bad'
     """
+    import pandas as pd
     rng = np.random.default_rng(random_state)
 
     # Sinh các đặc trưng liên tục chuẩn hóa (mean ~ 0, std ~ 1.5 đến 2.0)
@@ -117,6 +117,7 @@ def load_or_create_tabular_data(
     Trả về:
         X (n_samples, 7), y (n_samples,), feature_names
     """
+    import pandas as pd
     csv_path = Path(csv_path)
     if not csv_path.exists():
         df = generate_fruit_quality_dataset(save_path=csv_path)

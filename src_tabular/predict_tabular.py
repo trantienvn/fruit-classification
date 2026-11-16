@@ -25,7 +25,25 @@ from typing import Any
 import joblib
 import numpy as np
 
-from src_tabular.dataset import FEATURE_LABELS_VI, FEATURE_NAMES
+FEATURE_NAMES = [
+    "Size",
+    "Weight",
+    "Sweetness",
+    "Crunchiness",
+    "Juiciness",
+    "Acidity",
+    "Ripeness",
+]
+
+FEATURE_LABELS_VI = {
+    "Size": "Kích thước",
+    "Weight": "Khối lượng",
+    "Sweetness": "Độ ngọt",
+    "Crunchiness": "Độ giòn",
+    "Juiciness": "Độ mọng nước",
+    "Acidity": "Độ axit",
+    "Ripeness": "Độ chín",
+}
 
 logger = logging.getLogger(__name__)
 

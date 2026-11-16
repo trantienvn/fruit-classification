@@ -1,9 +1,8 @@
-"""Mô hình response của REST API (hỗ trợ cả Deep Learning ảnh và Học máy bảng số liệu)."""
+"""Mô hình schema Pydantic cho REST API ứng dụng Học Sâu (Deep Learning) Phân Loại Trái Cây."""
 
 from __future__ import annotations
 
 from typing import Any
-
 from pydantic import BaseModel, Field
 
 
@@ -21,11 +20,10 @@ class HealthData(BaseModel):
     status: str
     model_ready: bool
     history_ready: bool
-    dl_model_ready: bool = False
-    tabular_model_ready: bool = False
     model_name: str | None = None
-    dl_model_name: str | None = None
-    tabular_model_name: str | None = None
+    backbone: str | None = None
+    device: str | None = None
+    n_classes: int = 9
 
 
 class HealthResponse(BaseModel):
@@ -37,20 +35,25 @@ class PredictionData(BaseModel):
     id: int
     filename: str
     fruit_type: str
+    fruit_type_vi: str = Field(default="", description="Tên tiếng Việt loại trái cây (Cam, Chuối, Xoài)")
     ripeness: str
+    ripeness_vi: str = Field(default="", description="Độ chín tiếng Việt (Chín mọng, Chưa chín, Hỏng)")
+    quality: str = Field(default="", description="Đánh giá chất lượng thương phẩm (Đạt chuẩn / Kém)")
+    quality_code: str = Field(default="good", description="'good', 'unripe', hoặc 'bad'")
+    recommendation: str = Field(default="", description="Lời khuyên bảo quản và tiêu dùng")
     class_id: int = Field(alias="predicted_class")
     class_name: str
     class_name_vi: str = Field(
-        description="Tên lớp đầy đủ bằng tiếng Việt, ví dụ: Cam · Hỏng."
+        description="Tên lớp đầy đủ bằng tiếng Việt, ví dụ: Cam · Chín mọng."
     )
     confidence: float | None = Field(
         default=None,
-        description="Chỉ có khi model cung cấp xác suất dự đoán thật.",
+        description="Độ tin cậy xác suất dự đoán cao nhất (0.0 - 1.0).",
     )
     processing_time_ms: float
     probabilities: dict[str, float] | None = Field(
         default=None,
-        description="Chỉ có khi classifier hỗ trợ predict_proba.",
+        description="Phân bố xác suất trên toàn bộ 9 lớp.",
     )
     created_at: str
 
@@ -99,42 +102,3 @@ class DeleteHistoryData(BaseModel):
 class DeleteHistoryResponse(BaseModel):
     success: bool = True
     data: DeleteHistoryData
-
-
-# ---------------------------------------------------------------------------
-# Schemas cho Bản Học Máy theo Bảng số liệu (Tabular Fruit Quality)
-# ---------------------------------------------------------------------------
-
-class TabularPredictionRequest(BaseModel):
-    """Yêu cầu đánh giá chất lượng trái cây theo 7 thuộc tính."""
-
-    size: float = Field(default=0.0, description="Kích thước quả (Size)")
-    weight: float = Field(default=0.0, description="Khối lượng quả (Weight)")
-    sweetness: float = Field(default=0.0, description="Độ ngọt (Sweetness)")
-    crunchiness: float = Field(default=0.0, description="Độ giòn (Crunchiness)")
-    juiciness: float = Field(default=0.0, description="Độ mọng nước (Juiciness)")
-    acidity: float = Field(default=0.0, description="Độ axit (Acidity)")
-    ripeness: float = Field(default=0.0, description="Độ chín (Ripeness)")
-
-
-class TabularFeatureAssessment(BaseModel):
-    feature: str
-    feature_vi: str
-    value: float
-    status: str
-
-
-class TabularPredictionData(BaseModel):
-    predicted_class: str = Field(description="'Good' hoặc 'Bad'")
-    label_vi: str = Field(description="'Tốt (Đạt chuẩn)' hoặc 'Kém (Không đạt)'")
-    confidence: float
-    probabilities: dict[str, float]
-    inputs: dict[str, float]
-    inputs_vi: dict[str, float]
-    assessments: list[TabularFeatureAssessment]
-    model_name: str
-
-
-class TabularPredictionResponse(BaseModel):
-    success: bool = True
-    data: TabularPredictionData

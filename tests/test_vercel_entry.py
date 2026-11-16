@@ -1,11 +1,22 @@
-"""Kiểm tra Vercel Serverless Entry point toàn diện."""
+"""Kiểm tra Vercel Serverless Entry point toàn diện cho ứng dụng Học Sâu (Deep Learning)."""
 
+import io
 import sys
 from pathlib import Path
+from PIL import Image
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from api.index import app
 from fastapi.testclient import TestClient
+
+
+def create_dummy_image_bytes() -> bytes:
+    img = Image.new("RGB", (224, 224), color=(255, 128, 0))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    return buf.getvalue()
+
 
 def test_vercel_app():
     with TestClient(app) as client:
@@ -41,26 +52,20 @@ def test_vercel_app():
         res_health = client.get("/api/health")
         print("GET /api/health status:", res_health.status_code)
         assert res_health.status_code == 200
-        print("Health data:", res_health.json()["data"])
+        health_data = res_health.json()["data"]
+        print("Health data:", health_data)
+        assert health_data["status"] in ("ready", "degraded")
 
-        # 7. Kiểm tra API Tabular ML
-        res_tab = client.post(
-            "/api/tabular/predict",
-            json={
-                "size": 1.0,
-                "weight": 1.0,
-                "sweetness": 1.5,
-                "crunchiness": 1.0,
-                "juiciness": 1.0,
-                "acidity": -0.5,
-                "ripeness": 1.0,
-            },
-        )
-        print("POST /api/tabular/predict status:", res_tab.status_code)
-        assert res_tab.status_code == 200
-        print("Prediction result:", res_tab.json()["data"]["predicted_class"], res_tab.json()["data"]["label_vi"])
+        # 7. Kiểm tra API model-info
+        res_info = client.get("/api/model-info")
+        print("GET /api/model-info status:", res_info.status_code)
+        assert res_info.status_code == 200
+        info_data = res_info.json()["data"]
+        print("Model info:", info_data.get("model_name"), "Backbone:", info_data.get("backbone"))
+        assert "dual_attributes" in info_data
 
         print("\n=> TẤT CẢ ROUTE VÀ TRANG TĨNH ĐỀU TRẢ VỀ HTTP 200! SẴN SÀNG HOÀN TOÀN TRÊN VERCEL!")
+
 
 if __name__ == "__main__":
     test_vercel_app()

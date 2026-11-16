@@ -7,26 +7,26 @@ Mô hình tốt nhất: TorchMLP_CUDA
 Tổng Epochs: 1
 
 --- Kết quả Val (sắp xếp theo F1-macro) ---
-   1. TorchMLP_CUDA              val_F1=0.9705  val_acc=0.9705
+   1. TorchMLP_CUDA              val_F1=0.7369  val_acc=0.7454
 
 --- Kết quả Test (mô hình tốt nhất) ---
   Mô hình: TorchMLP_CUDA
-  Test accuracy: 0.9815
-  Test F1-macro: 0.9813
+  Test accuracy: 0.7593
+  Test F1-macro: 0.7569
 
   Classification Report:
                  precision    recall  f1-score   support
 
-       cam-chin       0.97      1.00      0.98        30
-  cam-chua-chin       1.00      1.00      1.00        30
-       cam-hong       0.96      0.90      0.93        30
-     chuoi-chin       1.00      0.97      0.98        30
-chuoi-chua-chin       1.00      1.00      1.00        30
-     chuoi-hong       1.00      1.00      1.00        30
-      xoai-chin       0.97      1.00      0.98        30
- xoai-chua-chin       1.00      1.00      1.00        30
-      xoai-hong       0.94      0.97      0.95        30
+       cam-chin       0.78      0.70      0.74        30
+  cam-chua-chin       0.71      1.00      0.83        30
+       cam-hong       0.69      0.80      0.74        30
+     chuoi-chin       0.78      0.60      0.68        30
+chuoi-chua-chin       0.64      0.93      0.76        30
+     chuoi-hong       0.81      0.83      0.82        30
+      xoai-chin       0.95      0.63      0.76        30
+ xoai-chua-chin       1.00      0.63      0.78        30
+      xoai-hong       0.72      0.70      0.71        30
 
-       accuracy                           0.98       270
-      macro avg       0.98      0.98      0.98       270
-   weighted avg       0.98      0.98      0.98       270
+       accuracy                           0.76       270
+      macro avg       0.79      0.76      0.76       270
+   weighted avg       0.79      0.76      0.76       270

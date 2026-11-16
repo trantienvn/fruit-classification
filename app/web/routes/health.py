@@ -1,4 +1,4 @@
-"""Trạng thái tiến trình, các mô hình (Deep Learning & Tabular ML) và kho lịch sử."""
+"""Trạng thái tiến trình, mô hình Deep Learning và kho lưu trữ lịch sử."""
 
 from __future__ import annotations
 
@@ -12,18 +12,20 @@ router = APIRouter(tags=["health"])
 @router.get("/health", response_model=HealthResponse, summary="Kiểm tra trạng thái API")
 def health(request: Request) -> HealthResponse:
     classifier = getattr(request.app.state, "classifier", None)
-    tabular_classifier = getattr(request.app.state, "tabular_classifier", None)
+    model_ready = classifier is not None and getattr(classifier, "is_ready", False)
 
-    dl_ready = classifier is not None and getattr(classifier, "is_ready", False)
-    tabular_ready = tabular_classifier is not None and getattr(tabular_classifier, "is_ready", False)
+    model_name = None
+    backbone = None
+    device = None
+    n_classes = 9
 
-    dl_model_name = None
-    if dl_ready and hasattr(classifier, "get_info"):
-        dl_model_name = classifier.get_info().get("model_name")
-
-    tabular_model_name = None
-    if tabular_ready and hasattr(tabular_classifier, "config"):
-        tabular_model_name = tabular_classifier.config.get("model_name") or tabular_classifier.config.get("best_model")
+    if model_ready:
+        if hasattr(classifier, "get_info"):
+            info = classifier.get_info()
+            model_name = info.get("model_name", "CNN (MobileNetV3) + MLP")
+            backbone = info.get("backbone", "mobilenetv3_small")
+            n_classes = info.get("n_classes", 9)
+        device = getattr(classifier, "device", "auto")
 
     history_ready = True
     try:
@@ -31,17 +33,16 @@ def health(request: Request) -> HealthResponse:
     except Exception:
         history_ready = False
 
-    status = "ready" if (dl_ready or tabular_ready) and history_ready else "degraded"
+    status = "ready" if model_ready and history_ready else "degraded"
 
     return HealthResponse(
         data={
             "status": status,
-            "model_ready": dl_ready,
+            "model_ready": model_ready,
             "history_ready": history_ready,
-            "dl_model_ready": dl_ready,
-            "tabular_model_ready": tabular_ready,
-            "model_name": dl_model_name or "MobileNetV3-Small + MLP",
-            "dl_model_name": dl_model_name,
-            "tabular_model_name": tabular_model_name,
+            "model_name": model_name or "MobileNetV3-Small + PyTorch MLP",
+            "backbone": backbone or "mobilenetv3_small",
+            "device": str(device) if device else "CUDA / CPU",
+            "n_classes": n_classes,
         }
     )

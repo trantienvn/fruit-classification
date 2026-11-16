@@ -1,169 +1,123 @@
-# Phân loại trạng thái trái cây
+# Hệ Thống Phân Loại Độ Chín & Chất Lượng Trái Cây bằng Học Sâu (Deep Learning)
 
-Dự án phân loại ảnh trái cây thành 9 lớp. Pipeline mặc định dùng dataset
-Cam/Chuối/Xoài × Unripe/Ripe/Spoiled tại `data/processed/dataset/`. Pipeline
-chuyển đổi ảnh 64×64 RGB sang vector số chuẩn hóa `[0, 1]` (12.288 chiều,
-không trích xuất đặc trưng thủ công), giảm chiều bằng PCA và huấn luyện các
-mô hình machine learning truyền thống bằng scikit-learn trên CPU.
+Dự án áp dụng mạng nơ-ron tích chập (Convolutional Neural Network - CNN) và học chuyển giao (Transfer Learning) để tự động trích chọn đặc trưng không gian từ ảnh chụp, giải quyết đồng thời hai bài toán quan trọng:
+1. **Phân loại chủng loại & Độ chín của trái cây** (Cam, Chuối, Xoài × Chín mọng / Chưa chín / Bị hỏng).
+2. **Đánh giá chất lượng thương phẩm** (Đạt chuẩn Loại 1, Đạt chuẩn lưu kho Loại 2, hoặc Kém chất lượng / Loại bỏ) kèm khuyến nghị an toàn thực phẩm.
 
-## Dataset
+---
 
-Kiểm tra số lượng lớp, ảnh lỗi, kích thước và ảnh trùng bằng:
+## Mục Lục Cơ Sở Lý Thuyết & Phương Pháp
 
-```powershell
-python -m src.audit --data-dir data/processed/dataset
+Dự án được xây dựng và tổ chức bám sát đề cương nghiên cứu:
+
+- **Chương 1: Cơ sở lý thuyết**
+  - Mạng nơ-ron tích chập (CNN), Học chuyển giao (Transfer Learning) và Fine-tuning.
+  - Cơ sở sinh hóa về độ chín và các tiêu chí đánh giá chất lượng trái cây.
+  - Các chỉ số đánh giá mô hình phân loại: Accuracy, Precision, Recall, Macro F1, Confusion Matrix, ROC-AUC.
+- **Chương 2: Mô hình / Phương pháp đề xuất**
+  - Sơ đồ quy trình từ ảnh RGB (224×224) $\rightarrow$ CNN Backbone (MobileNetV3-Small) $\rightarrow$ Trích xuất đặc trưng sâu tự động (576 chiều) $\rightarrow$ Tầng phân loại PyTorch MLP (CUDA/GPU).
+  - Tiền xử lý chuẩn hóa ImageNet (Mean/Std), tăng cường dữ liệu (Data Augmentation: Random Flip, Rotation, ColorJitter).
+  - Chiến lược xử lý song hành 2 thuộc tính: Độ chín (Ripeness) và Chất lượng (Quality).
+- **Chương 3: Kết quả thực nghiệm & Giao diện ứng dụng**
+  - Thống kê dữ liệu, chia tập Train / Val / Test độc lập.
+  - Sơ đồ xu hướng Loss và Accuracy qua từng Epoch (`loss_curve.png`, `epoch_training.png`), kiểm soát Overfitting/Underfitting.
+  - Giao diện Web hiện đại: kéo thả ảnh, tải tệp và **hỗ trợ phím tắt `Ctrl + V` để dán ảnh trực tiếp từ clipboard**.
+
+---
+
+## Cấu Trúc Dự Án
+
+```
+fruit-classification/
+├── api/                    # Vercel Serverless Entrypoint (index.py)
+├── app/web/                # Ứng dụng Web FastAPI & Giao diện
+│   ├── frontend/           # HTML, CSS hiện đại, Vanilla JS modules
+│   │   ├── pages/          # dashboard, recognition, model-info, history, statistics
+│   │   └── static/         # CSS và JavaScript xử lý drag-drop & Ctrl+V clipboard
+│   ├── routes/             # REST API: prediction, health, model_info, history...
+│   └── services/           # History SQLite, Prediction service
+├── data/                   # Bộ dữ liệu ảnh raw & processed
+├── models_dl/              # Trọng số mô hình học sâu (classifier_dl.joblib, config.json)
+├── reports_dl/             # Sơ đồ Loss curve, tiến trình Epoch, báo cáo thực nghiệm
+├── src_dl/                 # Mã nguồn Học Sâu (Deep Learning)
+│   ├── backbone.py         # CNN Backbone (MobileNetV3-Small ImageNet)
+│   ├── preprocess_dl.py    # Chuẩn hóa ImageNet, Data Augmentation, Dataset & DataLoader
+│   ├── torch_classifier.py # Mô hình PyTorch MLP Head, loss tracker, xuất biểu đồ Loss
+│   ├── train_dl.py         # Quy trình huấn luyện & tiếp tục huấn luyện (--resume)
+│   └── predict_dl.py       # Bộ suy luận FruitClassifierDL độc lập
+├── tests/                  # Kiểm thử tự động (pytest)
+├── requirements.txt        # Phụ thuộc sản xuất tối ưu dung lượng (<250MB cho Vercel)
+└── vercel.json             # Cấu hình rewrite và deploy Vercel
 ```
 
-Dataset classification tại `data/processed/dataset/` giữ nguyên các split đã
-cung cấp. Cấu trúc lớp, số lượng ảnh và nguồn dữ liệu được mô tả trong
-[data/README.md](data/README.md). Ảnh trùng chính xác được loại khỏi train nếu
-đã có ở validation/test; test được ưu tiên giữ nguyên.
+---
 
-Dataset YOLO **Fruit Ripeness** do Huzaifa công bố trên
-[Roboflow Universe](https://universe.roboflow.com/huzaifa-qgpco/fruit-ripeness-unjex-xsudt),
-sử dụng theo giấy phép
-[Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
-Giấy phép cho phép sử dụng, chia sẻ và chỉnh sửa, kể cả cho mục đích thương
-mại, với điều kiện ghi công phù hợp, dẫn nguồn, liên kết giấy phép và nêu rõ
-các thay đổi.
+## Cài Đặt Môi Trường
 
-Dataset YOLO cũ được lọc về 9 lớp Apple, Banana, Mango; các lớp `Rotten` và
-loại quả khác không nằm trong ánh xạ cũ. Khi sử dụng hoặc phân phối lại bộ cũ,
-hãy ghi công tác giả Huzaifa, dẫn
-[nguồn dataset](https://universe.roboflow.com/huzaifa-qgpco/fruit-ripeness-unjex-xsudt),
-liên kết [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) và nêu rõ
-các thay đổi.
-
-## Yêu cầu
-
-- Windows 10/11, Python 3.14 và [`uv`](https://github.com/astral-sh/uv).
-- Pipeline dùng scikit-learn trên CPU, không yêu cầu GPU, PyTorch hoặc trọng số
-  pretrained.
-- Có kết nối mạng để cài các thư viện trong `requirements.txt`.
-
-## Cài đặt trên Windows
-
-Cài `uv` nếu chưa có (một lần duy nhất):
+Khuyến nghị sử dụng Python 3.12 - 3.14 trên Windows hoặc Linux:
 
 ```powershell
-winget install astral-sh.uv
-```
-
-Mở PowerShell tại thư mục dự án, tạo môi trường ảo Python 3.14 và cài thư viện:
-
-```powershell
-uv venv --python 3.14 .venv
+# Tạo môi trường ảo
+python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-uv pip install -r requirements.txt
+
+# Cài đặt các thư viện sản xuất
+pip install -r requirements.txt
 ```
 
-Nếu PowerShell chặn kích hoạt môi trường, chạy
-`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` một lần rồi kích hoạt
-lại.
-
-> **Lưu ý:** Dự án chuẩn hóa trên Python 3.14. Đảm bảo môi trường `.venv` đã
-> được kích hoạt trước khi chạy các lệnh kế tiếp, hoặc dùng đường dẫn trực tiếp
-> `.\.venv\Scripts\python.exe`.
-
-## Tiền xử lý dữ liệu
-
-Chuyển đổi toàn bộ ảnh từ `data/processed/dataset/` sang ma trận số chuẩn hóa
-`[0, 1]` (64×64 RGB = 12.288 chiều, lưu tại `data/processed/numeric/numeric_dataset.npz`):
-
+Nếu máy có card đồ họa rời NVIDIA (ví dụ RTX 3050 Laptop GPU) và muốn tận dụng CUDA:
 ```powershell
-python -m src.preprocess
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
 ```
 
-Dùng `--force` để xử lý lại khi cần, hoặc `--data-dir` để chọn dataset khác:
+---
+
+## Huấn Luyện Mô Hình Học Sâu (Deep Learning)
+
+### 1. Huấn luyện từ đầu (Single-pass trên GPU CUDA):
+```powershell
+python -m src_dl.train_dl --models torch --epochs 15 --device cuda
+```
+*(Hệ thống tự động trích xuất đặc trưng sâu 576 chiều qua CNN, huấn luyện tầng MLP và xuất trực tiếp biểu đồ `loss_curve.png` và `epoch_training.png` sang `reports_dl/`)*.
+
+### 2. Tiếp tục huấn luyện với số Epoch tùy chỉnh (`--resume`):
+```powershell
+python -m src_dl.train_dl --resume --epochs 10 --device cuda
+```
+*(Trọng số mô hình được nạp lại và tiếp tục học thêm 10 Epochs, đường cong Loss nối tiếp mượt mà từ chu kỳ trước đó)*.
+
+---
+
+## Chạy Ứng Dụng Web
+
+Khởi chạy ứng dụng Web cục bộ bằng FastAPI:
 
 ```powershell
-python -m src.preprocess --force
+python -m app.web
 ```
 
-Mỗi lần train (`python -m src.train`), chương trình tự động nạp bộ dữ liệu số
-`.npz` đã qua xử lý. Nếu chưa có file `.npz` hoặc dataset ảnh thay đổi,
-`train` sẽ tự động chạy tiền xử lý trước rồi huấn luyện từ dữ liệu số đó.
+- Mở trình duyệt tại: **http://127.0.0.1:8000**
+- Tài liệu tương tác API Swagger Docs: **http://127.0.0.1:8000/docs**
 
-## Huấn luyện
+### Điểm nổi bật trên giao diện:
+- **Dán ảnh cực nhanh từ bộ nhớ tạm**: Chỉ cần nhấn `Ctrl + V` bất kỳ lúc nào trên màn hình để dán ảnh chụp màn hình hoặc ảnh copy từ internet.
+- **Kéo thả & Xem trước trực quan**: Hỗ trợ kéo thả ảnh (Drag & Drop) mượt mà.
+- **Đánh giá 3 chiều**: Chủng loại quả · Độ chín · Tiêu chuẩn chất lượng thương phẩm.
+- **Lời khuyên tiêu dùng**: Đưa ra hướng dẫn cụ thể về bảo quản, thời gian sử dụng, cách ủ chín tự nhiên hoặc cảnh báo nấm mốc.
+- **Phân bố xác suất**: Biểu đồ thanh ngang xác suất trên toàn bộ 9 lớp nhận diện.
 
-Chạy kiểm toán dữ liệu và pipeline mặc định từ thư mục gốc:
+---
 
+## Triển Khai Lên Vercel
+
+Dự án đã được cấu hình tối ưu để chạy mượt mà trên **Vercel Serverless Functions**:
+- `requirements.txt` siêu nhẹ (< 200MB, vượt xa ngưỡng giới hạn 500MB của AWS Lambda).
+- SQLite database tự động lưu vào `/tmp/history.sqlite3`.
+- Entry point `api/index.py` tích hợp middleware xử lý định tuyến tự động.
+
+Triển khai bằng Git:
 ```powershell
-python -m src.audit --data-dir data/processed/dataset
-python -m src.preprocess
-python -m src.train
-```
-
-Pipeline chuẩn hóa pixel với `StandardScaler`, giảm chiều bằng PCA (95% phương
-sai), so sánh 9 estimator và chọn mô hình bằng validation. GridSearchCV dùng
-StratifiedKFold 5-fold trên train; test chỉ đánh giá sau khi đã chọn model.
-Artifact và báo cáo được lưu trong `models/` và `reports/`. Báo cáo gồm CSV,
-confusion matrix, ROC/AUC, learning curve, feature importance và ảnh dự đoán
-sai. Để bỏ qua GridSearch:
-
-```powershell
-python -m src.train --no-gridsearch
-```
-
-Để chạy thêm huấn luyện SGD theo epoch và lưu biểu đồ/lịch sử riêng cho mỗi
-lần chạy:
-
-```powershell
-python -m src.train_epochs --epochs 50
-```
-
-Tiếp tục run mới nhất thêm 20 epoch (cập nhật cùng CSV và biểu đồ):
-
-```powershell
-python -m src.train_epochs --epochs 20 --resume
-```
-
-Mỗi lần chạy còn xuất biểu đồ Loss riêng, confusion matrix, metrics theo lớp,
-ROC/AUC và các báo cáo đánh giá trên tập test trong thư mục run tương ứng.
-
-Để chạy trên dataset YOLO Apple/Banana/Mango đã xuất thành ảnh nguyên cảnh
-(`models-whole-scene/` và `reports-whole-scene/`):
-
-```powershell
-python -m src.dataset --source-dir data/raw --output-dir data/processed/whole-scene
-python -m src.preprocess --data-dir data/processed/whole-scene
-python -m src.train --data-dir data/processed/whole-scene
-```
-
-Không dùng tập test để chọn mô hình hoặc điều chỉnh tham số. Hàm tiện ích
-`src.predict.predict(image_path)` trả về `(nhãn, xác suất)`.
-
-## Chạy Web Application
-
-Để web dùng model ảnh nguyên cảnh YOLO, cấu hình model/report directory trước
-khi chạy FastAPI:
-
-```powershell
-$env:FRUIT_MODEL_DIR = "models-whole-scene"
-$env:FRUIT_REPORTS_DIR = "reports-whole-scene"
-.\.venv\Scripts\python.exe -m app.web
-```
-
-Web mặc định đọc artifact từ `models/` và `reports/`; để dùng model
-classification Cam/Chuối/Xoài theo thư mục, không cần đổi cấu hình; khi đó chỉ
-cần chạy:
-
-```powershell
-.\.venv\Scripts\python.exe -m app.web
-```
-
-Mở `http://127.0.0.1:8000`. API docs có tại `/docs`. Web mới dùng HTML/CSS/JavaScript, không dùng Streamlit để render. Dashboard, lịch sử và thống kê chỉ hiển thị dữ liệu thực từ model hoặc SQLite; ảnh upload không được lưu.
-
-Giao diện Streamlit cũ vẫn được giữ để tham khảo và có thể chạy riêng:
-
-```powershell
-streamlit run app/streamlit_app.py
-```
-
-## Kiểm thử
-
-Các bài kiểm thử độc lập hoàn toàn với dataset và không yêu cầu nạp mô hình nặng:
-
-```powershell
-python -m pytest tests/ -v
+git add .
+git commit -m "feat: cap nhat hoc sau CNN, ho tro Ctrl+V clipboard va giao dien hien dai"
+git push origin main
 ```

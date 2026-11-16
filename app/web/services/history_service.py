@@ -8,8 +8,12 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
-from app.web.labels import localized_class_name
-from src.dataset import FRUIT_NAMES, RIPENESS_NAMES
+from app.web.labels import (
+    FRUIT_NAMES,
+    RIPENESS_NAMES,
+    get_fruit_analysis,
+    localized_class_name,
+)
 
 
 class HistoryService:
@@ -65,14 +69,21 @@ class HistoryService:
 
     @staticmethod
     def _serialize(row: sqlite3.Row) -> dict[str, Any]:
+        class_name = row["class_name"]
+        analysis = get_fruit_analysis(class_name)
         return {
             "id": row["id"],
             "filename": row["filename"],
             "predicted_class": row["class_id"],
-            "class_name": row["class_name"],
-            "class_name_vi": localized_class_name(row["class_name"]),
+            "class_name": class_name,
+            "class_name_vi": analysis.get("label_vi") or localized_class_name(class_name),
             "fruit_type": row["fruit"],
+            "fruit_type_vi": analysis.get("fruit_type_vi", row["fruit"]),
             "ripeness": row["ripeness"],
+            "ripeness_vi": analysis.get("ripeness_vi", row["ripeness"]),
+            "quality": analysis.get("quality", "Đạt chuẩn"),
+            "quality_code": analysis.get("quality_code", "good"),
+            "recommendation": analysis.get("recommendation", ""),
             "confidence": row["confidence"],
             "processing_time_ms": row["processing_time_ms"],
             "created_at": row["created_at"],

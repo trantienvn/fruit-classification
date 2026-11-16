@@ -1,11 +1,11 @@
 {
-  "total_epochs": 3,
-  "best_epoch": 2,
-  "min_val_loss": 0.08214,
-  "best_acc_epoch": 3,
-  "max_val_acc": 0.97786,
-  "final_train_loss": 0.00883,
-  "final_val_loss": 0.08766,
-  "final_train_acc": 1.0,
-  "final_val_acc": 0.97786
+  "total_epochs": 10,
+  "best_epoch": 10,
+  "min_val_loss": 0.12019,
+  "best_acc_epoch": 8,
+  "max_val_acc": 0.97048,
+  "final_train_loss": 0.08942,
+  "final_val_loss": 0.12019,
+  "final_train_acc": 0.99735,
+  "final_val_acc": 0.97048
 }

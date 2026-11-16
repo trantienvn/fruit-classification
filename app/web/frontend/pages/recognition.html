@@ -1,233 +1,150 @@
 <section class="page-heading-block">
-  <p class="eyebrow"><span class="eyebrow-mark"></span> Phân loại & Đánh giá trái cây</p>
-  <h1>Kiểm tra và đánh giá chất lượng.</h1>
-  <p>Hệ thống hỗ trợ 2 bản mô hình: <strong>Bản Học Sâu</strong> (nhận diện qua ảnh chụp) và <strong>Bản Học Máy</strong> (đánh giá theo bảng số liệu đo đạc).</p>
+  <p class="eyebrow"><span class="eyebrow-mark"></span> Học Sâu & Thị Giác Máy Tính (MobileNetV3 + PyTorch)</p>
+  <h1>Phân loại độ chín & Đánh giá chất lượng trái cây.</h1>
+  <p>Hệ thống học sâu tự động trích xuất đặc trưng không gian từ ảnh, nhận diện chủng loại (Cam, Chuối, Xoài) và đánh giá đồng thời hai thuộc tính: <strong>Độ chín</strong> và <strong>Chất lượng thương phẩm</strong>.</p>
 </section>
 
-<!-- Thanh chọn phiên bản mô hình -->
-<div class="mode-tabs" role="tablist" aria-label="Chọn phiên bản mô hình">
-  <button class="mode-tab-btn is-active" id="tab-btn-dl" type="button" role="tab" aria-selected="true" aria-controls="view-dl">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
-    <span>Bản Học Sâu (Deep Learning)</span>
-    <span class="tab-badge">Phân loại ảnh · 9 lớp</span>
-  </button>
-  <button class="mode-tab-btn" id="tab-btn-tabular" type="button" role="tab" aria-selected="false" aria-controls="view-tabular">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
-    <span>Bản Học Máy (Machine Learning)</span>
-    <span class="tab-badge">Bảng số liệu · 7 chỉ số</span>
-  </button>
-</div>
-
 <!-- =========================================================================
-     VIEW 1: BẢN HỌC SÂU (IMAGE CLASSIFICATION)
+     KHU VỰC NHẬN DIỆN HỌC SÂU (IMAGE DEEP LEARNING)
      ========================================================================= -->
-<div id="view-dl" class="mode-view" role="tabpanel" aria-labelledby="tab-btn-dl">
+<div id="view-dl" class="mode-view">
   <section class="recognition-layout">
+    <!-- Cột trái: Đầu vào ảnh & Vùng dán clipboard -->
     <div class="recognition-input panel">
       <div class="panel-heading">
         <div>
-          <p class="eyebrow">Ảnh đầu vào</p>
-          <h2>Chọn ảnh trái cây</h2>
+          <p class="eyebrow">Đầu vào mô hình</p>
+          <h2>Ảnh chụp trái cây</h2>
         </div>
-        <span class="step-index">MobileNetV3 + MLP</span>
+        <span class="step-index">CNN Backbone</span>
       </div>
-      <label class="drop-zone" id="drop-zone" for="image-file">
+
+      <!-- Dropzone hỗ trợ kéo thả, chọn tệp và Ctrl + V -->
+      <label class="drop-zone" id="drop-zone" for="image-file" tabindex="0" role="button" aria-label="Tải ảnh lên hoặc nhấn Ctrl V để dán">
         <input id="image-file" type="file" accept="image/jpeg,image/png,image/webp,image/bmp,.jpg,.jpeg,.png,.webp,.bmp">
-        <span class="upload-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M4 15.5v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></span>
-        <strong>Kéo ảnh vào đây</strong>
+        <span class="upload-symbol" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M4 15.5v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+        </span>
+        <strong>Kéo thả ảnh vào đây</strong>
         <span>hoặc <u>chọn từ thiết bị</u></span>
-        <small>JPG, PNG, BMP hoặc WEBP · tối đa 10 MB</small>
+        <div class="paste-indicator-pill">
+          <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+          <span>Nhấn <kbd>Ctrl</kbd> + <kbd>V</kbd> để dán ảnh từ clipboard</span>
+        </div>
+        <small>Định dạng: JPG, PNG, BMP, WEBP · Tối đa 10 MB</small>
       </label>
+
+      <!-- Khung xem trước ảnh đã chọn / đã dán -->
       <div class="image-preview is-hidden" id="image-preview-wrap">
-        <img id="image-preview" alt="Ảnh trái cây đã chọn" draggable="false">
-        <div class="preview-drop-overlay" aria-hidden="true">Thả ảnh mới để thay thế</div>
-        <div class="preview-meta"><span id="preview-name"></span><span id="preview-size"></span></div>
-        <p class="preview-drop-hint">Kéo ảnh khác vào khung ảnh để thay thế.</p>
-        <button class="button button-quiet" id="clear-image" type="button">Bỏ ảnh</button>
+        <div class="preview-img-container">
+          <img id="image-preview" alt="Ảnh trái cây đã chọn" draggable="false">
+          <div class="preview-drop-overlay" aria-hidden="true">Thả ảnh mới hoặc Ctrl+V để thay thế</div>
+        </div>
+        <div class="preview-meta">
+          <span id="preview-name">anh-dau-vao.jpg</span>
+          <span id="preview-size">0 KB</span>
+        </div>
+        <div class="preview-actions">
+          <button class="button button-quiet" id="paste-button" type="button" title="Dán ảnh mới từ bộ nhớ tạm">
+            <svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+            Dán ảnh mới (Ctrl+V)
+          </button>
+          <button class="button button-quiet" id="clear-image" type="button">Bỏ ảnh</button>
+        </div>
       </div>
+
       <div class="recognition-actions">
         <button class="button button-primary button-wide" id="predict-button" type="button" disabled>
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5M10.8 7.5v6.6m-3.3-3.3h6.6"/></svg>
           Phân loại ảnh (Học sâu)
         </button>
       </div>
-      <p class="privacy-note"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 1 1 8 0v3m-4 4v2"/></svg> Ảnh không lưu vào server; chỉ metadata dự đoán được ghi lại.</p>
+
+      <p class="privacy-note">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 1 1 8 0v3m-4 4v2"/></svg>
+        Ảnh được trích xuất đặc trưng trực tiếp và xử lý an toàn tại bộ nhớ cục bộ.
+      </p>
     </div>
 
+    <!-- Cột phải: Kết quả chẩn đoán học sâu thông minh -->
     <div class="recognition-result panel" aria-live="polite">
       <div class="panel-heading">
         <div>
-          <p class="eyebrow">Kết quả học sâu</p>
-          <h2>Phân loại từ CNN + MLP</h2>
+          <p class="eyebrow">Kết quả phân tích</p>
+          <h2>Độ chín & Chất lượng</h2>
         </div>
         <span class="result-state" id="result-state">Đang chờ ảnh</span>
       </div>
+
+      <!-- Trạng thái chờ -->
       <div class="result-empty" id="result-empty">
         <div class="fruit-outline" aria-hidden="true">
-          <svg viewBox="0 0 120 120" fill="none"><path d="M60 35c-13-14-37-8-43 12-8 27 11 58 29 58 6 0 9-4 15-4s9 4 15 4c18 0 37-31 29-58-6-20-30-26-43-12-1-12 3-20 12-26-13-2-23 7-26 26Z" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M61 35c-1-11 2-20 10-26M73 14c9-3 17-1 23 4-6 7-14 9-23 7" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+          <svg viewBox="0 0 120 120" fill="none">
+            <path d="M60 35c-13-14-37-8-43 12-8 27 11 58 29 58 6 0 9-4 15-4s9 4 15 4c18 0 37-31 29-58-6-20-30-26-43-12-1-12 3-20 12-26-13-2-23 7-26 26Z" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>
+            <path d="M61 35c-1-11 2-20 10-26M73 14c9-3 17-1 23 4-6 7-14 9-23 7" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+          </svg>
         </div>
-        <strong>Kết quả sẽ hiện ở đây</strong>
-        <p>Tải ảnh lên rồi chọn “Phân loại ảnh” để xem loại quả và trạng thái.</p>
+        <strong>Chưa có dữ liệu dự đoán</strong>
+        <p>Kéo thả ảnh, chọn từ máy tính hoặc nhấn <strong>Ctrl + V</strong> để dán ảnh trực tiếp, sau đó nhấn “Phân loại ảnh”.</p>
       </div>
+
+      <!-- Khung hiển thị kết quả chi tiết -->
       <div class="result-content is-hidden" id="result-content">
-        <p class="result-kicker">Lớp nhận diện</p>
-        <div class="result-fruit" id="result-fruit">—</div>
-        <div class="result-class" id="result-class"></div>
-        <div class="result-facts">
-          <div><span>Trạng thái</span><strong id="result-ripeness">—</strong></div>
-          <div><span>Độ tin cậy</span><strong id="result-confidence">—</strong></div>
-          <div><span>Thời gian xử lý</span><strong id="result-time">—</strong></div>
+        <!-- Huy hiệu trạng thái lớn -->
+        <div class="result-header-banner">
+          <div>
+            <p class="result-kicker">Kết quả nhận diện</p>
+            <div class="result-fruit" id="result-fruit">—</div>
+            <div class="result-class-tag" id="result-class">—</div>
+          </div>
+          <div class="result-confidence-pill">
+            <span class="conf-label">Độ tin cậy</span>
+            <strong class="conf-value" id="result-confidence">—</strong>
+          </div>
         </div>
+
+        <!-- Bảng 3 tiêu chí đánh giá theo cơ sở lý thuyết -->
+        <div class="diagnostic-grid">
+          <div class="diagnostic-item">
+            <span class="diag-label">Chủng loại trái cây</span>
+            <strong class="diag-val" id="result-fruit-type">—</strong>
+          </div>
+          <div class="diagnostic-item">
+            <span class="diag-label">Độ chín (Ripeness)</span>
+            <strong class="diag-val" id="result-ripeness">—</strong>
+          </div>
+          <div class="diagnostic-item">
+            <span class="diag-label">Chất lượng (Quality)</span>
+            <strong class="diag-val" id="result-quality">—</strong>
+          </div>
+        </div>
+
+        <!-- Thẻ khuyến nghị an toàn thực phẩm & bảo quản -->
+        <div class="recommendation-card" id="recommendation-card">
+          <div class="rec-header">
+            <svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg>
+            <strong>Khuyến nghị tiêu dùng & Bảo quản:</strong>
+          </div>
+          <p id="result-recommendation" class="rec-text">—</p>
+        </div>
+
+        <!-- Phân bố xác suất 9 lớp -->
         <div class="probability-block is-hidden" id="probability-block">
-          <div class="subheading"><strong>Xác suất theo 9 nhãn</strong><span>Mô hình Deep Learning</span></div>
+          <div class="subheading">
+            <strong>Phân bố xác suất 9 lớp nhận diện</strong>
+            <span>MobileNetV3 + PyTorch Softmax</span>
+          </div>
           <div id="probability-list" class="probability-list"></div>
         </div>
+
+        <!-- Thông số kỹ thuật của lượt suy luận -->
+        <div class="inference-stats">
+          <span>Thời gian suy luận: <strong id="result-time">—</strong></span>
+          <span>Trích xuất đặc trưng: <strong>MobileNetV3 (576-D)</strong></span>
+        </div>
       </div>
+
       <div class="inline-feedback" id="recognition-feedback" role="status" aria-live="polite"></div>
-    </div>
-  </section>
-</div>
-
-<!-- =========================================================================
-     VIEW 2: BẢN HỌC MÁY THEO BẢNG SỐ LIỆU (TABULAR ML)
-     ========================================================================= -->
-<div id="view-tabular" class="mode-view is-hidden" role="tabpanel" aria-labelledby="tab-btn-tabular">
-  <section class="recognition-layout">
-    <div class="tabular-input panel">
-      <div class="panel-heading">
-        <div>
-          <p class="eyebrow">Dữ liệu dạng bảng</p>
-          <h2>7 Chỉ số kiểm định</h2>
-        </div>
-        <span class="step-index">SVM / RandomForest</span>
-      </div>
-
-      <!-- Nút điền mẫu nhanh -->
-      <div class="tabular-presets">
-        <span class="preset-label">Mẫu nhanh:</span>
-        <button type="button" class="preset-btn" id="preset-good">Quả Tốt (Đạt chuẩn)</button>
-        <button type="button" class="preset-btn" id="preset-bad">Quả Kém (Chua/Hỏng)</button>
-        <button type="button" class="preset-btn" id="preset-reset">Đặt lại 0</button>
-      </div>
-
-      <form id="tabular-form" class="tabular-fields-grid" onsubmit="return false;">
-        <!-- 1. Size -->
-        <div class="tabular-field">
-          <div class="field-label-row">
-            <label for="input-size"><strong>Size</strong> (Kích thước)</label>
-            <span class="val-display" id="val-size">0.50</span>
-          </div>
-          <input type="range" id="range-size" min="-4" max="4" step="0.1" value="0.5">
-          <input type="number" id="input-size" step="0.01" value="0.5" class="sr-only">
-        </div>
-
-        <!-- 2. Weight -->
-        <div class="tabular-field">
-          <div class="field-label-row">
-            <label for="input-weight"><strong>Weight</strong> (Khối lượng)</label>
-            <span class="val-display" id="val-weight">1.00</span>
-          </div>
-          <input type="range" id="range-weight" min="-4" max="4" step="0.1" value="1.0">
-          <input type="number" id="input-weight" step="0.01" value="1.0" class="sr-only">
-        </div>
-
-        <!-- 3. Sweetness -->
-        <div class="tabular-field">
-          <div class="field-label-row">
-            <label for="input-sweetness"><strong>Sweetness</strong> (Độ ngọt)</label>
-            <span class="val-display" id="val-sweetness">1.50</span>
-          </div>
-          <input type="range" id="range-sweetness" min="-4" max="4" step="0.1" value="1.5">
-          <input type="number" id="input-sweetness" step="0.01" value="1.5" class="sr-only">
-        </div>
-
-        <!-- 4. Crunchiness -->
-        <div class="tabular-field">
-          <div class="field-label-row">
-            <label for="input-crunchiness"><strong>Crunchiness</strong> (Độ giòn)</label>
-            <span class="val-display" id="val-crunchiness">0.80</span>
-          </div>
-          <input type="range" id="range-crunchiness" min="-4" max="4" step="0.1" value="0.8">
-          <input type="number" id="input-crunchiness" step="0.01" value="0.8" class="sr-only">
-        </div>
-
-        <!-- 5. Juiciness -->
-        <div class="tabular-field">
-          <div class="field-label-row">
-            <label for="input-juiciness"><strong>Juiciness</strong> (Độ mọng nước)</label>
-            <span class="val-display" id="val-juiciness">1.20</span>
-          </div>
-          <input type="range" id="range-juiciness" min="-4" max="4" step="0.1" value="1.2">
-          <input type="number" id="input-juiciness" step="0.01" value="1.2" class="sr-only">
-        </div>
-
-        <!-- 6. Acidity -->
-        <div class="tabular-field">
-          <div class="field-label-row">
-            <label for="input-acidity"><strong>Acidity</strong> (Độ axit/chua)</label>
-            <span class="val-display" id="val-acidity">-0.50</span>
-          </div>
-          <input type="range" id="range-acidity" min="-4" max="4" step="0.1" value="-0.5">
-          <input type="number" id="input-acidity" step="0.01" value="-0.5" class="sr-only">
-        </div>
-
-        <!-- 7. Ripeness -->
-        <div class="tabular-field">
-          <div class="field-label-row">
-            <label for="input-ripeness"><strong>Ripeness</strong> (Độ chín)</label>
-            <span class="val-display" id="val-ripeness">1.00</span>
-          </div>
-          <input type="range" id="range-ripeness" min="-4" max="4" step="0.1" value="1.0">
-          <input type="number" id="input-ripeness" step="0.01" value="1.0" class="sr-only">
-        </div>
-      </form>
-
-      <div class="recognition-actions" style="margin-top: 18px;">
-        <button class="button button-primary button-wide" id="tabular-predict-button" type="button">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-          Đánh giá chất lượng (Học máy)
-        </button>
-      </div>
-      <p class="privacy-note">Dữ liệu được chuẩn hóa StandardScaler trước khi qua mô hình phân loại chất lượng.</p>
-    </div>
-
-    <!-- Kết quả bảng số liệu -->
-    <div class="tabular-result panel" aria-live="polite">
-      <div class="panel-heading">
-        <div>
-          <p class="eyebrow">Kết quả đánh giá</p>
-          <h2>Chất lượng trái cây</h2>
-        </div>
-        <span class="result-state" id="tabular-result-state">Sẵn sàng</span>
-      </div>
-
-      <div class="result-empty" id="tabular-result-empty">
-        <div class="fruit-outline" aria-hidden="true">
-          <svg viewBox="0 0 120 120" fill="none"><path d="M30 40h60v50a10 10 0 0 1-10 10H40a10 10 0 0 1-10-10V40Z" stroke="currentColor" stroke-width="3"/><path d="M20 40h80M50 25h20M45 60h30M45 75h20" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
-        </div>
-        <strong>Chưa có kết quả</strong>
-        <p>Điều chỉnh các thông số và chọn “Đánh giá chất lượng” để xem kết quả.</p>
-      </div>
-
-      <div class="result-content is-hidden" id="tabular-result-content">
-        <p class="result-kicker">Đánh giá chung (Quality)</p>
-        <div class="tabular-quality-badge" id="tabular-quality-badge">—</div>
-        <div class="result-class" id="tabular-model-name">Mô hình: SVM (RBF Kernel)</div>
-
-        <div class="result-facts">
-          <div><span>Độ tin cậy</span><strong id="tabular-confidence">—</strong></div>
-          <div><span>Xác suất Đạt</span><strong id="tabular-prob-good">—</strong></div>
-          <div><span>Xác suất Kém</span><strong id="tabular-prob-bad">—</strong></div>
-        </div>
-
-        <!-- Nhận xét chi tiết các chỉ số -->
-        <div class="tabular-assessment-box">
-          <div class="subheading"><strong>Đánh giá từng chỉ số</strong><span>Phân tích cảm quan</span></div>
-          <div class="assessment-list" id="tabular-assessment-list"></div>
-        </div>
-      </div>
-
-      <div class="inline-feedback" id="tabular-feedback" role="status" aria-live="polite"></div>
     </div>
   </section>
 </div>

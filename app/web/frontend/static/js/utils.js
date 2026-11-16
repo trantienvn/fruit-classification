@@ -4,15 +4,59 @@ export function escapeHtml(value) {
   })[character]);
 }
 
+const FRUIT_NAMES_MAP = {
+  Orange: "Cam",
+  Banana: "Chuối",
+  Mango: "Xoài",
+  Apple: "Táo",
+  cam: "Cam",
+  chuoi: "Chuối",
+  xoai: "Xoài",
+  tao: "Táo",
+};
+
+const RIPENESS_NAMES_MAP = {
+  Unripe: "Chưa chín",
+  Ripe: "Chín",
+  Spoiled: "Hỏng",
+  Overripe: "Quá chín",
+  chin: "Chín",
+  "chua-chin": "Chưa chín",
+  "chua_chin": "Chưa chín",
+  hong: "Hỏng",
+};
+
+const FULL_LABELS_MAP = {
+  "cam-chin": "Cam · Chín mọng",
+  "cam-chua-chin": "Cam · Chưa chín (Xanh)",
+  "cam-hong": "Cam · Bị hỏng",
+  "chuoi-chin": "Chuối · Chín mọng",
+  "chuoi-chua-chin": "Chuối · Chưa chín (Xanh)",
+  "chuoi-hong": "Chuối · Bị hỏng",
+  "xoai-chin": "Xoài · Chín mọng",
+  "xoai-chua-chin": "Xoài · Chưa chín (Xanh)",
+  "xoai-hong": "Xoài · Bị hỏng",
+};
+
 export function fruitLabel(value) {
-  return ({ Orange: "Cam", Banana: "Chuối", Mango: "Xoài", Apple: "Táo" })[value] || value || "—";
+  const key = String(value || "").toLowerCase();
+  return FRUIT_NAMES_MAP[value] || FRUIT_NAMES_MAP[key] || value || "—";
 }
 
 export function ripenessLabel(value) {
-  return ({ Unripe: "Chưa chín", Ripe: "Chín", Spoiled: "Hỏng", Overripe: "Quá chín" })[value] || value || "—";
+  const key = String(value || "").toLowerCase();
+  return RIPENESS_NAMES_MAP[value] || RIPENESS_NAMES_MAP[key] || value || "—";
 }
 
 export function classLabel(value) {
+  const key = String(value || "").trim().toLowerCase();
+  if (FULL_LABELS_MAP[key]) return FULL_LABELS_MAP[key];
+
+  if (key.includes("-") && !key.includes(" ")) {
+    const [fruit, ...ripeness] = key.split("-");
+    return `${fruitLabel(fruit)} · ${ripenessLabel(ripeness.join("-"))}`;
+  }
+
   const [fruit, ...ripeness] = String(value || "").split(" ");
   return `${fruitLabel(fruit)} · ${ripenessLabel(ripeness.join(" "))}`;
 }

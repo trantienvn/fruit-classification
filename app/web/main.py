@@ -1,4 +1,4 @@
-"""FastAPI app, khởi tạo các model (Deep Learning ảnh & Machine Learning bảng) và phục vụ giao diện tĩnh.
+"""FastAPI app phục vụ mô hình Deep Learning phân loại ảnh trái cây và giao diện web hiện đại.
 Tương thích hoàn toàn với môi trường Local và Vercel Serverless Functions.
 """
 
@@ -11,26 +11,17 @@ from typing import Any, Callable
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from src.dataset import CLASS_NAMES
-from src.predict import FruitClassifier
-from src_tabular.predict_tabular import FruitQualityClassifierTabular
-
-try:
-    from src_dl.predict_dl import FruitClassifierDL
-except Exception as _dl_err:
-    FruitClassifierDL = None
-
 from app.web.config import Settings
+from app.web.labels import FULL_CLASS_MAP_VI
 from app.web.routes import (
     health,
     history,
     model_info,
     prediction,
     statistics,
-    tabular,
 )
 from app.web.services.history_service import HistoryService
 
@@ -38,12 +29,14 @@ logger = logging.getLogger(__name__)
 ClassifierFactory = Callable[[Path | str], Any]
 PAGE_NAMES = {"dashboard", "recognition", "history", "statistics", "model-info"}
 
+DEFAULT_CLASSES = list(FULL_CLASS_MAP_VI.keys())
+
 
 def create_app(
     settings: Settings | None = None,
     classifier_factory: ClassifierFactory | None = None,
 ) -> FastAPI:
-    """Tạo app có thể cấu hình để kiểm thử và phục vụ cả 2 mô hình (DL & Tabular) trên Local hoặc Vercel."""
+    """Tạo ứng dụng FastAPI phục vụ mô hình Học Sâu (Deep Learning) trên Local hoặc Vercel."""
     app_settings = settings or Settings.from_environment()
 
     @asynccontextmanager
@@ -57,63 +50,46 @@ def create_app(
         app.state.settings = app_settings
         app.state.history_service = history_service
 
-        # 2. Khởi tạo mô hình phân loại ảnh (Ưu tiên Deep Learning models_dl, fallback an toàn)
+        # 2. Khởi tạo mô hình phân loại ảnh bằng Deep Learning (MobileNetV3 + MLP)
         app.state.classifier = None
-        app.state.class_names = list(CLASS_NAMES)
+        app.state.class_names = list(DEFAULT_CLASSES)
         try:
-            dl_path = app_settings.dl_model_dir / "classifier_dl.joblib"
-            if FruitClassifierDL is not None and dl_path.exists():
-                logger.info("Đang nạp mô hình Deep Learning từ %s", app_settings.dl_model_dir)
-                clf_dl = FruitClassifierDL(app_settings.dl_model_dir)
-                clf_dl.load()
-                app.state.classifier = clf_dl
-                app.state.class_names = clf_dl.class_names
-                logger.info("Đã nạp thành công mô hình Deep Learning (%d lớp)", len(clf_dl.class_names))
+            if classifier_factory is not None:
+                clf = classifier_factory(app_settings.dl_model_dir)
+                clf.load()
+                app.state.classifier = clf
+                app.state.class_names = getattr(clf, "class_names", DEFAULT_CLASSES)
             else:
-                factory = classifier_factory or FruitClassifier
-                logger.info("Nạp mô hình từ %s", app_settings.model_dir)
-                classifier = factory(app_settings.model_dir)
-                classifier.load()
-                app.state.classifier = classifier
-                app.state.class_names = classifier.get_info().get(
-                    "class_names", list(CLASS_NAMES)
-                )
+                from src_dl.predict_dl import FruitClassifierDL
+                dl_path = app_settings.dl_model_dir / "classifier_dl.joblib"
+                if dl_path.exists():
+                    logger.info("Đang nạp mô hình Deep Learning từ %s", app_settings.dl_model_dir)
+                    clf_dl = FruitClassifierDL(app_settings.dl_model_dir)
+                    clf_dl.load()
+                    app.state.classifier = clf_dl
+                    app.state.class_names = clf_dl.class_names
+                    logger.info("Đã nạp thành công mô hình Deep Learning (%d lớp)", len(clf_dl.class_names))
+                else:
+                    logger.warning("Không tìm thấy mô hình tại: %s", dl_path)
         except Exception as error:
             logger.warning("Mô hình phân loại ảnh chưa sẵn sàng: %s", error)
             app.state.model_error = str(error)
 
-        # 3. Khởi tạo mô hình học máy theo bảng số liệu (Tabular Quality ML)
-        app.state.tabular_classifier = None
-        try:
-            tabular_path = app_settings.tabular_model_dir / "classifier_tabular.joblib"
-            if tabular_path.exists():
-                logger.info("Đang nạp mô hình học máy bảng từ %s", app_settings.tabular_model_dir)
-                tab_clf = FruitQualityClassifierTabular(app_settings.tabular_model_dir)
-                tab_clf.load()
-                app.state.tabular_classifier = tab_clf
-                logger.info("Đã nạp thành công mô hình học máy bảng: %s", tab_clf.config.get("best_model"))
-            else:
-                logger.warning("Không tìm thấy mô hình bảng tại %s", tabular_path)
-        except Exception as error:
-            logger.warning("Mô hình bảng chưa sẵn sàng: %s", error)
-            app.state.tabular_model_error = str(error)
-
         yield
 
     application = FastAPI(
-        title="Hệ Thống Phân Loại & Đánh Giá Chất Lượng Trái Cây",
-        summary="Ứng dụng tích hợp 2 bản: Học sâu phân loại ảnh & Học máy đánh giá chất lượng theo bảng số liệu.",
+        title="Hệ Thống Phân Loại & Đánh Giá Chất Lượng Trái Cây bằng Học Sâu",
+        summary="Ứng dụng thị giác máy tính nhận diện chủng loại, độ chín và đánh giá chất lượng trái cây bằng Deep Learning (MobileNetV3 + PyTorch CUDA).",
         description=(
-            "1. Bản Học Sâu (Deep Learning): Nhận ảnh JPG, PNG, BMP, WEBP -> Phân loại loại quả và độ chín / hỏng bằng MobileNetV3 + MLP.\n"
-            "2. Bản Học Máy (Machine Learning): Nhận bảng 7 số liệu (Kích thước, Khối lượng, Độ ngọt, Độ giòn, Độ mọng, Độ axit, Độ chín) -> Đánh giá Tốt / Kém."
+            "Hệ thống tự động trích xuất đặc trưng sâu từ ảnh RGB (224x224), phân loại đồng thời 2 thuộc tính: "
+            "Độ chín (Chín, Chưa chín, Hỏng) và Chất lượng thương phẩm (Đạt chuẩn Loại 1, Loại 2 hoặc Kém)."
         ),
-        version="2.0.0",
+        version="3.0.0",
         lifespan=lifespan,
     )
     application.state.settings = app_settings
     application.include_router(health.router, prefix="/api")
     application.include_router(prediction.router, prefix="/api")
-    application.include_router(tabular.router, prefix="/api")
     application.include_router(model_info.router, prefix="/api")
     application.include_router(history.router, prefix="/api")
     application.include_router(statistics.router, prefix="/api")

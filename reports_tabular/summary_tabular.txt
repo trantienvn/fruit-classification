@@ -1,0 +1,22 @@
+======================================================================
+BÁO CÁO HUẤN LUYỆN HỌC MÁY THEO BẢNG SỐ LIỆU — CHẤT LƯỢNG TRÁI CÂY
+======================================================================
+Mô hình tốt nhất : SVM_RBF
+Độ chính xác Test: 0.8275
+F1-score (macro) : 0.8272
+
+--- So sánh các mô hình ---
+  SVM_RBF              Acc: 0.8275 | F1: 0.8272 | Time: 2.5s
+  LogisticRegression   Acc: 0.8237 | F1: 0.8234 | Time: 0.0s
+  GradientBoosting     Acc: 0.8150 | F1: 0.8147 | Time: 2.0s
+  RandomForest         Acc: 0.8087 | F1: 0.8081 | Time: 6.2s
+
+--- Báo cáo chi tiết theo lớp ---
+              precision    recall  f1-score   support
+
+         Bad       0.86      0.81      0.83       427
+        Good       0.80      0.84      0.82       373
+
+    accuracy                           0.83       800
+   macro avg       0.83      0.83      0.83       800
+weighted avg       0.83      0.83      0.83       800

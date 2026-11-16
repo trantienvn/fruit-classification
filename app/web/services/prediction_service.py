@@ -28,11 +28,14 @@ def safe_filename(filename: str | None) -> str:
     return Path(normalized).name or "anh-tai-len"
 
 
-def classifier_supports_probabilities(classifier: FruitClassifier) -> bool:
+def classifier_supports_probabilities(classifier: Any) -> bool:
     """Chỉ công bố độ tin cậy khi model có predict_proba thực sự."""
     explicit = getattr(classifier, "supports_probability_output", None)
     if explicit is not None:
         return bool(explicit)
+    pipeline = getattr(classifier, "pipeline", None)
+    if pipeline is not None and hasattr(pipeline, "predict_proba"):
+        return True
     model = getattr(classifier, "_classifier", None)
     return callable(getattr(model, "predict_proba", None))
 

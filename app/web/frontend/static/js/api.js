@@ -43,6 +43,14 @@ export function postImage(file) {
   return request("/api/predict", { method: "POST", body });
 }
 
+export function postTabular(features) {
+  return request("/api/tabular/predict", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(features),
+  });
+}
+
 export function removeHistory() {
   return request("/api/history", { method: "DELETE" });
 }

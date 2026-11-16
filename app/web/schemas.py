@@ -1,4 +1,4 @@
-"""Mô hình response của REST API."""
+"""Mô hình response của REST API (hỗ trợ cả Deep Learning ảnh và Học máy bảng số liệu)."""
 
 from __future__ import annotations
 
@@ -21,7 +21,11 @@ class HealthData(BaseModel):
     status: str
     model_ready: bool
     history_ready: bool
+    dl_model_ready: bool = False
+    tabular_model_ready: bool = False
     model_name: str | None = None
+    dl_model_name: str | None = None
+    tabular_model_name: str | None = None
 
 
 class HealthResponse(BaseModel):
@@ -95,3 +99,42 @@ class DeleteHistoryData(BaseModel):
 class DeleteHistoryResponse(BaseModel):
     success: bool = True
     data: DeleteHistoryData
+
+
+# ---------------------------------------------------------------------------
+# Schemas cho Bản Học Máy theo Bảng số liệu (Tabular Fruit Quality)
+# ---------------------------------------------------------------------------
+
+class TabularPredictionRequest(BaseModel):
+    """Yêu cầu đánh giá chất lượng trái cây theo 7 thuộc tính."""
+
+    size: float = Field(default=0.0, description="Kích thước quả (Size)")
+    weight: float = Field(default=0.0, description="Khối lượng quả (Weight)")
+    sweetness: float = Field(default=0.0, description="Độ ngọt (Sweetness)")
+    crunchiness: float = Field(default=0.0, description="Độ giòn (Crunchiness)")
+    juiciness: float = Field(default=0.0, description="Độ mọng nước (Juiciness)")
+    acidity: float = Field(default=0.0, description="Độ axit (Acidity)")
+    ripeness: float = Field(default=0.0, description="Độ chín (Ripeness)")
+
+
+class TabularFeatureAssessment(BaseModel):
+    feature: str
+    feature_vi: str
+    value: float
+    status: str
+
+
+class TabularPredictionData(BaseModel):
+    predicted_class: str = Field(description="'Good' hoặc 'Bad'")
+    label_vi: str = Field(description="'Tốt (Đạt chuẩn)' hoặc 'Kém (Không đạt)'")
+    confidence: float
+    probabilities: dict[str, float]
+    inputs: dict[str, float]
+    inputs_vi: dict[str, float]
+    assessments: list[TabularFeatureAssessment]
+    model_name: str
+
+
+class TabularPredictionResponse(BaseModel):
+    success: bool = True
+    data: TabularPredictionData

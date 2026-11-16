@@ -1,0 +1,27 @@
+# Vercel Ignore File — Giữ deployment bundle siêu nhẹ dưới 50MB
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Bỏ qua dataset ảnh thô nặng hàng GB (chỉ cần các file model đã train)
+data/raw/
+data/processed/
+data/cache/
+data/dl_features/
+
+# Git & IDE
+.git/
+.github/
+.vscode/
+.idea/
+.gemini/
+.agents/
+
+# Báo cáo tạm & tests
+tests/
+scratch/
+docs/

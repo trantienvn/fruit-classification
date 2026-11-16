@@ -189,7 +189,7 @@ def cache_is_valid(cache_dir: Path, data_dir: Path, backbone_name: str) -> bool:
         with open(manifest_path, "r", encoding="utf-8") as f:
             saved = json.load(f)
         expected = _compute_manifest(data_dir, backbone_name)
-        return saved == expected
+        return all(saved.get(k) == v for k, v in expected.items())
     except Exception:
         return False
 

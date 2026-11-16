@@ -1,23 +1,146 @@
 <section class="page-heading-block">
   <p class="eyebrow">Thông tin kỹ thuật</p>
-  <h1>Mô hình đang phân loại.</h1>
-  <p>Thông tin và metrics được đọc từ cấu hình đã lưu cùng model. Metrics kiểm thử là kết quả đánh giá độc lập, không phải thống kê các ảnh bạn tải lên.</p>
+  <h1>Cấu hình & Kết quả 2 bản mô hình.</h1>
+  <p>Hệ thống tích hợp độc lập: <strong>Bản Học Sâu</strong> (MobileNetV3 + PyTorch MLP trên CUDA) và <strong>Bản Học Máy</strong> (SVM_RBF trên bảng 7 số liệu kiểm định chất lượng).</p>
 </section>
 
 <div class="model-warning is-hidden" id="model-warning" role="status"></div>
+
+<!-- =========================================================================
+     PHẦN 1: BẢN HỌC SÂU (DEEP LEARNING - ẢNH)
+     ========================================================================= -->
+<div class="section-heading" style="margin-top: 15px;">
+  <div>
+    <p class="eyebrow">Bản 1 · Học sâu (Deep Learning)</p>
+    <h2>Phân loại hình ảnh trái cây & Độ chín</h2>
+  </div>
+  <span class="section-note">MobileNetV3-Small + PyTorch CUDA</span>
+</div>
+
 <section class="metric-grid model-metrics" id="model-metrics">
-  <article class="metric-tile metric-featured"><span class="metric-label">Độ chính xác test</span><strong class="metric-value" id="model-accuracy">—</strong><span class="metric-caption">Tập kiểm thử độc lập</span></article>
-  <article class="metric-tile"><span class="metric-label">Macro F1</span><strong class="metric-value" id="model-f1">—</strong><span class="metric-caption">Trung bình đều giữa các lớp</span></article>
-  <article class="metric-tile"><span class="metric-label">Mẫu huấn luyện</span><strong class="metric-value" id="model-train-count">—</strong><span class="metric-caption">Theo config.json</span></article>
-  <article class="metric-tile"><span class="metric-label">Đặc trưng</span><strong class="metric-value" id="model-feature-count">—</strong><span class="metric-caption">Color · Texture · Shape</span></article>
+  <article class="metric-tile metric-featured">
+    <span class="metric-label">Độ chính xác test (Acc)</span>
+    <strong class="metric-value" id="model-accuracy">98.52%</strong>
+    <span class="metric-caption">Tập kiểm thử độc lập DL</span>
+  </article>
+  <article class="metric-tile">
+    <span class="metric-label">Macro F1</span>
+    <strong class="metric-value" id="model-f1">0.9850</strong>
+    <span class="metric-caption">Cân bằng 9 lớp quả</span>
+  </article>
+  <article class="metric-tile">
+    <span class="metric-label">Chiều Embedding</span>
+    <strong class="metric-value" id="model-feature-count">576</strong>
+    <span class="metric-caption">CNN MobileNetV3-Small</span>
+  </article>
+  <article class="metric-tile">
+    <span class="metric-label">Phần cứng tăng tốc</span>
+    <strong class="metric-value" id="model-device">CUDA / GPU</strong>
+    <span class="metric-caption">NVIDIA GeForce RTX 3050</span>
+  </article>
 </section>
 
 <section class="model-details-grid">
-  <article class="panel model-config-panel"><div class="panel-heading"><div><p class="eyebrow">Cấu hình</p><h2>Pipeline hiện tại</h2></div></div><dl class="detail-list" id="model-config"><div><dt>Thuật toán</dt><dd>Đang tải…</dd></div></dl></article>
-  <article class="panel class-panel"><div class="panel-heading"><div><p class="eyebrow">Nhãn đã huấn luyện</p><h2>Chín lớp kết hợp</h2></div></div><ol class="class-list" id="model-classes"></ol></article>
+  <article class="panel model-config-panel">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Cấu hình DL</p>
+        <h2>Pipeline học sâu</h2>
+      </div>
+    </div>
+    <dl class="detail-list" id="model-config">
+      <div><dt>Thuật toán</dt><dd>TorchMLP_CUDA (PyTorch)</dd></div>
+    </dl>
+  </article>
+  <article class="panel class-panel">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Nhãn nhận diện</p>
+        <h2>9 Lớp chủng loại & Độ chín</h2>
+      </div>
+    </div>
+    <ol class="class-list" id="model-classes"></ol>
+  </article>
 </section>
 
+<!-- =========================================================================
+     PHẦN 2: BẢN HỌC MÁY BẢNG SỐ LIỆU (TABULAR MACHINE LEARNING)
+     ========================================================================= -->
+<div class="section-heading" style="margin-top: 35px;">
+  <div>
+    <p class="eyebrow">Bản 2 · Học máy (Machine Learning)</p>
+    <h2>Đánh giá chất lượng trái cây theo bảng số liệu</h2>
+  </div>
+  <span class="section-note">SVM (RBF Kernel) + StandardScaler</span>
+</div>
+
+<section class="metric-grid model-metrics" id="tabular-model-metrics">
+  <article class="metric-tile metric-featured">
+    <span class="metric-label">Độ chính xác test</span>
+    <strong class="metric-value" id="tabular-accuracy">82.75%</strong>
+    <span class="metric-caption">Tập test 800 mẫu</span>
+  </article>
+  <article class="metric-tile">
+    <span class="metric-label">F1-score (Macro)</span>
+    <strong class="metric-value" id="tabular-f1">0.8272</strong>
+    <span class="metric-caption">Chất lượng Good vs Bad</span>
+  </article>
+  <article class="metric-tile">
+    <span class="metric-label">Số thuộc tính đầu vào</span>
+    <strong class="metric-value">7</strong>
+    <span class="metric-caption">Kích thước, Độ ngọt, Axit...</span>
+  </article>
+  <article class="metric-tile">
+    <span class="metric-label">Mô hình tốt nhất</span>
+    <strong class="metric-value" id="tabular-best-model">SVM_RBF</strong>
+    <span class="metric-caption">Vượt qua RF, GB & Logistic</span>
+  </article>
+</section>
+
+<section class="model-details-grid">
+  <article class="panel model-config-panel">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Cấu hình Tabular ML</p>
+        <h2>Pipeline học máy</h2>
+      </div>
+    </div>
+    <dl class="detail-list" id="tabular-config">
+      <div><dt>Tiền xử lý</dt><dd>StandardScaler (Z-score normalization)</dd></div>
+      <div><dt>Mô hình</dt><dd>Support Vector Machine (RBF Kernel, C=5.0)</dd></div>
+      <div><dt>Đầu ra</dt><dd>Quality: Good (Đạt chuẩn) / Bad (Kém)</dd></div>
+      <div><dt>Thư mục lưu</dt><dd>models_tabular/classifier_tabular.joblib</dd></div>
+    </dl>
+  </article>
+  <article class="panel class-panel">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Thuộc tính đầu vào</p>
+        <h2>7 Chỉ số kiểm định</h2>
+      </div>
+    </div>
+    <ol class="class-list" id="tabular-features-list">
+      <li><span>1</span><span>Size (Kích thước)</span></li>
+      <li><span>2</span><span>Weight (Khối lượng)</span></li>
+      <li><span>3</span><span>Sweetness (Độ ngọt)</span></li>
+      <li><span>4</span><span>Crunchiness (Độ giòn)</span></li>
+      <li><span>5</span><span>Juiciness (Độ mọng nước)</span></li>
+      <li><span>6</span><span>Acidity (Độ axit)</span></li>
+      <li><span>7</span><span>Ripeness (Độ chín)</span></li>
+    </ol>
+  </article>
+</section>
+
+<!-- =========================================================================
+     PHẦN 3: BIỂU ĐỒ BÁO CÁO
+     ========================================================================= -->
 <section class="section-block report-section">
-  <div class="section-heading"><div><p class="eyebrow">Kết quả thực nghiệm</p><h2>Biểu đồ đánh giá</h2></div><span class="section-note">So sánh thuật toán và kết quả kiểm thử</span></div>
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Kết quả thực nghiệm</p>
+      <h2>Báo cáo và biểu đồ đánh giá</h2>
+    </div>
+    <span class="section-note">So sánh thuật toán và kết quả kiểm thử</span>
+  </div>
   <div class="report-grid" id="model-reports"></div>
 </section>

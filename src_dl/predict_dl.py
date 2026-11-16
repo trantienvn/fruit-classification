@@ -151,6 +151,11 @@ class FruitClassifierDL:
         )
         return self
 
+    @property
+    def is_ready(self) -> bool:
+        """Kiểm tra mô hình đã nạp và sẵn sàng dự đoán hay chưa."""
+        return self._loaded and self.pipeline is not None
+
     def _ensure_loaded(self) -> None:
         if not self._loaded or self.pipeline is None:
             raise ModelNotReadyError(
@@ -231,13 +236,35 @@ class FruitClassifierDL:
             for cls, p in zip(self.class_names, probs)
         }
 
+        # Tách fruit và ripeness từ nhãn dạng <fruit>-<ripeness>
+        parts = label.split("-", 1)
+        fruit = parts[0] if parts else label
+        ripeness = parts[1] if len(parts) > 1 else ""
+
         return {
             "label":         label,
+            "class_name":    label,
             "label_index":   label_idx,
+            "class_id":      label_idx,
+            "fruit":         fruit,
+            "ripeness":      ripeness,
             "confidence":    round(confidence, 6),
             "probabilities": prob_dict,
             "feature_type":  self.feature_type,
             "backbone":      self.backbone_name,
+        }
+
+    def get_info(self) -> dict[str, Any]:
+        """Trả về thông tin cấu hình mô hình DL."""
+        return {
+            "model_type":    "deep_learning",
+            "model_name":    f"CNN ({self.backbone_name}) + MLP",
+            "backbone":      self.backbone_name,
+            "feature_type":  self.feature_type,
+            "embedding_dim": self.embedding_dim,
+            "class_names":   self.class_names,
+            "n_classes":     len(self.class_names),
+            "loaded":        self._loaded,
         }
 
     def predict_from_path(self, image_path: str | Path) -> dict:

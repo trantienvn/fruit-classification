@@ -1,32 +1,34 @@
 """
-train_dl.py — Huấn luyện mô hình sklearn trên CNN embedding.
+train_dl.py — Huấn luyện mô hình Deep Learning (CNN embedding + PyTorch MLP / sklearn).
 
-Pipeline:
-    Load dl_dataset.npz (CNN embeddings đã trích xuất)
-        → StandardScaler
-        → PCA (tùy chọn, giữ 95% phương sai)
-        → GridSearchCV trên 9 bộ phân loại sklearn
-        → Lưu mô hình tốt nhất vào models_dl/
+Tính năng:
+    - Huấn luyện mạng nơ-ron sâu TorchMLPClassifier trên NVIDIA CUDA GPU.
+    - Ghi nhận và vẽ Sơ đồ xu hướng Loss và Accuracy theo Epoch (Train Loss vs Val Loss).
+    - Hỗ trợ TIẾP TỤC HUẤN LUYỆN (Resume Training) với số Epoch tùy chỉnh (--resume --epochs N).
+    - Tự động xuất biểu đồ loss_curve.png, epoch_training.png, epoch_history.csv vào reports_dl/ và reports/.
+    - Lưu mô hình tốt nhất vào models_dl/classifier_dl.joblib và models_dl/config.json.
 
-Lưu ý:
-    - Augmentation ĐÃ được thực hiện trong preprocess_dl.py trên ảnh gốc.
-    - File này KHÔNG tải ảnh, chỉ làm việc với vector embedding.
-    - Cấu trúc 9 bộ phân loại sao chép từ src/train.py (KHÔNG import từ src/).
+Cách dùng:
+    1. Huấn luyện từ đầu (60 epochs trên CUDA):
+       python -m src_dl.train_dl --models torch --epochs 60
 
-Chạy:
-    python -m src_dl.train_dl [--model-dir PATH] [--cache-dir PATH] [--no-pca]
+    2. Tiếp tục huấn luyện thêm 30 epochs từ mô hình đã lưu:
+       python -m src_dl.train_dl --resume --epochs 30 --lr 0.0005
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import logging
+import shutil
 import time
 import warnings
 from pathlib import Path
 from typing import Any
 
+import joblib
 import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
@@ -46,54 +48,41 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 
-try:
-    import joblib
-except ImportError:
-    from sklearn.externals import joblib  # type: ignore
-
 from src_dl.backbone import BACKBONE_NAME, EMBEDDING_DIM
 from src_dl.preprocess_dl import (
     DEFAULT_CACHE_DIR,
     extract_and_cache,
     load_cached_features,
 )
-from src_dl.torch_classifier import TorchMLPClassifier
+from src_dl.torch_classifier import TorchMLPClassifier, plot_loss_curve
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Hằng số
+# Hằng số mặc định
 # ---------------------------------------------------------------------------
 DEFAULT_MODEL_DIR:  Path = Path("models_dl")
 DEFAULT_REPORT_DIR: Path = Path("reports_dl")
 FEATURE_TYPE: str = f"cnn_{BACKBONE_NAME}"
 
 CV_FOLDS:  int = 5
-N_JOBS:    int = -1          # dùng toàn bộ CPU cores
+N_JOBS:    int = -1          # dùng toàn bộ CPU cores cho sklearn
 PCA_RATIO: float = 0.95      # giữ 95% phương sai
 
-# ---------------------------------------------------------------------------
-# Định nghĩa 9 bộ phân loại + lưới siêu tham số
-# (Sao chép cấu trúc từ src/train.py — KHÔNG import từ src/)
-# ---------------------------------------------------------------------------
 
 def _build_estimators(
     device: str = "auto",
     model_mode: str = "all",
+    epochs: int = 60,
+    lr: float = 1e-3,
 ) -> list[tuple[str, Any, dict]]:
-    """
-    Trả về danh sách (tên, estimator, param_grid).
-
-    Hỗ trợ mô hình PyTorch MLP chạy trực tiếp trên CUDA GPU và các mô hình sklearn.
-    """
+    """Trả về danh sách (tên, estimator, param_grid)."""
     all_estimators = [
         (
             "TorchMLP_CUDA",
-            TorchMLPClassifier(device=device, random_state=42),
+            TorchMLPClassifier(device=device, epochs=epochs, lr=lr, random_state=42),
             {
-                "clf__lr": [1e-3, 5e-4],
                 "clf__hidden_dim1": [256, 512],
-                "clf__dropout": [0.2, 0.3],
             },
         ),
         (
@@ -144,30 +133,21 @@ def _build_estimators(
     ]
 
     if model_mode == "torch":
-        return [e for e in all_estimators if e[0] == "TorchMLP_CUDA"]
-    elif model_mode == "fast":
-        return [e for e in all_estimators if e[0] in ("TorchMLP_CUDA", "LogisticRegression", "RandomForest")]
-    elif model_mode == "sklearn":
-        return [e for e in all_estimators if e[0] != "TorchMLP_CUDA"]
+        return [est for est in all_estimators if "Torch" in est[0]]
+    if model_mode == "fast":
+        return [est for est in all_estimators if est[0] in ("TorchMLP_CUDA", "LogisticRegression", "RandomForest")]
+    if model_mode == "sklearn":
+        return [est for est in all_estimators if "Torch" not in est[0]]
     return all_estimators
 
 
-# ---------------------------------------------------------------------------
-# Xây dựng pipeline sklearn
-# ---------------------------------------------------------------------------
-
-def _build_pipeline(estimator: Any, use_pca: bool) -> Pipeline:
-    """Tạo Pipeline: Scaler → (PCA) → Classifier."""
+def _build_pipeline(estimator: Any, use_pca: bool = True) -> Pipeline:
     steps: list[tuple[str, Any]] = [("scaler", StandardScaler())]
     if use_pca:
         steps.append(("pca", PCA(n_components=PCA_RATIO, random_state=42)))
     steps.append(("clf", estimator))
     return Pipeline(steps)
 
-
-# ---------------------------------------------------------------------------
-# Huấn luyện một bộ phân loại
-# ---------------------------------------------------------------------------
 
 def _train_one(
     name: str,
@@ -178,12 +158,7 @@ def _train_one(
     use_pca: bool,
     no_gridsearch: bool,
 ) -> tuple[Any, float]:
-    """
-    Huấn luyện một bộ phân loại với GridSearchCV (hoặc không).
-
-    Trả về:
-        (best_pipeline, best_cv_score)
-    """
+    """Huấn luyện một bộ phân loại với GridSearchCV (hoặc không)."""
     pipeline = _build_pipeline(estimator, use_pca)
 
     if no_gridsearch or not param_grid:
@@ -196,14 +171,16 @@ def _train_one(
         logger.info(f"  {name} xong trong {elapsed:.1f}s")
         return pipeline, 0.0
 
-    # GridSearchCV — prefix tham số với "clf__"
+    is_torch_model = "Torch" in name or isinstance(estimator, TorchMLPClassifier)
+    effective_n_jobs = 1 if is_torch_model else N_JOBS
+
     cv = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=42)
     grid = GridSearchCV(
         pipeline,
         param_grid,
         cv=cv,
         scoring="f1_macro",
-        n_jobs=N_JOBS,
+        n_jobs=effective_n_jobs,
         refit=True,
         verbose=0,
     )
@@ -223,61 +200,182 @@ def _train_one(
     return grid.best_estimator_, best_score
 
 
+def _sync_report_to_web(report_dir: Path, web_reports_dir: Path = Path("reports")) -> None:
+    """Sao chép sơ đồ loss_curve và các biểu đồ sang thư mục reports phục vụ web."""
+    if not web_reports_dir.exists():
+        web_reports_dir.mkdir(parents=True, exist_ok=True)
+    for fname in ("loss_curve.png", "epoch_training.png", "epoch_history.csv", "epoch_summary.json"):
+        src_file = report_dir / fname
+        if src_file.exists():
+            shutil.copy2(src_file, web_reports_dir / fname)
+            logger.debug(f"[train_dl] Đã đồng bộ {fname} sang {web_reports_dir}")
+
+
+# ---------------------------------------------------------------------------
+# Chức năng: Tiếp tục huấn luyện mô hình sâu đã lưu (--resume)
+# ---------------------------------------------------------------------------
+
+def _resume_training(
+    model_dir: Path,
+    report_dir: Path,
+    data: dict[str, Any],
+    epochs: int,
+    lr: float | None = None,
+) -> dict[str, Any]:
+    """Tiếp tục huấn luyện (resume/fine-tune) mô hình TorchMLP hiện có với số Epoch tùy chỉnh."""
+    model_path = model_dir / "classifier_dl.joblib"
+    config_path = model_dir / "config.json"
+
+    if not model_path.exists():
+        raise FileNotFoundError(
+            f"Không tìm thấy mô hình đã lưu tại: {model_path}. "
+            "Vui lòng huấn luyện từ đầu trước khi dùng --resume."
+        )
+
+    pipeline: Pipeline = joblib.load(model_path)
+    old_config = {}
+    if config_path.exists():
+        with open(config_path, "r", encoding="utf-8") as f:
+            old_config = json.load(f)
+
+    clf = pipeline.named_steps.get("clf")
+    if not isinstance(clf, TorchMLPClassifier):
+        raise TypeError(
+            f"Mô hình đang lưu là '{type(clf).__name__}', không hỗ trợ huấn luyện nối tiếp theo epoch. "
+            "Chỉ mạng nơ-ron sâu (TorchMLPClassifier) hỗ trợ tiếp tục huấn luyện."
+        )
+
+    X_train = data["X_train"]
+    y_train = data["y_train"]
+    X_val = data["X_val"]
+    y_val = data["y_val"]
+    X_test = data["X_test"]
+    y_test = data["y_test"]
+    class_names = data["class_names"]
+
+    # Áp dụng các bước tiền xử lý đã fit sẵn (StandardScaler, PCA)
+    X_train_proc = X_train
+    X_val_proc = X_val
+    for step_name in ("scaler", "pca"):
+        if step_name in pipeline.named_steps:
+            transformer = pipeline.named_steps[step_name]
+            X_train_proc = transformer.transform(X_train_proc)
+            X_val_proc = transformer.transform(X_val_proc)
+
+    # Đọc lại lịch sử cũ nếu có trong CSV
+    csv_history = report_dir / "epoch_history.csv"
+    if csv_history.exists() and not clf.history_:
+        try:
+            with open(csv_history, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                loaded_hist = []
+                for row in reader:
+                    loaded_hist.append({
+                        "epoch": int(row["epoch"]),
+                        "train_loss": float(row["train_loss"]),
+                        "val_loss": float(row["val_loss"]),
+                        "train_acc": float(row.get("train_acc", 0.0)),
+                        "val_acc": float(row.get("val_acc", 0.0)),
+                        "lr": float(row.get("lr", 1e-3)),
+                    })
+                clf.history_ = loaded_hist
+                logger.info(f"[train_dl] Đã khôi phục lịch sử {len(loaded_hist)} epochs từ {csv_history}")
+        except Exception as err:
+            logger.warning(f"[train_dl] Không thể đọc lịch sử cũ: {err}")
+
+    if not hasattr(clf, "history_") or clf.history_ is None:
+        clf.history_ = []
+    start_epoch = clf.history_[-1]["epoch"] if clf.history_ else 0
+    logger.info(
+        f"\n[train_dl] BẮT ĐẦU TIẾP TỤC HUẤN LUYỆN (Resume Training)\n"
+        f"  Epoch hiện tại : {start_epoch}\n"
+        f"  Số Epoch thêm  : {epochs} (Sẽ đạt tổng: {start_epoch + epochs})\n"
+        f"  Learning Rate  : {lr if lr is not None else clf.lr}\n"
+    )
+
+    clf.warm_start = True
+    clf.epochs = epochs
+    if lr is not None:
+        clf.lr = lr
+
+    # Tiếp tục huấn luyện với tập validation để theo dõi Loss qua từng epoch
+    clf.fit(X_train_proc, y_train, eval_set=(X_val_proc, y_val))
+
+    # Vẽ và lưu sơ đồ xu hướng Loss cập nhật liên tục
+    plot_loss_curve(
+        clf.history_,
+        report_dir,
+        title_suffix=f"Tiếp tục huấn luyện ({len(clf.history_)} Epochs)",
+    )
+    _sync_report_to_web(report_dir)
+
+    # Đánh giá lại trên tập test
+    y_pred_test = pipeline.predict(X_test)
+    test_acc = accuracy_score(y_test, y_pred_test)
+    test_f1 = f1_score(y_test, y_pred_test, average="macro", zero_division=0)
+    logger.info(f"[train_dl] Kết quả Test sau khi tiếp tục train: Acc={test_acc:.4f} | F1={test_f1:.4f}")
+
+    # Cập nhật pipeline đã lưu
+    joblib.dump(pipeline, model_path)
+    logger.info(f"[train_dl] Đã lưu mô hình cập nhật: {model_path}")
+
+    # Cập nhật config.json
+    old_config.update({
+        "total_epochs": len(clf.history_),
+        "test_accuracy": round(test_acc, 6),
+        "test_f1": round(test_f1, 6),
+        "test_metrics": {
+            "accuracy": round(test_acc, 6),
+            "macro_f1": round(test_f1, 6),
+        },
+        "last_trained_epochs": epochs,
+    })
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(old_config, f, ensure_ascii=False, indent=2)
+
+    return {
+        "best_model": old_config.get("best_model", "TorchMLP_CUDA"),
+        "total_epochs": len(clf.history_),
+        "test_accuracy": test_acc,
+        "test_f1": test_f1,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Hàm chính: huấn luyện toàn bộ pipeline
 # ---------------------------------------------------------------------------
 
 def train(
-    model_dir:      Path = DEFAULT_MODEL_DIR,
-    report_dir:     Path = DEFAULT_REPORT_DIR,
-    cache_dir:      Path = DEFAULT_CACHE_DIR,
-    data_dir:       Path = Path("data/processed/dataset"),
-    use_pca:        bool = True,
-    no_gridsearch:  bool = False,
+    model_dir:        Path = DEFAULT_MODEL_DIR,
+    report_dir:       Path = DEFAULT_REPORT_DIR,
+    cache_dir:        Path = DEFAULT_CACHE_DIR,
+    data_dir:         Path = Path("data/processed/dataset"),
+    use_pca:          bool = True,
+    no_gridsearch:    bool = False,
     force_preprocess: bool = False,
-    top_k:          int  = 3,
-    device:         str  = "auto",
-    model_mode:     str  = "all",
+    top_k:            int  = 3,
+    device:           str  = "auto",
+    model_mode:       str  = "all",
+    epochs:           int  = 60,
+    lr:               float | None = None,
+    resume:           bool = False,
 ) -> dict[str, Any]:
-    """
-    Chạy toàn bộ pipeline huấn luyện DL:
-        1. Kiểm tra / trích xuất CNN embedding (hỗ trợ CUDA)
-        2. Tải dữ liệu từ cache .npz
-        3. Huấn luyện các bộ phân loại (TorchMLP trên GPU và sklearn)
-        4. Chọn top-k mô hình tốt nhất
-        5. Đánh giá trên val + test
-        6. Lưu artifacts vào model_dir + report_dir
-
-    Trả về:
-        dict kết quả (tên mô hình → số liệu).
-    """
+    """Chạy toàn bộ pipeline huấn luyện DL hoặc tiếp tục huấn luyện."""
     model_dir  = Path(model_dir)
     report_dir = Path(report_dir)
     cache_dir  = Path(cache_dir)
-    data_dir   = Path(data_dir)
 
+    # Kiểm tra CUDA
     try:
         import torch
-        if torch.cuda.is_available():
-            gpu_name = torch.cuda.get_device_name(0)
-            logger.info(f"[train_dl] CUDA khả dụng: GPU {gpu_name} (yêu cầu device={device})")
-        else:
-            if device == "cuda":
-                logger.warning(
-                    "[train_dl] Bản PyTorch hiện tại là CPU-only (Torch not compiled with CUDA enabled).\n"
-                    "  -> Tự động chuyển device='cpu' để chạy tiếp.\n"
-                    "  -> Để kích hoạt GPU RTX 3050, hãy cài bản PyTorch CUDA bằng lệnh:\n"
-                    "     pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124"
-                )
-                device = "cpu"
-            else:
-                logger.info(f"[train_dl] CUDA không khả dụng, sử dụng CPU (device={device})")
+        if device == "cuda" and not torch.cuda.is_available():
+            logger.warning("[train_dl] Bản PyTorch hiện tại chưa hỗ trợ CUDA, tự chuyển về CPU.")
+            device = "cpu"
     except ImportError:
-        logger.warning("[train_dl] Chưa cài PyTorch, fallback CPU.")
         device = "cpu"
 
-    # ---- Bước 1: Đảm bảo cache tồn tại ----
-    from src_dl.preprocess_dl import cache_is_valid, DEFAULT_CACHE_DIR
+    # ---- Bước 1: Đảm bảo cache embedding tồn tại ----
+    from src_dl.preprocess_dl import cache_is_valid
 
     if force_preprocess or not cache_is_valid(cache_dir, data_dir, BACKBONE_NAME):
         logger.info("[train_dl] Chạy preprocess_dl để tạo CNN embedding cache...")
@@ -306,12 +404,23 @@ def train(
         f"classes={class_names}"
     )
 
-    # ---- Bước 3: Huấn luyện các bộ phân loại ----
-    estimators = _build_estimators(device=device, model_mode=model_mode)
+    # ---- Bước 3: Nếu yêu cầu tiếp tục huấn luyện (--resume) ----
+    if resume:
+        return _resume_training(
+            model_dir  = model_dir,
+            report_dir = report_dir,
+            data       = data,
+            epochs     = epochs,
+            lr         = lr,
+        )
+
+    # ---- Bước 4: Huấn luyện từ đầu ----
+    effective_lr = lr if lr is not None else 1e-3
+    estimators = _build_estimators(device=device, model_mode=model_mode, epochs=epochs, lr=effective_lr)
     results: list[dict] = []
 
     logger.info(f"\n[train_dl] Bắt đầu huấn luyện {len(estimators)} mô hình (chế độ: {model_mode})...")
-    logger.info(f"  device={device}, use_pca={use_pca}, no_gridsearch={no_gridsearch}, cv={CV_FOLDS}")
+    logger.info(f"  epochs={epochs}, lr={effective_lr}, device={device}, use_pca={use_pca}, cv={CV_FOLDS}")
 
     for name, est, param_grid in estimators:
         try:
@@ -339,41 +448,65 @@ def train(
             logger.info(f"  {name}: val_acc={val_acc:.4f}, val_F1={val_f1:.4f}")
 
         except Exception as exc:
-            logger.error(f"  [LỖII] {name} thất bại: {exc}", exc_info=True)
+            logger.error(f"  [LỖI] {name} thất bại: {exc}", exc_info=True)
 
     if not results:
         raise RuntimeError("Không có mô hình nào huấn luyện thành công.")
 
-    # ---- Bước 4: Chọn top-k mô hình ----
+    # Chọn top-k mô hình
     results.sort(key=lambda r: r["val_f1"], reverse=True)
     top_results = results[:top_k]
 
-    logger.info(f"\n[train_dl] Top-{top_k} mô hình (theo val F1-macro):")
-    for i, r in enumerate(top_results, 1):
-        logger.info(f"  {i}. {r['name']}: val_F1={r['val_f1']:.4f}, val_acc={r['val_acc']:.4f}")
-
-    # ---- Bước 5: Lưu artifacts ----
     model_dir.mkdir(parents=True, exist_ok=True)
     report_dir.mkdir(parents=True, exist_ok=True)
 
     best = top_results[0]
     best_pipeline = best["pipeline"]
 
+    # Nếu mô hình tốt nhất là TorchMLP, huấn luyện theo dõi chi tiết trên train + val để vẽ biểu đồ Loss chuẩn
+    clf = best_pipeline.named_steps.get("clf")
+    if isinstance(clf, TorchMLPClassifier):
+        X_train_proc = X_train
+        X_val_proc = X_val
+        for step_name in ("scaler", "pca"):
+            if step_name in best_pipeline.named_steps:
+                transformer = best_pipeline.named_steps[step_name]
+                X_train_proc = transformer.transform(X_train_proc)
+                X_val_proc = transformer.transform(X_val_proc)
+
+        logger.info("[train_dl] Ghi nhận tiến trình Loss qua từng epoch cho mô hình tốt nhất...")
+        clf.fit(X_train_proc, y_train, eval_set=(X_val_proc, y_val))
+        plot_loss_curve(clf.history_, report_dir, title_suffix=f"{best['name']} ({epochs} Epochs)")
+        _sync_report_to_web(report_dir)
+
     # Lưu pipeline tốt nhất
     joblib.dump(best_pipeline, model_dir / "classifier_dl.joblib")
     logger.info(f"[train_dl] Đã lưu mô hình tốt nhất: {model_dir / 'classifier_dl.joblib'}")
+
+    # Đánh giá trên test
+    y_pred_test = best_pipeline.predict(X_test)
+    test_acc = accuracy_score(y_test, y_pred_test)
+    test_f1 = f1_score(y_test, y_pred_test, average="macro", zero_division=0)
 
     # Lưu config.json
     config = {
         "feature_type":   FEATURE_TYPE,
         "backbone":       BACKBONE_NAME,
         "embedding_dim":  EMBEDDING_DIM,
-        "crop_size":      list(from_src_dl_backbone_input_size()),
+        "crop_size":      [224, 224],
         "class_names":    class_names,
         "n_classes":      len(class_names),
         "best_model":     best["name"],
         "best_val_f1":    round(best["val_f1"], 6),
         "best_val_acc":   round(best["val_acc"], 6),
+        "test_accuracy":  round(test_acc, 6),
+        "test_f1":        round(test_f1, 6),
+        "test_metrics": {
+            "accuracy": round(test_acc, 6),
+            "macro_f1": round(test_f1, 6),
+        },
+        "total_epochs":   epochs,
+        "n_features":     EMBEDDING_DIM,
         "use_pca":        use_pca,
         "pca_ratio":      PCA_RATIO if use_pca else None,
         "cv_folds":       CV_FOLDS,
@@ -383,7 +516,7 @@ def train(
     with open(model_dir / "config.json", "w", encoding="utf-8") as f:
         json.dump(config, f, ensure_ascii=False, indent=2)
 
-    # Lưu báo cáo text cho tất cả mô hình
+    # Lưu báo cáo text
     _save_report(
         results       = top_results,
         X_test        = X_test,
@@ -397,16 +530,6 @@ def train(
     return {r["name"]: {"val_f1": r["val_f1"], "val_acc": r["val_acc"]} for r in results}
 
 
-def from_src_dl_backbone_input_size() -> tuple[int, int]:
-    """Trả về INPUT_SIZE từ backbone (tránh circular import)."""
-    from src_dl.backbone import INPUT_SIZE
-    return INPUT_SIZE
-
-
-# ---------------------------------------------------------------------------
-# Lưu báo cáo
-# ---------------------------------------------------------------------------
-
 def _save_report(
     results:    list[dict],
     X_test:     np.ndarray,
@@ -418,11 +541,12 @@ def _save_report(
     """Lưu báo cáo text và JSON cho các mô hình top-k."""
     summary_lines = [
         "=" * 70,
-        "BÁO CÁO HUẤN LUYỆN — src_dl (CNN Embedding + sklearn)",
+        "BÁO CÁO HUẤN LUYỆN — src_dl (CNN Embedding + PyTorch / sklearn)",
         "=" * 70,
         f"Backbone: {config['backbone']} | Embedding dim: {config['embedding_dim']}",
         f"Feature type: {config['feature_type']}",
-        f"PCA: {'Có' if config['use_pca'] else 'Không'} | CV folds: {config['cv_folds']}",
+        f"Mô hình tốt nhất: {config['best_model']}",
+        f"Tổng Epochs: {config.get('total_epochs', 'N/A')}",
         "",
         "--- Kết quả Val (sắp xếp theo F1-macro) ---",
     ]
@@ -461,7 +585,7 @@ def _save_report(
 
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        description="Huấn luyện mô hình sklearn trên CNN embedding (DL pipeline)"
+        description="Huấn luyện mô hình CNN + PyTorch MLP trên GPU với sơ đồ Loss theo Epoch"
     )
     p.add_argument(
         "--data-dir", type=Path,
@@ -484,6 +608,18 @@ def _build_parser() -> argparse.ArgumentParser:
         help=f"Nơi lưu báo cáo (mặc định: {DEFAULT_REPORT_DIR})",
     )
     p.add_argument(
+        "--epochs", type=int, default=60,
+        help="Số epoch huấn luyện tùy chỉnh (mặc định: 60)",
+    )
+    p.add_argument(
+        "--lr", type=float, default=None,
+        help="Tốc độ học (learning rate) tùy chỉnh (mặc định: 1e-3)",
+    )
+    p.add_argument(
+        "--resume", action="store_true",
+        help="Tiếp tục huấn luyện từ mô hình đã lưu với số epoch tùy chỉnh",
+    )
+    p.add_argument(
         "--no-pca", action="store_true",
         help="Tắt PCA (mặc định: bật)",
     )
@@ -501,11 +637,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--device", type=str, default="auto", choices=["auto", "cuda", "cpu"],
-        help="Thiết bị tính toán cho CNN backbone và PyTorch model (mặc định: auto - tự động dùng CUDA nếu có)",
+        help="Thiết bị tính toán: 'auto' (ưu tiên CUDA RTX 3050), 'cuda', 'cpu'",
     )
     p.add_argument(
-        "--models", type=str, default="all", choices=["all", "torch", "fast", "sklearn"],
-        help="Tập mô hình cần huấn luyện: 'all' (tất cả gồm TorchMLP_CUDA + sklearn), 'torch' (chỉ mạng PyTorch trên CUDA - siêu tốc 1-2s), 'fast' (TorchMLP + LR + RF), 'sklearn' (chỉ sklearn)",
+        "--models", type=str, default="torch", choices=["all", "torch", "fast", "sklearn"],
+        help="Tập mô hình: 'torch' (PyTorch MLP trên GPU với Loss curve), 'all', 'fast', 'sklearn'",
     )
     p.add_argument(
         "--verbose", "-v", action="store_true",
@@ -535,10 +671,14 @@ def main() -> None:
             top_k             = args.top_k,
             device            = args.device,
             model_mode        = args.models,
+            epochs            = args.epochs,
+            lr                = args.lr,
+            resume            = args.resume,
         )
-        print(f"\n✓ Huấn luyện hoàn tất. {len(results)} mô hình đã được đánh giá.")
-        print(f"  Mô hình lưu tại: {args.model_dir.resolve()}")
-        print(f"  Báo cáo lưu tại: {args.report_dir.resolve()}")
+        mode_str = "Tiếp tục huấn luyện" if args.resume else "Huấn luyện mới"
+        print(f"\n✓ {mode_str} hoàn tất thành công.")
+        print(f"  Mô hình lưu tại : {args.model_dir.resolve()}")
+        print(f"  Sơ đồ Loss lưu tại: {(args.report_dir / 'loss_curve.png').resolve()}")
 
     except RuntimeError as e:
         print(f"\n✗ Lỗi: {e}")

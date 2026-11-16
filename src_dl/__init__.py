@@ -18,4 +18,4 @@ Thư mục artifact:
 """
 
 __version__ = "0.1.0"
-__all__ = ["backbone", "preprocess_dl", "train_dl", "predict_dl"]
+__all__ = ["backbone", "preprocess_dl", "train_dl", "predict_dl", "torch_classifier"]

@@ -90,13 +90,31 @@ class CNNBackbone:
         emb = backbone.extract(img_rgb_uint8)   # shape (576,)
     """
 
-    def __init__(self) -> None:
+    def __init__(self, device: str | None = None) -> None:
         _check_dependencies()
 
         import torch
         import torchvision.models as models
 
-        self.device = torch.device("cpu")
+        if device is None or device == "auto":
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else:
+            self.device = torch.device(device)
+
+        if self.device.type == "cuda":
+            if not torch.cuda.is_available():
+                logger.warning(
+                    "[backbone] Yêu cầu device='cuda' nhưng bản PyTorch hiện tại là CPU-only (Torch not compiled with CUDA enabled).\n"
+                    "  -> Tự động chuyển sang CPU để tiếp tục chạy.\n"
+                    "  -> Để dùng GPU NVIDIA RTX 3050, hãy cài PyTorch CUDA:\n"
+                    "     pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124"
+                )
+                self.device = torch.device("cpu")
+            else:
+                gpu_name = torch.cuda.get_device_name(self.device)
+                logger.info(f"[backbone] Sử dụng CUDA GPU: {gpu_name} ({self.device})")
+        else:
+            logger.info(f"[backbone] Sử dụng CPU ({self.device})")
 
         logger.info("[backbone] Đang tải MobileNetV3-Small pretrained (ImageNet)...")
         weights = models.MobileNet_V3_Small_Weights.IMAGENET1K_V1
@@ -166,31 +184,41 @@ class CNNBackbone:
         import torch
 
         tensor = self._preprocess(img_rgb_uint8)   # (1, 3, 224, 224)
-        with torch.no_grad():
-            feat = self._features(tensor)          # (1, 576, h', w')
-            feat = self._avgpool(feat)             # (1, 576, 1, 1)
-            feat = feat.flatten(1)                 # (1, 576)
-        return feat.cpu().numpy().squeeze(0)       # (576,)
+        use_autocast = self.device.type == "cuda"
+        with torch.inference_mode():
+            if use_autocast:
+                with torch.amp.autocast(device_type="cuda"):
+                    feat = self._features(tensor)          # (1, 576, h', w')
+                    feat = self._avgpool(feat)             # (1, 576, 1, 1)
+            else:
+                feat = self._features(tensor)
+                feat = self._avgpool(feat)
+            feat = feat.flatten(1)                         # (1, 576)
+        return feat.cpu().numpy().squeeze(0).astype(np.float32)
 
     def extract_batch(
         self,
         images: list[np.ndarray],
-        batch_size: int = 32,
+        batch_size: int | None = None,
     ) -> np.ndarray:
         """
-        Trích xuất embedding cho nhiều ảnh theo batch.
+        Trích xuất embedding cho nhiều ảnh theo batch (tối ưu hóa trên CUDA nếu khả dụng).
 
         Tham số:
             images:     danh sách numpy array (H, W, 3), dtype uint8.
-            batch_size: số ảnh xử lý mỗi lần (giảm nếu hết RAM).
+            batch_size: số ảnh xử lý mỗi lần (mặc định: 64 trên CUDA, 32 trên CPU).
 
         Trả về:
             numpy array shape (N, 576), dtype float32.
         """
         import torch
 
+        if batch_size is None:
+            batch_size = 64 if self.device.type == "cuda" else 32
+
         all_embeddings: list[np.ndarray] = []
         n = len(images)
+        use_autocast = self.device.type == "cuda"
 
         for start in range(0, n, batch_size):
             end = min(start + batch_size, n)
@@ -199,15 +227,23 @@ class CNNBackbone:
             tensors = [self._preprocess(img) for img in batch_imgs]  # list of (1,3,224,224)
             batch_tensor = torch.cat(tensors, dim=0)                 # (B, 3, 224, 224)
 
-            with torch.no_grad():
-                feat = self._features(batch_tensor)   # (B, 576, h', w')
-                feat = self._avgpool(feat)            # (B, 576, 1, 1)
-                feat = feat.flatten(1)               # (B, 576)
+            with torch.inference_mode():
+                if use_autocast:
+                    with torch.amp.autocast(device_type="cuda"):
+                        feat = self._features(batch_tensor)   # (B, 576, h', w')
+                        feat = self._avgpool(feat)            # (B, 576, 1, 1)
+                else:
+                    feat = self._features(batch_tensor)
+                    feat = self._avgpool(feat)
+                feat = feat.flatten(1)                        # (B, 576)
 
-            all_embeddings.append(feat.cpu().numpy())
+            all_embeddings.append(feat.cpu().numpy().astype(np.float32))
 
             if (start // batch_size) % 10 == 0:
-                logger.debug(f"[backbone] Đã xử lý {end}/{n} ảnh")
+                logger.debug(f"[backbone] Đã xử lý {end}/{n} ảnh trên {self.device}")
+
+        if self.device.type == "cuda":
+            torch.cuda.empty_cache()
 
         return np.vstack(all_embeddings)             # (N, 576)
 
@@ -216,35 +252,44 @@ class CNNBackbone:
 # API công khai
 # ---------------------------------------------------------------------------
 
-def get_backbone() -> CNNBackbone:
+def get_backbone(device: str | None = None) -> CNNBackbone:
     """
-    Lấy (hoặc tạo) singleton CNNBackbone.
+    Lấy (hoặc tạo) singleton CNNBackbone với cấu hình device.
 
     Trọng số được tải lần đầu gọi hàm này, KHÔNG phải khi import module.
     """
     global _backbone_instance
     if _backbone_instance is None:
-        _backbone_instance = CNNBackbone()
+        _backbone_instance = CNNBackbone(device=device)
+    elif device is not None and device != "auto":
+        import torch
+        target_device = torch.device(device)
+        if _backbone_instance.device != target_device:
+            _backbone_instance = CNNBackbone(device=device)
     return _backbone_instance
 
 
 def reset_backbone() -> None:
     """Giải phóng singleton (hữu ích khi test hoặc đổi backbone)."""
     global _backbone_instance
+    if _backbone_instance is not None and _backbone_instance.device.type == "cuda":
+        import torch
+        torch.cuda.empty_cache()
     _backbone_instance = None
 
 
-def extract_embedding(img_rgb_uint8: np.ndarray) -> np.ndarray:
+def extract_embedding(img_rgb_uint8: np.ndarray, device: str | None = None) -> np.ndarray:
     """
     Tiện ích nhanh: trích xuất embedding từ MỘT ảnh dùng singleton backbone.
 
     Tham số:
         img_rgb_uint8: numpy array shape (H, W, 3), dtype uint8.
+        device:        thiết bị tính toán (tùy chọn).
 
     Trả về:
         numpy array shape (576,), dtype float32.
     """
-    return get_backbone().extract(img_rgb_uint8)
+    return get_backbone(device=device).extract(img_rgb_uint8)
 
 
 def is_available() -> bool:

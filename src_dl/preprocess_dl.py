@@ -203,9 +203,10 @@ def extract_and_cache(
     cache_dir: Path     = DEFAULT_CACHE_DIR,
     backbone_name: str  = "mobilenetv3_small",
     force: bool         = False,
-    batch_size: int     = 32,
+    batch_size: int | None = None,
     seed: int           = 42,
     dataset_mode: str   = "dataset",
+    device: str         = "auto",
 ) -> Path:
     """
     Trích xuất CNN embedding cho toàn bộ dataset và lưu vào .npz.
@@ -215,9 +216,10 @@ def extract_and_cache(
         cache_dir:     nơi lưu dl_dataset.npz.
         backbone_name: hiện chỉ hỗ trợ "mobilenetv3_small".
         force:         bỏ qua cache cũ, trích xuất lại.
-        batch_size:    kích thước batch cho backbone.
+        batch_size:    kích thước batch cho backbone (None = tự động: 64 trên CUDA, 32 trên CPU).
         seed:          hạt giống ngẫu nhiên cho augmentation.
         dataset_mode:  "dataset" | "whole-scene" (ghi vào manifest).
+        device:        thiết bị tính toán ("auto" | "cuda" | "cpu").
 
     Trả về:
         Path đến file .npz đã lưu.
@@ -237,6 +239,7 @@ def extract_and_cache(
     logger.info(f"  data_dir  = {data_dir}")
     logger.info(f"  cache_dir = {cache_dir}")
     logger.info(f"  backbone  = {backbone_name}")
+    logger.info(f"  device    = {device}")
 
     # Lấy danh sách lớp từ thư mục train
     train_dir = data_dir / "train"
@@ -254,8 +257,8 @@ def extract_and_cache(
 
     logger.info(f"[preprocess_dl] Lớp ({len(class_names)}): {class_names}")
 
-    # Khởi tạo backbone (tải trọng số lần đầu)
-    backbone = get_backbone()
+    # Khởi tạo backbone với device (CUDA / CPU)
+    backbone = get_backbone(device=device)
 
     result: dict[str, np.ndarray | list] = {}
 
@@ -372,8 +375,15 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--batch-size",
         type=int,
-        default=32,
-        help="Batch size cho backbone (mặc định: 32)",
+        default=None,
+        help="Batch size cho backbone (mặc định: tự động 64 trên CUDA, 32 trên CPU)",
+    )
+    p.add_argument(
+        "--device",
+        type=str,
+        default="auto",
+        choices=["auto", "cuda", "cpu"],
+        help="Thiết bị tính toán cho CNN backbone (mặc định: auto - tự động dùng CUDA nếu có)",
     )
     p.add_argument(
         "--seed",
@@ -419,6 +429,7 @@ def main() -> None:
             batch_size   = args.batch_size,
             seed         = args.seed,
             dataset_mode = args.dataset_mode,
+            device       = args.device,
         )
         print(f"\n✓ Trích xuất hoàn tất. Cache lưu tại:\n  {npz_path.resolve()}")
     except RuntimeError as e:

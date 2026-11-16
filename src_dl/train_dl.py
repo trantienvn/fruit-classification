@@ -57,6 +57,7 @@ from src_dl.preprocess_dl import (
     extract_and_cache,
     load_cached_features,
 )
+from src_dl.torch_classifier import TorchMLPClassifier
 
 logger = logging.getLogger(__name__)
 
@@ -76,17 +77,34 @@ PCA_RATIO: float = 0.95      # giữ 95% phương sai
 # (Sao chép cấu trúc từ src/train.py — KHÔNG import từ src/)
 # ---------------------------------------------------------------------------
 
-def _build_estimators() -> list[tuple[str, Any, dict]]:
+def _build_estimators(
+    device: str = "auto",
+    model_mode: str = "all",
+) -> list[tuple[str, Any, dict]]:
     """
     Trả về danh sách (tên, estimator, param_grid).
 
-    9 bộ phân loại: LR, SVM, KNN, RF, GB, DT, LDA, QDA, GNB.
+    Hỗ trợ mô hình PyTorch MLP chạy trực tiếp trên CUDA GPU và các mô hình sklearn.
     """
-    return [
+    all_estimators = [
+        (
+            "TorchMLP_CUDA",
+            TorchMLPClassifier(device=device, random_state=42),
+            {
+                "clf__lr": [1e-3, 5e-4],
+                "clf__hidden_dim1": [256, 512],
+                "clf__dropout": [0.2, 0.3],
+            },
+        ),
         (
             "LogisticRegression",
             LogisticRegression(max_iter=2000, random_state=42, n_jobs=N_JOBS),
             {"clf__C": [0.01, 0.1, 1.0, 10.0], "clf__solver": ["lbfgs", "saga"]},
+        ),
+        (
+            "RandomForest",
+            RandomForestClassifier(random_state=42, n_jobs=N_JOBS),
+            {"clf__n_estimators": [100, 200], "clf__max_depth": [None, 10, 20]},
         ),
         (
             "SVM_RBF",
@@ -97,11 +115,6 @@ def _build_estimators() -> list[tuple[str, Any, dict]]:
             "KNeighbors",
             KNeighborsClassifier(n_jobs=N_JOBS),
             {"clf__n_neighbors": [3, 5, 7, 11], "clf__weights": ["uniform", "distance"]},
-        ),
-        (
-            "RandomForest",
-            RandomForestClassifier(random_state=42, n_jobs=N_JOBS),
-            {"clf__n_estimators": [100, 200], "clf__max_depth": [None, 10, 20]},
         ),
         (
             "GradientBoosting",
@@ -129,6 +142,14 @@ def _build_estimators() -> list[tuple[str, Any, dict]]:
             {"clf__var_smoothing": [1e-9, 1e-8, 1e-7]},
         ),
     ]
+
+    if model_mode == "torch":
+        return [e for e in all_estimators if e[0] == "TorchMLP_CUDA"]
+    elif model_mode == "fast":
+        return [e for e in all_estimators if e[0] in ("TorchMLP_CUDA", "LogisticRegression", "RandomForest")]
+    elif model_mode == "sklearn":
+        return [e for e in all_estimators if e[0] != "TorchMLP_CUDA"]
+    return all_estimators
 
 
 # ---------------------------------------------------------------------------
@@ -215,12 +236,14 @@ def train(
     no_gridsearch:  bool = False,
     force_preprocess: bool = False,
     top_k:          int  = 3,
+    device:         str  = "auto",
+    model_mode:     str  = "all",
 ) -> dict[str, Any]:
     """
     Chạy toàn bộ pipeline huấn luyện DL:
-        1. Kiểm tra / trích xuất CNN embedding
+        1. Kiểm tra / trích xuất CNN embedding (hỗ trợ CUDA)
         2. Tải dữ liệu từ cache .npz
-        3. Huấn luyện 9 bộ phân loại với GridSearch
+        3. Huấn luyện các bộ phân loại (TorchMLP trên GPU và sklearn)
         4. Chọn top-k mô hình tốt nhất
         5. Đánh giá trên val + test
         6. Lưu artifacts vào model_dir + report_dir
@@ -233,6 +256,26 @@ def train(
     cache_dir  = Path(cache_dir)
     data_dir   = Path(data_dir)
 
+    try:
+        import torch
+        if torch.cuda.is_available():
+            gpu_name = torch.cuda.get_device_name(0)
+            logger.info(f"[train_dl] CUDA khả dụng: GPU {gpu_name} (yêu cầu device={device})")
+        else:
+            if device == "cuda":
+                logger.warning(
+                    "[train_dl] Bản PyTorch hiện tại là CPU-only (Torch not compiled with CUDA enabled).\n"
+                    "  -> Tự động chuyển device='cpu' để chạy tiếp.\n"
+                    "  -> Để kích hoạt GPU RTX 3050, hãy cài bản PyTorch CUDA bằng lệnh:\n"
+                    "     pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124"
+                )
+                device = "cpu"
+            else:
+                logger.info(f"[train_dl] CUDA không khả dụng, sử dụng CPU (device={device})")
+    except ImportError:
+        logger.warning("[train_dl] Chưa cài PyTorch, fallback CPU.")
+        device = "cpu"
+
     # ---- Bước 1: Đảm bảo cache tồn tại ----
     from src_dl.preprocess_dl import cache_is_valid, DEFAULT_CACHE_DIR
 
@@ -243,6 +286,7 @@ def train(
             cache_dir     = cache_dir,
             backbone_name = BACKBONE_NAME,
             force         = force_preprocess,
+            device        = device,
         )
 
     # ---- Bước 2: Tải dữ liệu ----
@@ -262,12 +306,12 @@ def train(
         f"classes={class_names}"
     )
 
-    # ---- Bước 3: Huấn luyện 9 bộ phân loại ----
-    estimators = _build_estimators()
+    # ---- Bước 3: Huấn luyện các bộ phân loại ----
+    estimators = _build_estimators(device=device, model_mode=model_mode)
     results: list[dict] = []
 
-    logger.info(f"\n[train_dl] Bắt đầu huấn luyện {len(estimators)} mô hình...")
-    logger.info(f"  use_pca={use_pca}, no_gridsearch={no_gridsearch}, cv={CV_FOLDS}")
+    logger.info(f"\n[train_dl] Bắt đầu huấn luyện {len(estimators)} mô hình (chế độ: {model_mode})...")
+    logger.info(f"  device={device}, use_pca={use_pca}, no_gridsearch={no_gridsearch}, cv={CV_FOLDS}")
 
     for name, est, param_grid in estimators:
         try:
@@ -334,6 +378,7 @@ def train(
         "pca_ratio":      PCA_RATIO if use_pca else None,
         "cv_folds":       CV_FOLDS,
         "top_k_trained":  top_k,
+        "device":         device,
     }
     with open(model_dir / "config.json", "w", encoding="utf-8") as f:
         json.dump(config, f, ensure_ascii=False, indent=2)
@@ -455,6 +500,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Số mô hình top lưu báo cáo chi tiết (mặc định: 3)",
     )
     p.add_argument(
+        "--device", type=str, default="auto", choices=["auto", "cuda", "cpu"],
+        help="Thiết bị tính toán cho CNN backbone và PyTorch model (mặc định: auto - tự động dùng CUDA nếu có)",
+    )
+    p.add_argument(
+        "--models", type=str, default="all", choices=["all", "torch", "fast", "sklearn"],
+        help="Tập mô hình cần huấn luyện: 'all' (tất cả gồm TorchMLP_CUDA + sklearn), 'torch' (chỉ mạng PyTorch trên CUDA - siêu tốc 1-2s), 'fast' (TorchMLP + LR + RF), 'sklearn' (chỉ sklearn)",
+    )
+    p.add_argument(
         "--verbose", "-v", action="store_true",
         help="Bật logging chi tiết (DEBUG)",
     )
@@ -480,6 +533,8 @@ def main() -> None:
             no_gridsearch     = args.no_gridsearch,
             force_preprocess  = args.force_preprocess,
             top_k             = args.top_k,
+            device            = args.device,
+            model_mode        = args.models,
         )
         print(f"\n✓ Huấn luyện hoàn tất. {len(results)} mô hình đã được đánh giá.")
         print(f"  Mô hình lưu tại: {args.model_dir.resolve()}")

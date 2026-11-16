@@ -73,8 +73,9 @@ class FruitClassifierDL:
         print(result["label"], result["confidence"])
     """
 
-    def __init__(self, model_dir: Path = DEFAULT_MODEL_DIR) -> None:
+    def __init__(self, model_dir: Path = DEFAULT_MODEL_DIR, device: str = "auto") -> None:
         self.model_dir:     Path          = Path(model_dir)
+        self.device:        str           = device
         self.class_names:   list[str]     = []
         self.feature_type:  str           = ""
         self.backbone_name: str           = ""
@@ -163,7 +164,7 @@ class FruitClassifierDL:
     def _get_backbone(self):
         if self._backbone is None:
             from src_dl.backbone import get_backbone
-            self._backbone = get_backbone()
+            self._backbone = get_backbone(device=self.device)
         return self._backbone
 
     # ------------------------------------------------------------------
@@ -327,6 +328,10 @@ def _build_parser() -> argparse.ArgumentParser:
         help=f"Thư mục chứa mô hình (mặc định: {DEFAULT_MODEL_DIR})",
     )
     p.add_argument(
+        "--device", type=str, default="auto", choices=["auto", "cuda", "cpu"],
+        help="Thiết bị tính toán (mặc định: auto - dùng CUDA nếu có)",
+    )
+    p.add_argument(
         "--verbose", "-v", action="store_true",
         help="Bật logging chi tiết",
     )
@@ -347,7 +352,7 @@ def main() -> None:
         raise SystemExit(0)
 
     try:
-        clf = FruitClassifierDL(args.model_dir)
+        clf = FruitClassifierDL(args.model_dir, device=args.device)
         clf.load()
         result = clf.predict_from_path(args.image)
 

@@ -41,7 +41,6 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-import cv2
 import numpy as np
 from PIL import Image
 
@@ -159,20 +158,31 @@ def augment_training_images(
     random_state: int = 42,
 ) -> tuple[list[np.ndarray], list[int]]:
     """Tạo một ảnh xoay/lật/đổi sáng cho mỗi mẫu train; không nhận val/test."""
+    try:
+        import cv2
+    except ImportError:
+        cv2 = None
+
     rng = np.random.default_rng(random_state)
     augmented_images = list(images)
     augmented_labels = [int(label) for label in labels]
     for image, label in zip(images, labels):
         height, width = image.shape[:2]
-        angle = float(rng.uniform(-15, 15))
-        matrix = cv2.getRotationMatrix2D((width / 2, height / 2), angle, 1.0)
-        variant = cv2.warpAffine(
-            image,
-            matrix,
-            (width, height),
-            flags=cv2.INTER_LINEAR,
-            borderMode=cv2.BORDER_REFLECT_101,
-        )
+        if cv2 is not None:
+            angle = float(rng.uniform(-15, 15))
+            matrix = cv2.getRotationMatrix2D((width / 2, height / 2), angle, 1.0)
+            variant = cv2.warpAffine(
+                image,
+                matrix,
+                (width, height),
+                flags=cv2.INTER_LINEAR,
+                borderMode=cv2.BORDER_REFLECT_101,
+            )
+        else:
+            # Fallback PIL nếu không có OpenCV
+            pil_img = Image.fromarray(image)
+            angle = float(rng.uniform(-15, 15))
+            variant = np.array(pil_img.rotate(angle, resample=Image.BILINEAR))
         if rng.random() < 0.5:
             variant = cv2.flip(variant, 1)
         factor = float(rng.uniform(0.85, 1.15))

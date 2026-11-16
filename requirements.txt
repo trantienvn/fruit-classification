@@ -6,15 +6,11 @@ python-multipart>=0.0.12,<1.0.0
 
 # Machine Learning & Tabular Quality
 scikit-learn>=1.4.0,<2.0.0
-scipy>=1.12.0,<2.0.0
 joblib>=1.3.0,<2.0.0
 numpy>=1.26.0,<3.0.0
 
-# Xử lý hình ảnh (Dùng Pillow siêu nhẹ, thay thế OpenCV và Scikit-image)
+# Xử lý hình ảnh (Dùng Pillow siêu nhẹ)
 Pillow>=10.0.0,<13.0.0
-
-# Biểu đồ & Báo cáo
-matplotlib>=3.8.0,<4.0.0
 
 # Cấu hình & Client
 PyYAML>=6.0,<7.0

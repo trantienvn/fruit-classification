@@ -34,7 +34,7 @@ def model_info(request: Request) -> ModelInfoResponse:
         },
         "dual_attributes": {
             "fruit_types": ["Cam", "Chuối", "Xoài"],
-            "ripeness_stages": ["Chín mọng", "Chưa chín (Xanh)", "Hỏng / Quá chín"],
+            "ripeness_stages": ["Chín", "Chưa chín (Xanh)", "Hỏng / Quá chín"],
             "quality_grades": ["Đạt chuẩn (Loại 1)", "Đạt chuẩn lưu kho (Loại 2)", "Không đạt chuẩn (Loại thải)"],
         },
     }

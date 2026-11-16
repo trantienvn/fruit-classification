@@ -37,14 +37,14 @@ class PredictionData(BaseModel):
     fruit_type: str
     fruit_type_vi: str = Field(default="", description="Tên tiếng Việt loại trái cây (Cam, Chuối, Xoài)")
     ripeness: str
-    ripeness_vi: str = Field(default="", description="Độ chín tiếng Việt (Chín mọng, Chưa chín, Hỏng)")
+    ripeness_vi: str = Field(default="", description="Độ chín tiếng Việt (Chín, Chưa chín, Hỏng)")
     quality: str = Field(default="", description="Đánh giá chất lượng thương phẩm (Đạt chuẩn / Kém)")
     quality_code: str = Field(default="good", description="'good', 'unripe', hoặc 'bad'")
     recommendation: str = Field(default="", description="Lời khuyên bảo quản và tiêu dùng")
     class_id: int = Field(alias="predicted_class")
     class_name: str
     class_name_vi: str = Field(
-        description="Tên lớp đầy đủ bằng tiếng Việt, ví dụ: Cam · Chín mọng."
+        description="Tên lớp đầy đủ bằng tiếng Việt, ví dụ: Cam · Chín."
     )
     confidence: float | None = Field(
         default=None,

@@ -1,7 +1,7 @@
 # Hệ Thống Phân Loại Độ Chín & Chất Lượng Trái Cây bằng Học Sâu (Deep Learning)
 
 Dự án áp dụng mạng nơ-ron tích chập (Convolutional Neural Network - CNN) và học chuyển giao (Transfer Learning) để tự động trích chọn đặc trưng không gian từ ảnh chụp, giải quyết đồng thời hai bài toán quan trọng:
-1. **Phân loại chủng loại & Độ chín của trái cây** (Cam, Chuối, Xoài × Chín mọng / Chưa chín / Bị hỏng).
+1. **Phân loại chủng loại & Độ chín của trái cây** (Cam, Chuối, Xoài × Chín / Chưa chín / Bị hỏng).
 2. **Đánh giá chất lượng thương phẩm** (Đạt chuẩn Loại 1, Đạt chuẩn lưu kho Loại 2, hoặc Kém chất lượng / Loại bỏ) kèm khuyến nghị an toàn thực phẩm.
 
 ---

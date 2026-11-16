@@ -27,13 +27,13 @@ const RIPENESS_NAMES_MAP = {
 };
 
 const FULL_LABELS_MAP = {
-  "cam-chin": "Cam · Chín mọng",
+  "cam-chin": "Cam · Chín",
   "cam-chua-chin": "Cam · Chưa chín (Xanh)",
   "cam-hong": "Cam · Bị hỏng",
-  "chuoi-chin": "Chuối · Chín mọng",
+  "chuoi-chin": "Chuối · Chín",
   "chuoi-chua-chin": "Chuối · Chưa chín (Xanh)",
   "chuoi-hong": "Chuối · Bị hỏng",
-  "xoai-chin": "Xoài · Chín mọng",
+  "xoai-chin": "Xoài · Chín",
   "xoai-chua-chin": "Xoài · Chưa chín (Xanh)",
   "xoai-hong": "Xoài · Bị hỏng",
 };

@@ -1,0 +1,86 @@
+<section class="page-heading-block">
+  <p class="eyebrow"><span class="eyebrow-mark"></span> Báo cáo kỹ thuật & Cơ sở lý thuyết</p>
+  <h1>Kiến trúc mô hình học sâu & Kết quả thực nghiệm.</h1>
+  <p>Hệ thống sử dụng mạng nơ-ron tích chập <strong>MobileNetV3-Small</strong> (Transfer Learning ImageNet) kết hợp tầng phân loại đa nhiệm <strong>PyTorch MLP</strong> trên phần cứng CUDA để tự động trích chọn đặc trưng và đánh giá chất lượng trái cây.</p>
+</section>
+
+<div class="model-warning is-hidden" id="model-warning" role="status"></div>
+
+<!-- =========================================================================
+     CÁC CHỈ SỐ ĐO LƯỜNG CHÍNH (METRICS OVERVIEW)
+     ========================================================================= -->
+<section class="metric-grid model-metrics" id="model-metrics">
+  <article class="metric-tile metric-featured">
+    <span class="metric-label">Độ chính xác Test (Accuracy)</span>
+    <strong class="metric-value" id="model-accuracy">98.89%</strong>
+    <span class="metric-caption">Đánh giá trên tập kiểm thử độc lập</span>
+    <span class="metric-glyph glyph-check" aria-hidden="true">✓</span>
+  </article>
+  <article class="metric-tile">
+    <span class="metric-label">Macro F1-Score</span>
+    <strong class="metric-value" id="model-f1">0.9887</strong>
+    <span class="metric-caption">Cân bằng trên cả 9 lớp</span>
+    <span class="metric-glyph glyph-leaf" aria-hidden="true">★</span>
+  </article>
+  <article class="metric-tile">
+    <span class="metric-label">Chiều không gian đặc trưng</span>
+    <strong class="metric-value" id="model-feature-count">576</strong>
+    <span class="metric-caption">Vector embedding Global Avg Pool</span>
+  </article>
+  <article class="metric-tile">
+    <span class="metric-label">Phần cứng tăng tốc</span>
+    <strong class="metric-value" id="model-device">CUDA / GPU</strong>
+    <span class="metric-caption">NVIDIA GeForce RTX 3050</span>
+  </article>
+</section>
+
+<!-- =========================================================================
+     CHI TIẾT KIẾN TRÚC & CÁC LỚP NHẬN DIỆN
+     ========================================================================= -->
+<section class="model-details-grid">
+  <!-- Cấu hình Pipeline CNN + PyTorch -->
+  <article class="panel model-config-panel">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Chương 2: Mô hình / Phương pháp</p>
+        <h2>Pipeline học sâu (CNN + MLP)</h2>
+      </div>
+    </div>
+    <dl class="detail-list" id="model-config">
+      <div><dt>Kiến trúc Backbone</dt><dd id="cfg-backbone">MobileNetV3-Small (Pretrained ImageNet)</dd></div>
+      <div><dt>Đầu vào ảnh</dt><dd id="cfg-input-size">224 × 224 px (RGB, 3 channels)</dd></div>
+      <div><dt>Tiền xử lý & Chuẩn hóa</dt><dd>ImageNet Mean [0.485, 0.456, 0.406] / Std [0.229, 0.224, 0.225]</dd></div>
+      <div><dt>Bộ trích chọn đặc trưng</dt><dd>Tự động trích xuất đặc trưng sâu (576 chiều)</dd></div>
+      <div><dt>Bộ phân loại (Head)</dt><dd id="cfg-head">PyTorch MLP (Dropout 0.2, ReLU, Softmax Head)</dd></div>
+      <div><dt>Tối ưu hóa (Optimizer)</dt><dd>Adam Optimizer (Learning rate = 0.001)</dd></div>
+      <div><dt>Chiến lược đầu ra</dt><dd>Phân loại đa nhiệm: Chủng loại + Độ chín + Chất lượng</dd></div>
+      <div><dt>Thư mục lưu trữ</dt><dd>models_dl/classifier_dl.joblib</dd></div>
+    </dl>
+  </article>
+
+  <!-- Danh sách 9 lớp phân loại tiếng Việt -->
+  <article class="panel class-panel">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Không gian nhãn đầu ra</p>
+        <h2>9 Lớp chủng loại & Độ chín</h2>
+      </div>
+      <span class="tab-badge" id="class-count-badge">9 Lớp</span>
+    </div>
+    <ol class="class-list" id="model-classes"></ol>
+  </article>
+</section>
+
+<!-- =========================================================================
+     BIỂU ĐỒ BÁO CÁO THỰC NGHIỆM & SƠ ĐỒ LOSS/ACCURACY THEO EPOCH
+     ========================================================================= -->
+<section class="section-block report-section">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Chương 3: Kết quả thực nghiệm</p>
+      <h2>Sơ đồ xu hướng huấn luyện & Đánh giá mô hình</h2>
+    </div>
+    <span class="section-note">Đường cong Loss, Accuracy và Tốc độ hội tụ</span>
+  </div>
+  <div class="report-grid" id="model-reports"></div>
+</section>

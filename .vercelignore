@@ -1,30 +1,23 @@
-# Vercel Ignore File — Loại bỏ toàn bộ file không cần thiết cho Web Inference
-# Bỏ qua toàn bộ dữ liệu ảnh gốc & cache (Hàng trăm MB - GB)
-data/
-
-# Môi trường ảo & Cache Python
+# Bỏ hoàn toàn môi trường và mã nguồn Python khi deploy bản tĩnh lên Vercel
 .venv/
-venv/
-env/
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Git & IDE & Cấu hình cục bộ
-.git/
-.github/
-.vscode/
-.idea/
-.gemini/
-.agents/
-
-# Báo cáo lớn & tài liệu
-docs/
-scratch/
+api/
+app/
+src/
+src_dl/
+data/
+models_dl/
+reports/
+reports_dl/
 tests/
-reports/epoch-runs/
-reports-whole-scene/
-models-whole-scene/
-*.tmp
-*.log
+export_onnx.py
+requirements.txt
+pyproject.toml
+uv.lock
+.git/
+.gitignore
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.joblib
+*.pyc
+*.py

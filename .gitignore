@@ -19,3 +19,8 @@ reports/
 !reports/
 reports/*
 !reports/program.md
+
+# ── Deep Learning artifacts (src_dl/) ─────────────────────────────────────
+models_dl/
+reports_dl/
+data/processed/dl_features/

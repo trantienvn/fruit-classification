@@ -14,3 +14,12 @@
 
 Không có GPU/TorchMLP trong luồng train được hỗ trợ. `src/torch_model.py` và
 artifact Torch cũ, nếu có, không thuộc dependency hay quy trình train hiện tại.
+
+## Nhánh Deep Learning song song (`src_dl/`)
+
+- Sử dụng MobileNetV3-Small (pretrained ImageNet, đóng băng tham số - frozen) để trích xuất đặc trưng tự động.
+- Đầu vào ảnh resize về 224x224, qua backbone sinh vector embedding 576 chiều (thay thế 51 đặc trưng thủ công của `src/features.py`).
+- Quá trình augmentation (xoay, lật, chỉnh độ sáng) được thực hiện trên ảnh gốc trước khi trích xuất vector.
+- Vector embedding được cache tại `data/processed/dl_features/`.
+- Pipeline phân loại sử dụng các thuật toán scikit-learn (chuẩn hóa StandardScaler, PCA 95%, GridSearchCV) tương thích với logic so sánh thuật toán học máy.
+- Artifact lưu tại `models_dl/` và `reports_dl/`, hoàn toàn độc lập và không ảnh hưởng tới `src/`.

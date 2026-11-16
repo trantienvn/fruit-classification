@@ -17,3 +17,13 @@
   model toàn cục/theo quả; xem danh sách tại `docs/training.md`.
 - `src.audit` kiểm tra số lượng, ảnh lỗi, kích thước và duplicate chính xác;
   duplicate được lọc theo thứ tự test > val > train khi nạp dữ liệu.
+
+## Nhánh Deep Learning (src_dl/)
+
+- **Thêm mới (TASK-DL01):** Tạo `src_dl/` — pipeline CNN embedding + sklearn hoàn toàn độc lập.
+- **Backbone:** MobileNetV3-Small pretrained (ImageNet), frozen, embedding 576 chiều.
+- **Augmentation:** Thực hiện trên ảnh gốc (trước CNN), không phải trên embedding.
+- **Tài liệu:** `readme_dl.md` (hướng dẫn chạy, kiến trúc, rủi ro).
+- **Phụ thuộc bổ sung:** `requirements_dl.txt` → `torch>=2.0`, `torchvision>=0.15`.
+- **Artifact:** `models_dl/`, `reports_dl/`, `data/processed/dl_features/` (đã thêm `.gitignore`).
+- Nhánh `src/` **không bị thay đổi**; tất cả 42 test ban đầu không bị ảnh hưởng.

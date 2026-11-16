@@ -11,7 +11,7 @@ from typing import Any, Callable
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.dataset import CLASS_NAMES
@@ -147,7 +147,19 @@ def create_app(
             },
         )
 
-    frontend = app_settings.frontend_root
+    def _get_frontend_dir() -> Path:
+        candidates = [
+            app_settings.frontend_root,
+            Path(__file__).resolve().parent / "frontend",
+            Path.cwd() / "app" / "web" / "frontend",
+            Path.cwd() / "frontend",
+        ]
+        for c in candidates:
+            if c.is_dir() and (c / "index.html").is_file():
+                return c
+        return app_settings.frontend_root
+
+    frontend = _get_frontend_dir()
     static_dir = frontend / "static"
     if static_dir.is_dir():
         application.mount(
@@ -166,21 +178,26 @@ def create_app(
             name="reports_dl",
         )
 
-    @application.get("/", include_in_schema=False)
-    def index() -> FileResponse:
-        index_file = frontend / "index.html"
+    @application.get("/", response_class=HTMLResponse, include_in_schema=False)
+    @application.get("/api", response_class=HTMLResponse, include_in_schema=False)
+    @application.get("/api/index", response_class=HTMLResponse, include_in_schema=False)
+    @application.get("/api/index.py", response_class=HTMLResponse, include_in_schema=False)
+    def index() -> HTMLResponse:
+        f_dir = _get_frontend_dir()
+        index_file = f_dir / "index.html"
         if not index_file.exists():
             raise HTTPException(status_code=404, detail="Không tìm thấy index.html")
-        return FileResponse(index_file)
+        return HTMLResponse(content=index_file.read_text(encoding="utf-8"))
 
-    @application.get("/pages/{page_name}.html", include_in_schema=False)
-    def page(page_name: str) -> FileResponse:
+    @application.get("/pages/{page_name}.html", response_class=HTMLResponse, include_in_schema=False)
+    def page(page_name: str) -> HTMLResponse:
         if page_name not in PAGE_NAMES:
             raise HTTPException(status_code=404, detail="Không tìm thấy trang.")
-        page_file = frontend / "pages" / f"{page_name}.html"
+        f_dir = _get_frontend_dir()
+        page_file = f_dir / "pages" / f"{page_name}.html"
         if not page_file.exists():
             raise HTTPException(status_code=404, detail=f"Không tìm thấy {page_name}.html")
-        return FileResponse(page_file)
+        return HTMLResponse(content=page_file.read_text(encoding="utf-8"))
 
     return application
 

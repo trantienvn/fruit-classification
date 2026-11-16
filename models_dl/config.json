@@ -1,0 +1,38 @@
+{
+  "feature_type": "cnn_mobilenetv3_small",
+  "backbone": "mobilenetv3_small",
+  "embedding_dim": 576,
+  "crop_size": [
+    224,
+    224
+  ],
+  "class_names": [
+    "cam-chin",
+    "cam-chua-chin",
+    "cam-hong",
+    "chuoi-chin",
+    "chuoi-chua-chin",
+    "chuoi-hong",
+    "xoai-chin",
+    "xoai-chua-chin",
+    "xoai-hong"
+  ],
+  "n_classes": 9,
+  "best_model": "TorchMLP_CUDA",
+  "best_val_f1": 0.97419,
+  "best_val_acc": 0.97417,
+  "test_accuracy": 0.981481,
+  "test_f1": 0.981452,
+  "test_metrics": {
+    "accuracy": 0.981481,
+    "macro_f1": 0.981452
+  },
+  "n_features": 576,
+  "use_pca": true,
+  "pca_ratio": 0.95,
+  "cv_folds": 5,
+  "top_k_trained": 3,
+  "device": "cuda",
+  "total_epochs": 25,
+  "last_trained_epochs": 10
+}

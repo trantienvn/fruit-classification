@@ -7,7 +7,7 @@ venv/
 .streamlit/secrets.toml
 app/web/data/
 tests/.tmp/
-models/
+# models/
 models-whole-scene/
 data/raw/
 data/processed/
@@ -21,6 +21,6 @@ reports/*
 !reports/program.md
 
 # ── Deep Learning artifacts (src_dl/) ─────────────────────────────────────
-models_dl/
-reports_dl/
+# models_dl/
+# reports_dl/
 data/processed/dl_features/

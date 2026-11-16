@@ -1,0 +1,11 @@
+{
+  "total_epochs": 25,
+  "best_epoch": 3,
+  "min_val_loss": 0.08074,
+  "best_acc_epoch": 14,
+  "max_val_acc": 0.98155,
+  "final_train_loss": 0.00031,
+  "final_val_loss": 0.10416,
+  "final_train_acc": 1.0,
+  "final_val_acc": 0.97048
+}

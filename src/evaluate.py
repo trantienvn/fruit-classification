@@ -422,7 +422,12 @@ def _plot_roc_curves(
 ) -> dict[str, float]:
     """Vẽ ROC curves (OvR) và lưu. Trả về dict AUC theo class."""
     n_classes = len(class_names)
-    y_bin = label_binarize(y_true, classes=list(range(n_classes)))
+    if n_classes == 2:
+        y_bin = np.column_stack(
+            [np.asarray(y_true) == class_id for class_id in range(n_classes)]
+        ).astype(np.int8)
+    else:
+        y_bin = label_binarize(y_true, classes=list(range(n_classes)))
     fig, ax = plt.subplots(figsize=(10, 7))
     aucs: dict[str, float] = {}
 
@@ -671,6 +676,93 @@ def _write_summary(
         "- Bổ sung ảnh chụp thực tế đa dạng ánh sáng/góc/nền và đánh giá độc lập trước khi dùng ngoài phạm vi dataset.",
     ])
     save_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def epoch_report(
+    model: object,
+    X_test: np.ndarray,
+    y_test: np.ndarray,
+    class_names: tuple[str, ...],
+    train_labels: np.ndarray,
+    val_labels: np.ndarray,
+    test_images: list[np.ndarray],
+    val_metrics: dict,
+    save_dir: Path,
+) -> dict[str, Any]:
+    """Xuất biểu đồ và metrics kiểm thử cho model huấn luyện theo epoch."""
+    save_dir.mkdir(parents=True, exist_ok=True)
+    class_list = list(class_names)
+    y_true = np.asarray(y_test)
+    y_pred = np.asarray(model.predict(X_test))  # type: ignore[union-attr]
+    if len(test_images) != len(y_true):
+        raise ValueError("Số ảnh test phải bằng số nhãn test để lưu ảnh dự đoán sai.")
+
+    _plot_dataset_distribution(
+        np.asarray(train_labels),
+        np.asarray(val_labels),
+        y_true,
+        class_list,
+        save_dir / "data_distribution.png",
+    )
+    _plot_confusion_matrix(
+        y_true, y_pred, class_list, save_dir / "confusion_matrix.png"
+    )
+    _plot_class_metrics(
+        y_true, y_pred, class_list, save_dir / "class_metrics.png"
+    )
+    _save_classification_metrics_csv(
+        y_true, y_pred, class_list, save_dir / "classification_metrics.csv"
+    )
+    _save_misclassified_images(
+        test_images, y_true, y_pred, class_list, save_dir
+    )
+
+    if hasattr(model, "predict_proba"):
+        y_score = model.predict_proba(X_test)  # type: ignore[union-attr]
+        aucs = _plot_roc_curves(
+            y_true, y_score, class_list, save_dir / "roc_curves.png"
+        )
+        if aucs:
+            with (save_dir / "roc_auc.csv").open(
+                "w", newline="", encoding="utf-8-sig"
+            ) as output:
+                writer = csv.writer(output)
+                writer.writerow(("class", "auc_ovr"))
+                writer.writerows(aucs.items())
+
+    report_text = classification_report(
+        y_true,
+        y_pred,
+        labels=list(range(len(class_list))),
+        target_names=class_list,
+        zero_division=0,
+    )
+    (save_dir / "classification_report_SGDClassifier.txt").write_text(
+        f"Model: SGDClassifier\n\n{report_text}",
+        encoding="utf-8",
+    )
+    test_metrics = evaluate_predictions(
+        y_true.tolist(), y_pred.tolist(), class_names=class_list
+    )
+    pair_counts: dict[tuple[str, str], int] = {}
+    for true_id, predicted_id in zip(y_true, y_pred):
+        if true_id != predicted_id:
+            pair = (class_list[int(true_id)], class_list[int(predicted_id)])
+            pair_counts[pair] = pair_counts.get(pair, 0) + 1
+    _write_summary(
+        save_dir / "summary.md",
+        "SGDClassifier",
+        val_metrics,
+        test_metrics,
+        None,
+        [
+            (true_name, predicted_name, count)
+            for (true_name, predicted_name), count in sorted(
+                pair_counts.items(), key=lambda item: item[1], reverse=True
+            )[:5]
+        ],
+    )
+    return test_metrics
 
 
 def _plot_feature_importance(

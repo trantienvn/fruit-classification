@@ -105,13 +105,33 @@ Mỗi lần chạy tạo một thư mục riêng theo thời gian trong
 `reports/epoch-runs/` (hoặc `reports-whole-scene/epoch-runs/`):
 
 - `epoch_training.png`: biểu đồ Macro-F1 và log loss theo epoch.
+- `loss_curve.png`: biểu đồ riêng theo dõi log loss train/validation qua epoch.
 - `epoch_history.csv`: chỉ số train/validation của từng epoch.
 - `epoch_summary.json`: epoch tốt nhất theo validation Macro-F1.
+- `epoch_checkpoint.joblib`: trạng thái mới nhất để tiếp tục train.
+- Báo cáo đánh giá trên test: `confusion_matrix.png`, `class_metrics.png`,
+  `roc_curves.png`, `roc_auc.csv`, `data_distribution.png`,
+  `classification_metrics.csv`, `classification_report_SGDClassifier.txt`,
+  `summary.md` và thư mục `misclassified/`.
 
 Model của epoch tốt nhất được lưu tương ứng trong
 `models/epoch-runs/` hoặc `models-whole-scene/epoch-runs/`. Tùy chọn `--no-pca`
-tắt PCA; có thể điều chỉnh tốc độ học bằng `--learning-rate`. Lệnh `src.train`
-và pipeline chọn mô hình mặc định không thay đổi.
+tắt PCA; có thể điều chỉnh tốc độ học bằng `--learning-rate`. Để tiếp tục run
+mới nhất, `--epochs` là **số epoch bổ sung** và lịch sử/biểu đồ được cập nhật
+trên cùng run:
+
+```powershell
+python -m src.train_epochs --epochs 20 --resume
+```
+
+Có thể thêm `RUN_ID` (tên thư mục run dưới `epoch-runs/`) sau `--resume` để
+chọn một run cụ thể thay vì run mới nhất.
+Các biểu đồ báo cáo được cập nhật theo model tốt nhất trên validation và chỉ
+đánh giá trên tập test; tập test không tham gia chọn model.
+
+Resume chỉ được chấp nhận nếu dữ liệu train/validation và cấu hình PCA, tốc độ
+học, random state, tên lớp khớp checkpoint. Nếu muốn bắt đầu run mới, bỏ
+`--resume`. Lệnh `src.train` và pipeline chọn mô hình mặc định không thay đổi.
 
 ## 6. Kết quả đầu ra
 

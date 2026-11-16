@@ -112,6 +112,15 @@ lần chạy:
 python -m src.train_epochs --epochs 50
 ```
 
+Tiếp tục run mới nhất thêm 20 epoch (cập nhật cùng CSV và biểu đồ):
+
+```powershell
+python -m src.train_epochs --epochs 20 --resume
+```
+
+Mỗi lần chạy còn xuất biểu đồ Loss riêng, confusion matrix, metrics theo lớp,
+ROC/AUC và các báo cáo đánh giá trên tập test trong thư mục run tương ứng.
+
 Để chạy trên dataset YOLO Apple/Banana/Mango đã xuất thành ảnh nguyên cảnh
 (`models-whole-scene/` và `reports-whole-scene/`):
 

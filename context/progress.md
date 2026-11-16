@@ -17,7 +17,11 @@
   model toàn cục/theo quả; xem danh sách tại `docs/training.md`.
 - Có lệnh tùy chọn `python -m src.train_epochs --epochs 50` để train SGD theo
   epoch; mỗi lần chạy lưu model, CSV lịch sử và biểu đồ Macro-F1/log loss trong
-  thư mục run riêng. Đã xác minh bằng dữ liệu tổng hợp, không chạy dataset thật.
+  thư mục run riêng. `--resume` tiếp tục checkpoint run mới nhất (hoặc chọn
+  `RUN_ID`), cộng số epoch mới và cập nhật cùng CSV/biểu đồ; chỉ cho phép khi dữ
+  liệu và cấu hình không đổi. Epoch run cũng xuất biểu đồ Loss riêng, confusion
+  matrix, class metrics, ROC/AUC, data distribution và báo cáo test. Đã xác minh
+  bằng dữ liệu tổng hợp, không chạy dataset thật.
 - `src.audit` kiểm tra số lượng, ảnh lỗi, kích thước và duplicate chính xác;
   duplicate được lọc theo thứ tự test > val > train khi nạp dữ liệu.
 

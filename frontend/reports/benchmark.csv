@@ -1,0 +1,4 @@
+Model,Parameters (M),FLOPs (MFLOPs),Model Size (MB),Inference GPU (ms),Inference CPU (ms),Peak RAM/VRAM (MB),Test Accuracy (%),Test Macro F1 (%)
+MobileNetV3-Small,1.008,112.78,0.73,4.35,5.69,23.38,95.93%,95.93%
+MobileNetV2,2.342,612.58,2.08,4.36,9.32,36.47,96.67%,96.70%
+ResNet-18,11.264,3632.46,0.76,2.3,14.27,70.59,98.15%,98.13%

@@ -1,0 +1,65 @@
+[
+  {
+    "id": "cam-chin",
+    "name": "Cam chín mọng",
+    "class_name": "cam-chin",
+    "category": "Cam",
+    "image": "static/samples/sample_cam_chin.jpg"
+  },
+  {
+    "id": "cam-chua-chin",
+    "name": "Cam xanh (chưa chín)",
+    "class_name": "cam-chua-chin",
+    "category": "Cam",
+    "image": "static/samples/sample_cam_chua_chin.jpg"
+  },
+  {
+    "id": "cam-hong",
+    "name": "Cam mốc hỏng",
+    "class_name": "cam-hong",
+    "category": "Cam",
+    "image": "static/samples/sample_cam_hong.jpg"
+  },
+  {
+    "id": "chuoi-chin",
+    "name": "Chuối chín vàng",
+    "class_name": "chuoi-chin",
+    "category": "Chuối",
+    "image": "static/samples/sample_chuoi_chin.jpg"
+  },
+  {
+    "id": "chuoi-chua-chin",
+    "name": "Chuối xanh",
+    "class_name": "chuoi-chua-chin",
+    "category": "Chuối",
+    "image": "static/samples/sample_chuoi_chua_chin.jpg"
+  },
+  {
+    "id": "chuoi-hong",
+    "name": "Chuối thâm hỏng",
+    "class_name": "chuoi-hong",
+    "category": "Chuối",
+    "image": "static/samples/sample_chuoi_hong.jpg"
+  },
+  {
+    "id": "xoai-chin",
+    "name": "Xoài chín vàng",
+    "class_name": "xoai-chin",
+    "category": "Xoài",
+    "image": "static/samples/sample_xoai_chin.jpg"
+  },
+  {
+    "id": "xoai-chua-chin",
+    "name": "Xoài xanh",
+    "class_name": "xoai-chua-chin",
+    "category": "Xoài",
+    "image": "static/samples/sample_xoai_chua_chin.jpg"
+  },
+  {
+    "id": "xoai-hong",
+    "name": "Xoài nấm thâm hỏng",
+    "class_name": "xoai-hong",
+    "category": "Xoài",
+    "image": "static/samples/sample_xoai_hong.jpg"
+  }
+]

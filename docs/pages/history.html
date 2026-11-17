@@ -1,0 +1,19 @@
+<section class="page-heading-block page-heading-row">
+  <div><p class="eyebrow">Các lượt đã lưu</p><h1>Lịch sử phân loại.</h1><p>Chỉ lưu tên tệp và kết quả; ảnh tải lên không được lưu.</p></div>
+  <button class="button button-outline-danger" id="clear-history" type="button" disabled>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-.8 13H6.8L6 7m4 4v5m4-5v5"/></svg>
+    Xóa lịch sử
+  </button>
+</section>
+
+<section class="panel history-panel">
+  <div class="filter-row">
+    <label class="search-field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></svg><input id="history-search" type="search" placeholder="Tìm theo tên tệp" autocomplete="off"></label>
+    <label class="select-field"><span class="sr-only">Lọc theo nhãn</span><select id="history-class"><option value="">Tất cả nhãn</option></select></label>
+    <span class="table-count" id="history-count">Đang tải…</span>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table"><thead><tr><th scope="col">Ảnh</th><th scope="col">Loại quả</th><th scope="col">Trạng thái</th><th scope="col">Độ tin cậy</th><th scope="col">Thời gian xử lý</th><th scope="col">Thời điểm</th></tr></thead><tbody id="history-rows"><tr><td colspan="6" class="loading-cell">Đang lấy lịch sử…</td></tr></tbody></table>
+  </div>
+  <div class="pagination"><span id="history-page-label"></span><div><button class="button button-quiet" type="button" id="history-prev" disabled>Trước</button><button class="button button-quiet" type="button" id="history-next" disabled>Tiếp</button></div></div>
+</section>

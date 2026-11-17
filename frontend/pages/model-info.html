@@ -1,0 +1,190 @@
+<section class="page-heading-block">
+  <p class="eyebrow"><span class="eyebrow-mark"></span> Báo cáo kỹ thuật & Cơ sở lý thuyết</p>
+  <h1>Kiến trúc mô hình học sâu & Kết quả thực nghiệm.</h1>
+  <p>Hệ thống huấn luyện và so sánh thực nghiệm 3 kiến trúc học sâu: <strong>MobileNetV3-Small</strong>, <strong>MobileNetV2</strong> và <strong>ResNet-18</strong> (ImageNet Pretrained) kết hợp tầng phân loại <strong>PyTorch MLP</strong> trên phần cứng CUDA RTX 3050, phục vụ suy luận trực tiếp trong trình duyệt bằng ONNX Runtime Web.</p>
+</section>
+
+<div class="model-warning is-hidden" id="model-warning" role="status"></div>
+
+<!-- =========================================================================
+     CÁC CHỈ SỐ ĐO LƯỜNG CHÍNH (METRICS OVERVIEW)
+     ========================================================================= -->
+<section class="metric-grid model-metrics" id="model-metrics">
+  <article class="metric-tile metric-featured">
+    <span class="metric-label">Độ chính xác Test (Accuracy)</span>
+    <strong class="metric-value" id="model-accuracy">98.15%</strong>
+    <span class="metric-caption">ResNet-18 trên 270 ảnh kiểm thử độc lập</span>
+    <span class="metric-glyph glyph-check" aria-hidden="true">✓</span>
+  </article>
+  <article class="metric-tile">
+    <span class="metric-label">Macro F1-Score</span>
+    <strong class="metric-value" id="model-f1">0.9813</strong>
+    <span class="metric-caption">Cân bằng hoàn hảo trên cả 9 lớp</span>
+    <span class="metric-glyph glyph-leaf" aria-hidden="true">★</span>
+  </article>
+  <article class="metric-tile">
+    <span class="metric-label">Mô hình xuất sắc nhất</span>
+    <strong class="metric-value" id="model-best-arch">ResNet-18</strong>
+    <span class="metric-caption">Nhận diện chi tiết vân vỏ & vết hỏng</span>
+  </article>
+  <article class="metric-tile">
+    <span class="metric-label">Môi trường suy luận</span>
+    <strong class="metric-value" id="model-device">ONNX WebAssembly</strong>
+    <span class="metric-caption">Chạy trực tiếp 100% trên trình duyệt</span>
+  </article>
+</section>
+
+<!-- =========================================================================
+     BẢNG SO SÁNH HIỆU NĂNG 3 MÔ HÌNH HỌC SÂU (MỤC 3.6 ĐỀ CƯƠNG)
+     ========================================================================= -->
+<section class="section-block">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Chương 3: Mục 3.6 Đề cương</p>
+      <h2>Bảng so sánh hiệu năng kỹ thuật giữa 3 kiến trúc học sâu</h2>
+    </div>
+    <span class="section-note">Đo lường trên GPU RTX 3050 & ONNX Runtime CPU/Wasm</span>
+  </div>
+
+  <div class="benchmark-table-wrap panel">
+    <table class="benchmark-table" id="benchmark-table">
+      <thead>
+        <tr>
+          <th>Mô hình</th>
+          <th>Tham số (M)</th>
+          <th>FLOPs</th>
+          <th>Dung lượng ONNX</th>
+          <th>Độ trễ GPU</th>
+          <th>Độ trễ CPU / Web</th>
+          <th>Test Accuracy</th>
+          <th>Test Macro F1</th>
+          <th>Ưu điểm nổi bật</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <strong>MobileNetV3-Small</strong>
+            <span class="table-tag tag-fast">Siêu nhẹ</span>
+          </td>
+          <td>1.01 M</td>
+          <td>112.8 MFLOPs</td>
+          <td><strong>4.27 MB</strong></td>
+          <td>4.57 ms</td>
+          <td><strong>7.11 ms</strong></td>
+          <td>95.93%</td>
+          <td>95.93%</td>
+          <td>Tốc độ tải nhanh nhất, tối ưu cho di động & kết nối yếu</td>
+        </tr>
+        <tr>
+          <td>
+            <strong>MobileNetV2</strong>
+            <span class="table-tag tag-standard">Chuẩn CN</span>
+          </td>
+          <td>2.34 M</td>
+          <td>612.6 MFLOPs</td>
+          <td>10.53 MB</td>
+          <td>4.80 ms</td>
+          <td>11.36 ms</td>
+          <td>96.67%</td>
+          <td>96.70%</td>
+          <td>Inverted Residuals cân bằng dung lượng và độ chuẩn xác</td>
+        </tr>
+        <tr class="is-highlighted-row">
+          <td>
+            <strong>ResNet-18</strong>
+            <span class="table-tag tag-best">Tốt nhất ★</span>
+          </td>
+          <td>11.26 M</td>
+          <td>3632.5 MFLOPs</td>
+          <td>43.38 MB</td>
+          <td><strong>4.03 ms</strong></td>
+          <td>15.66 ms</td>
+          <td><strong class="highlight-val">98.15%</strong></td>
+          <td><strong class="highlight-val">98.13%</strong></td>
+          <td>Độ chính xác cao nhất, phân biệt chuẩn các vết mốc và thâm hỏng</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- =========================================================================
+     CHI TIẾT KIẾN TRÚC & CÁC LỚP NHẬN DIỆN
+     ========================================================================= -->
+<section class="model-details-grid">
+  <!-- Cấu hình Pipeline CNN + PyTorch -->
+  <article class="panel model-config-panel">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Chương 2: Mô hình / Phương pháp</p>
+        <h2>Pipeline học sâu (CNN + PCA + MLP)</h2>
+      </div>
+    </div>
+    <dl class="detail-list" id="model-config">
+      <div><dt>Kiến trúc mặc định</dt><dd id="cfg-backbone">ResNet-18 (Pretrained ImageNet)</dd></div>
+      <div><dt>Đầu vào ảnh</dt><dd id="cfg-input-size">224 × 224 px (RGB, 3 channels)</dd></div>
+      <div><dt>Tiền xử lý & Chuẩn hóa</dt><dd>ImageNet Mean [0.485, 0.456, 0.406] / Std [0.229, 0.224, 0.225]</dd></div>
+      <div><dt>Trích chọn đặc trưng</dt><dd>Tự động qua CNN Backbones (512-D / 576-D / 1280-D)</dd></div>
+      <div><dt>Giảm chiều & Trích lọc</dt><dd>StandardScaler + PCA (Giữ 95% phương sai)</dd></div>
+      <div><dt>Bộ phân loại (Head)</dt><dd id="cfg-head">PyTorch MLP (Linear 256 -> 128 -> Softmax 9 lớp)</dd></div>
+      <div><dt>Tối ưu hóa (Optimizer)</dt><dd>Adam Optimizer (Learning rate = 0.0001)</dd></div>
+      <div><dt>Môi trường Deploy</dt><dd>Tĩnh 100% trên Vercel (ONNX Runtime Web Wasm)</dd></div>
+    </dl>
+  </article>
+
+  <!-- Danh sách 9 lớp phân loại tiếng Việt -->
+  <article class="panel class-panel">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Không gian nhãn đầu ra</p>
+        <h2>9 Lớp chủng loại & Độ chín</h2>
+      </div>
+      <span class="tab-badge" id="class-count-badge">9 Lớp</span>
+    </div>
+    <ol class="class-list" id="model-classes"></ol>
+  </article>
+</section>
+
+<!-- =========================================================================
+     BIỂU ĐỒ BÁO CÁO THỰC NGHIỆM & SƠ ĐỒ KHOA HỌC
+     ========================================================================= -->
+<section class="section-block report-section">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Chương 3: Kết quả thực nghiệm</p>
+      <h2>Bộ biểu đồ thực nghiệm khoa học</h2>
+    </div>
+    <span class="section-note">So sánh mô hình, Ma trận nhầm lẫn, Đường cong ROC và Lịch sử hội tụ</span>
+  </div>
+  <div class="report-grid" id="model-reports"></div>
+</section>
+
+<!-- =========================================================================
+     QUẢN TRỊ BỘ NHỚ ĐỆM & CẬP NHẬT PHIÊN BẢN CLIENT
+     ========================================================================= -->
+<section class="section-block cache-admin-section">
+  <div class="panel cache-admin-panel">
+    <div class="cache-admin-content">
+      <div class="cache-admin-info">
+        <p class="eyebrow">Quản lý phiên bản Client</p>
+        <h3 class="cache-admin-title">Cơ chế tự động dọn sạch Cache khi có bản cập nhật mới</h3>
+        <p class="cache-admin-desc">Hệ thống tự động đồng bộ siêu dữ liệu <code>version.json</code>, phát hiện khi server có mã nguồn mới để tự động xóa CacheStorage, dọn sạch bộ nhớ đệm và tải phiên bản mới nhất.</p>
+        <div class="cache-version-tags">
+          <span class="cache-tag">Phiên bản hiện tại: <strong id="app-current-ver">v1.3.0</strong></span>
+          <span class="cache-tag">Cơ chế: <strong>Auto Cache Invalidation & Reload</strong></span>
+        </div>
+      </div>
+      <div class="cache-admin-actions">
+        <button class="button button-quiet" id="btn-check-update" type="button" title="Kiểm tra phiên bản mới nhất trên server">
+          <svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          Kiểm tra cập nhật
+        </button>
+        <button class="button button-primary" id="btn-clear-cache" type="button" title="Xóa toàn bộ CacheStorage và tải lại mã nguồn mới">
+          <svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          Xóa cache & Tải lại
+        </button>
+      </div>
+    </div>
+  </div>
+</section>

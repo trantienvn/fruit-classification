@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#23483a">
+    <meta name="description" content="Phân loại độ chín và đánh giá chất lượng trái cây bằng mô hình học sâu MobileNetV3 chạy trực tiếp trong trình duyệt qua ONNX Runtime Web.">
+    <title>Vườn chín · Phân loại trái cây (ONNX In-Browser)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./static/css/main.css?v=1.3.0">
+    <script type="module" src="./static/js/app.js?v=1.3.0"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+          <a class="brand" href="#dashboard" aria-label="Vườn chín, trang tổng quan">
+            <span class="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 40 40" fill="none"><path d="M20 32.5c-7.7 0-12.1-5-12.1-11.2 0-7.2 6-13.4 14.8-13.8 4.9-.2 8.4 1.3 10 2.5-1.2 8.5-5.6 22.5-12.7 22.5Z" fill="currentColor"/><path d="M12.8 28.6c3.1-5.8 7.6-10 15.1-14.9M20.2 20.5c.1-3.3-.5-6.2-1.8-8.7" stroke="#F4F5EF" stroke-width="1.7" stroke-linecap="round"/></svg>
+            </span>
+            <span class="brand-text"><strong>Vườn chín</strong><small>Trạm kiểm tra trái cây</small></span>
+          </a>
+          <button class="nav-collapse-btn" id="nav-collapse-btn" type="button" aria-label="Thu gọn thanh điều hướng" title="Thu gọn điều hướng (Ctrl+B)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+        </div>
+
+        <div class="nav-caption">Không gian làm việc</div>
+        <nav class="main-nav" aria-label="Điều hướng chính">
+          <a href="#dashboard" data-route="dashboard" class="nav-link" data-tooltip="Tổng quan">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="4" rx="1.5"/><rect x="13.5" y="10.5" width="7" height="10" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/></svg>
+            <span class="nav-label">Tổng quan</span>
+          </a>
+          <a href="#recognition" data-route="recognition" class="nav-link" data-tooltip="Nhận diện ảnh">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4H5a1 1 0 0 0-1 1v3m12-4h3a1 1 0 0 1 1 1v3M4 16v3a1 1 0 0 0 1 1h3m12-4v3a1 1 0 0 1-1 1h-3"/><circle cx="12" cy="12" r="4"/><path d="M12 8v8M8 12h8"/></svg>
+            <span class="nav-label">Nhận diện ảnh</span><span class="nav-accent"></span>
+          </a>
+          <a href="#history" data-route="history" class="nav-link" data-tooltip="Lịch sử">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5h16M4 12h16M4 16.5h10"/><circle cx="18" cy="17" r="3.5"/><path d="M18 15v2l1.3.8"/></svg>
+            <span class="nav-label">Lịch sử</span>
+          </a>
+          <a href="#statistics" data-route="statistics" class="nav-link" data-tooltip="Thống kê">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5h16M6.5 16V11m5 5V5m5 11V8"/><circle cx="6.5" cy="9" r="1.2"/><circle cx="11.5" cy="3" r="1.2"/><circle cx="16.5" cy="6" r="1.2"/></svg>
+            <span class="nav-label">Thống kê</span>
+          </a>
+          <a href="#model-info" data-route="model-info" class="nav-link" data-tooltip="Thông tin mô hình">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 20 8v8l-8 4.5L4 16V8l8-4.5Z"/><path d="m4.5 8.3 7.5 4.2 7.5-4.2M12 12.5v8"/></svg>
+            <span class="nav-label">Thông tin mô hình</span>
+          </a>
+        </nav>
+
+        <div class="sidebar-bottom">
+          <div class="backend-state"><span class="state-indicator" id="sidebar-state-dot"></span><span class="backend-state-text" id="sidebar-state-text">Đang kết nối</span></div>
+          <div class="sidebar-project">Nhóm 03 <span>·</span> Học máy 2026</div>
+        </div>
+      </aside>
+
+      <div class="main-column">
+        <header class="topbar">
+          <button class="menu-toggle" id="menu-toggle" type="button" aria-label="Mở điều hướng" aria-expanded="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+          <div class="breadcrumb"><span>Vườn chín</span><span class="crumb-divider">/</span><strong id="page-title">Tổng quan</strong></div>
+          <div class="topbar-right"><span class="backend-pill is-ready" id="backend-pill"><i></i><span>ONNX Wasm · MobileNetV3</span></span></div>
+        </header>
+        <main id="page-view" class="page-view" tabindex="-1" aria-live="polite">
+          <div class="page-loading"><span class="spinner"></span><span>Đang mở không gian làm việc</span></div>
+        </main>
+        <footer class="app-footer"><span>Phân loại trạng thái & chất lượng trái cây</span><span>Inference trực tiếp trong trình duyệt (ONNX Runtime Web) · 9 lớp</span></footer>
+      </div>
+    </div>
+    <div class="toast-region" id="toast-region" role="status" aria-live="polite"></div>
+  </body>
+</html>

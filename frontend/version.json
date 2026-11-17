@@ -1,0 +1,14 @@
+{
+  "version": "1.3.0",
+  "buildTime": 1731835500000,
+  "buildDate": "2026-11-17T09:25:00Z",
+  "appName": "VuonChin-FruitClassification",
+  "description": "Hệ thống phân loại độ chín và chất lượng trái cây (ONNX In-Browser)",
+  "features": [
+    "In-browser inference với ONNX Runtime Web",
+    "Hỗ trợ 3 mô hình học sâu ResNet-18, MobileNetV3, MobileNetV2",
+    "Bộ ảnh mẫu thử nghiệm 1-chạm cuộn ngang mượt mà",
+    "Thanh điều hướng có thể thu gọn (Collapsible Sidebar, phím tắt Ctrl+B)",
+    "Tự động xóa cache client khi có phiên bản cập nhật mới"
+  ]
+}

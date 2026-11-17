@@ -1,0 +1,17 @@
+# Các thư viện phục vụ FastAPI Web & Inference (Tối ưu hóa dung lượng cho Vercel Serverless Function < 250MB)
+# Web Framework
+fastapi>=0.115.0,<1.0.0
+uvicorn>=0.30.0,<1.0.0
+python-multipart>=0.0.12,<1.0.0
+
+# Machine Learning & Tabular Quality
+scikit-learn>=1.4.0,<2.0.0
+joblib>=1.3.0,<2.0.0
+numpy>=1.26.0,<3.0.0
+
+# Xử lý hình ảnh (Dùng Pillow siêu nhẹ)
+Pillow>=10.0.0,<13.0.0
+
+# Cấu hình & Client
+PyYAML>=6.0,<7.0
+httpx>=0.27.0,<1.0.0

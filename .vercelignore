@@ -1,0 +1,23 @@
+# Bỏ hoàn toàn môi trường và mã nguồn Python khi deploy bản tĩnh lên Vercel
+.venv/
+api/
+app/
+src/
+src_dl/
+/data/
+models_dl/
+reports/
+reports_dl/
+tests/
+export_onnx.py
+requirements.txt
+pyproject.toml
+uv.lock
+.git/
+.gitignore
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.joblib
+*.pyc
+*.py

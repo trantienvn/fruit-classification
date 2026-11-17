@@ -1,0 +1,25 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.pytest_cache/
+.streamlit/secrets.toml
+app/web/data/
+tests/.tmp/
+!models/
+/models/
+models-whole-scene/
+data/raw/
+data/processed/
+data/processed/numeric/
+reports-whole-scene/
+models-gpu/
+reports-gpu/
+/reports/
+!reports/program.md
+
+# ── Deep Learning artifacts (src_dl/) ─────────────────────────────────────
+models_dl/
+reports_dl/
+data/processed/dl_features/

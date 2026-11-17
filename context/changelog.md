@@ -1,5 +1,11 @@
 # Thay đổi gần nhất
 
+## 2026-11-17
+- Đồng bộ định hướng phát triển theo yêu cầu người dùng:
+  - Sử dụng toàn bộ quy trình Học Sâu trong `src_dl/` (MobileNetV3-Small trích xuất đặc trưng + MLP Head, lưu trữ tại `models_dl/`), bỏ qua mã nguồn ML truyền thống cũ trong `src/`.
+  - Thiết lập giao diện Web mặc định trỏ về thư mục `frontend/` ở thư mục gốc (Single Page Application hỗ trợ ONNX Runtime Web in-browser và tương thích Vercel).
+  - Cập nhật `app/web/config.py`, `context/architecture.md` và `context/decisions.md`.
+
 ## 2026-11-03
 - Xác nhận Logistic Regression được huấn luyện cùng các thuật toán phân loại
   khác và xuất hiện trong biểu đồ `model_comparison.png`; thêm kiểm thử hồi quy.

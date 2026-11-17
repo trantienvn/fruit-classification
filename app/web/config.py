@@ -10,7 +10,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 WEB_ROOT = Path(__file__).resolve().parent
-FRONTEND_ROOT = WEB_ROOT / "frontend"
+FRONTEND_ROOT = PROJECT_ROOT / "frontend" if (PROJECT_ROOT / "frontend").is_dir() else (WEB_ROOT / "frontend")
 
 IS_VERCEL = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
 MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB

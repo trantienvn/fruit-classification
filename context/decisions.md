@@ -1,14 +1,7 @@
 # Quyết định hiện hành
 
-- Python 3.14; xử lý ảnh và ML truyền thống với scikit-learn.
-- Mặc định dùng whole-scene từ `data/processed/whole-scene/`, taxonomy
-  Apple/Banana/Mango × Unripe/Ripe/Overripe. Tạo dữ liệu bằng:
-  `python -m src.dataset --source-dir data/raw --output-dir data/processed/whole-scene`.
-- Pipeline train chỉ hỗ trợ whole-scene; các hàm đọc folder/Yolo trong
-  `src.dataset` không phải lựa chọn dataset của lệnh train.
-- Train chỉ chạy CPU; không hỗ trợ CUDA, TorchMLP hoặc resume.
-- Giữ nguyên split; không dùng test để chọn model/tuning. Không commit dataset
-  local hoặc model/report artifacts.
-- Artifact và báo cáo whole-scene dùng `models-whole-scene/` và
-  `reports-whole-scene/`.
-- API/web dùng model artifact được cấu hình; không lưu ảnh upload vào lịch sử.
+- **Công nghệ & pipeline chính**: Sử dụng Deep Learning với nhánh `src_dl/` (MobileNetV3-Small trích xuất đặc trưng + PyTorch MLP Head / Transfer Learning); bỏ qua pipeline Machine Learning truyền thống cũ trong `src/`.
+- **Giao diện Web**: Sử dụng giao diện trong thư mục `frontend/` ở thư mục gốc (Single Page Application hỗ trợ ONNX Runtime Web in-browser và kết nối REST API FastAPI; tương thích Vercel outputDirectory `frontend`).
+- Taxonomy: Cam / Chuối / Xoài (Orange / Banana / Mango) × Chín / Chưa chín / Hỏng (Ripe / Unripe / Spoiled).
+- Artifact mô hình lưu tại `models_dl/`, báo cáo thực nghiệm tại `reports_dl/`.
+- API/web dùng mô hình học sâu từ `models_dl/`; không lưu trữ ảnh upload vào cơ sở dữ liệu SQLite lịch sử để bảo đảm an toàn và hiệu năng.

@@ -9,7 +9,7 @@ Tài liệu chi tiết về quy trình chuyển đổi ảnh sang dữ liệu s�
 - **Bài toán:** Phân loại đa lớp thành 9 lớp.
 - **Định dạng dữ liệu mặc định:** Bộ classification theo thư mục tại `data/processed/dataset/{train,val,test}/`.
 - **Taxonomy mặc định:** Cam/Chuối/Xoài (`Orange`, `Banana`, `Mango`) × `Unripe`, `Ripe`, `Spoiled`.
-- **Split hiện có:** 1.260 ảnh train, 271 validation, 270 test; giữ nguyên phân hoạch nguồn, tỷ lệ tổng thể xấp xỉ 70/15/15. (Pipeline cũng tự nhận diện `data/processed/whole-scene/` nếu truyền `--data-dir`).
+- **Split hiện có:** 1.260 ảnh train (140 ảnh/lớp), 270 validation (30 ảnh/lớp), 270 test (30 ảnh/lớp); tổng cộng 1.800 ảnh (200 ảnh/lớp), tỷ lệ phân hoạch cân bằng chuẩn 70% / 15% / 15%. (Pipeline cũng tự nhận diện `data/processed/whole-scene/` nếu truyền `--data-dir`).
 
 ---
 

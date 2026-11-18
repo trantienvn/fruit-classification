@@ -2,9 +2,9 @@
 
 ## Dataset Cam/Chuối/Xoài — phân hoạch hiện tại
 
-Dataset classification tại `data/processed/dataset/` có 9 lớp, mỗi lớp gồm
-140 ảnh train, 30 validation và 30 test (tổng cộng 1.260 train, 270 validation
-và 270 test).
+Dataset classification tại `data/processed/dataset/` có 9 lớp (200 ảnh/lớp), mỗi lớp gồm
+140 ảnh train, 30 validation và 30 test (tổng cộng 1.260 train, 270 validation,
+270 test; tổng 1.800 ảnh).
 
 ### Kết quả thực nghiệm đã lưu trên phân hoạch trước
 

@@ -173,7 +173,7 @@ python -m src_dl.preprocess_dl \
     --force          # trích xuất lại dù cache đã tồn tại
 ```
 
-> ⏱️ **Thời gian ước tính (CPU):** ~5–15 phút cho ~1,800 ảnh train (bao gồm augmentation × 2 bản = ~5,400 ảnh)
+> ⏱️ **Thời gian ước tính (CPU):** ~5–15 phút cho 1.260 ảnh train (kèm augmentation × 2 bản tăng cường = 3.780 ảnh), trên tổng tập dữ liệu gốc 1.800 ảnh
 
 ---
 
@@ -280,8 +280,8 @@ fruit-classification/
 │   └── processed/
 │       ├── dataset/              #    Train/val/test (9 lớp)
 │       │   ├── train/            #    140 ảnh/lớp
-│       │   ├── val/              #    ~30 ảnh/lớp
-│       │   └── test/             #    ~30 ảnh/lớp
+│       │   ├── val/              #    30 ảnh/lớp
+│       │   └── test/             #    30 ảnh/lớp
 │       ├── numeric/              #    Cache src/ (pixel vectors)
 │       └── dl_features/          # ✨ Cache src_dl/ (CNN embeddings)
 │           └── mobilenetv3_small/

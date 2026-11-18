@@ -1,5 +1,13 @@
 # Thay đổi gần nhất
 
+## 2026-11-18
+- Tạo `README.md` chính thức mới tập trung toàn diện vào kiến trúc Học Sâu (`src_dl/`), Edge Inference qua ONNX Runtime Web trên trình duyệt, các tính năng UI SPA hiện đại (`frontend/`) và lưu tài liệu pipeline ML cũ vào `README_ml.md`.
+- Cập nhật và chuẩn hóa toàn bộ tài liệu về số lượng ảnh của tập dữ liệu thực tế:
+  - Khảo sát thực tế bằng `src.audit`: Tổng cộng chính xác **1.800 ảnh**, chia đều cho 9 lớp (200 ảnh/lớp).
+  - Tỷ lệ phân hoạch chuẩn 70% / 15% / 15%: **1.260 ảnh train** (140 ảnh/lớp), **270 ảnh val** (30 ảnh/lớp), **270 ảnh test** (30 ảnh/lớp).
+  - Khắc phục các con số cũ/lệch (1.801 ảnh, 271 val) xuất phát từ 1 ảnh dư trong `val/chuoi-chin` trước đây.
+  - Đồng bộ số liệu trên `data/README.md`, `docs/training.md`, `docs/cnn-feature-extraction.md`, `docs/results.md`, `readme_dl.md`.
+
 ## 2026-11-17
 - Đồng bộ định hướng phát triển theo yêu cầu người dùng:
   - Sử dụng toàn bộ quy trình Học Sâu trong `src_dl/` (MobileNetV3-Small trích xuất đặc trưng + MLP Head, lưu trữ tại `models_dl/`), bỏ qua mã nguồn ML truyền thống cũ trong `src/`.

@@ -1,0 +1,92 @@
+{
+  "model_name": "ResNet-18",
+  "overall": {
+    "accuracy": 0.9815,
+    "accuracy_percent": "98.15%",
+    "macro_precision": 0.9823,
+    "macro_recall": 0.9815,
+    "macro_f1": 0.9813,
+    "weighted_f1": 0.9813,
+    "total_test_samples": 270
+  },
+  "per_class": {
+    "cam-chin": {
+      "name_vi": "Cam chín",
+      "precision": 0.9677,
+      "recall": 1.0,
+      "f1_score": 0.9836,
+      "support": 30
+    },
+    "cam-chua-chin": {
+      "name_vi": "Cam xanh",
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "support": 30
+    },
+    "cam-hong": {
+      "name_vi": "Cam hỏng",
+      "precision": 1.0,
+      "recall": 0.9,
+      "f1_score": 0.9474,
+      "support": 30
+    },
+    "chuoi-chin": {
+      "name_vi": "Chuối chín",
+      "precision": 0.9375,
+      "recall": 1.0,
+      "f1_score": 0.9677,
+      "support": 30
+    },
+    "chuoi-chua-chin": {
+      "name_vi": "Chuối xanh",
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "support": 30
+    },
+    "chuoi-hong": {
+      "name_vi": "Chuối hỏng",
+      "precision": 1.0,
+      "recall": 0.9333,
+      "f1_score": 0.9655,
+      "support": 30
+    },
+    "xoai-chin": {
+      "name_vi": "Xoài chín",
+      "precision": 0.9677,
+      "recall": 1.0,
+      "f1_score": 0.9836,
+      "support": 30
+    },
+    "xoai-chua-chin": {
+      "name_vi": "Xoài xanh",
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "support": 30
+    },
+    "xoai-hong": {
+      "name_vi": "Xoài hỏng",
+      "precision": 0.9677,
+      "recall": 1.0,
+      "f1_score": 0.9836,
+      "support": 30
+    }
+  },
+  "extra_info": {
+    "name": "ResNet-18",
+    "backbone_name": "resnet18",
+    "params_m": 11.264,
+    "flops_mflops": 3632.46,
+    "size_mb": 0.76,
+    "latency_gpu_ms": 2.3,
+    "latency_cpu_ms": 14.27,
+    "peak_mem_mb": 70.59,
+    "train_time_s": 1.4,
+    "val_acc": 0.940959409594096,
+    "val_f1": 0.9404479605554283,
+    "accuracy": 0.9814814814814815,
+    "macro_f1": 0.9812719188941066
+  }
+}

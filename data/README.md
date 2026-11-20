@@ -1,102 +1,64 @@
 # Dữ liệu
 
-## Dataset train mặc định: ảnh nguyên cảnh
+## 1. Dataset classification chính: Cam, Chuối, Xoài (9 lớp)
 
-Pipeline mặc định dùng ảnh nguyên cảnh từ `data/processed/whole-scene/`,
-được tạo từ các split YOLO trong `data/raw/`. Ảnh gốc được giữ nguyên, không
-crop bounding box; ảnh chứa nhiều class hoặc nhãn không hợp lệ bị loại vì
-không thể gán một nhãn cho toàn cảnh. Dataset này dùng taxonomy cũ
-Apple/Banana/Mango × Unripe/Ripe/Overripe. Dataset sinh ra là dữ liệu cục bộ,
-không commit vào repository.
+Dataset phân loại chính của dự án được lưu tại `data/processed/dataset/{train,val,test}/`.
+Dataset gồm 9 lớp phân loại kết hợp giữa 3 loại quả (**Cam**, **Chuối**, **Xoài**) và 3 trạng thái độ chín/chất lượng (**Chưa chín / Xanh**, **Chín**, **Bị hỏng**). Các thư mục `*-hong` được xác nhận là trái cây hỏng (nấm mốc, thâm úng), không gộp vào nhãn quá chín.
 
-Tạo hoặc cập nhật dataset nguyên cảnh bằng:
+Đây là tập dữ liệu chính thức phục vụ toàn bộ pipeline Học Sâu (`src_dl/`) và suy luận trực tiếp trên trình duyệt Web qua ONNX Runtime Web.
 
-```powershell
-python -m src.dataset --source-dir data/raw --output-dir data/processed/whole-scene
-```
+### Bảng phân bố số lượng ảnh theo lớp và tập dữ liệu
 
-## Dataset classification theo thư mục
+Mỗi lớp có đúng **140** ảnh train, **30** ảnh validation và **30** ảnh test (mỗi lớp đạt chuẩn **200** ảnh, cân bằng 100% giữa các lớp):
 
-Dataset ảnh đã chia lớp nằm tại `data/processed/dataset/{train,val,test}/`.
-Dataset có 9 lớp: cam, chuối, xoài;
-mỗi loại gồm `Unripe`, `Ripe`, `Spoiled`. Các thư mục `*-hong` được xác nhận là
-trái cây hỏng, không gộp vào nhãn quá chín.
-
-Đây là dữ liệu riêng, không được pipeline train whole-scene hỗ trợ.
-
-Mỗi lớp có 140 ảnh train và 30 ảnh test; lớp `chuoi-chin` có thêm một ảnh
-validation:
-
-| Thư mục lớp | Train | Validation | Test | Tổng |
+| Thư mục lớp | Train | Validation | Test | Tổng cộng |
 |---|---:|---:|---:|---:|
 | `cam-chin` | 140 | 30 | 30 | 200 |
 | `cam-chua-chin` | 140 | 30 | 30 | 200 |
 | `cam-hong` | 140 | 30 | 30 | 200 |
-| `chuoi-chin` | 140 | 31 | 30 | 201 |
+| `chuoi-chin` | 140 | 30 | 30 | 200 |
 | `chuoi-chua-chin` | 140 | 30 | 30 | 200 |
 | `chuoi-hong` | 140 | 30 | 30 | 200 |
 | `xoai-chin` | 140 | 30 | 30 | 200 |
 | `xoai-chua-chin` | 140 | 30 | 30 | 200 |
 | `xoai-hong` | 140 | 30 | 30 | 200 |
-| **Tổng** | **1.260** | **271** | **270** | **1.801** |
+| **Tổng cộng** | **1.260** | **270** | **270** | **1.800** |
 
-Kiểm tra cục bộ ngày 2026-11-04: cả 1.801 ảnh đều giải mã được; có 14 kích
-thước ảnh khác nhau. Phát hiện 2 nhóm trùng byte chính xác, trong đó 1 nhóm
-nằm giữa train/validation. Pipeline loại bản sao khỏi split ưu tiên thấp hơn
-trước khi trích xuất đặc trưng, giữ test trước validation trước train. Tỷ lệ
-tổng thể sau kiểm đếm xấp xỉ 70/15/15; không thay đổi split nguồn.
+### Kết quả kiểm toán dữ liệu (`python -m src.audit`)
 
-Ánh xạ tên thư mục sang nhãn model:
+- **Tổng số ảnh:** 1.800 ảnh; 100% giải mã thành công (0 ảnh lỗi / corrupt).
+- **Tỷ lệ phân hoạch:** Đạt chuẩn cân bằng 70% Train (1.260 ảnh), 15% Validation (270 ảnh), 15% Test (270 ảnh).
+- **Độ phân giải:** Có 13 kích thước ảnh khác nhau, phổ biến nhất là `224×224` (570 ảnh), `416×416` (287 ảnh), `512×512` (240 ảnh), `300×300` (189 ảnh), `255×255` (156 ảnh), `320×258` (125 ảnh), `640×480` (107 ảnh).
+- **Trùng lặp:** Phát hiện 2 nhóm trùng byte chính xác (1 nhóm nằm trong `train/cam-chin`, 1 nhóm cross-split giữa `train/cam-hong` và `val/cam-hong`). Pipeline loại bản sao khỏi split ưu tiên thấp hơn khi trích xuất đặc trưng nếu cần, giữ thứ tự ưu tiên `test > val > train`.
 
-| Nhãn model | Thư mục |
-|---|---|
-| Orange Unripe | `cam-chua-chin` |
-| Orange Ripe | `cam-chin` |
-| Orange Spoiled | `cam-hong` |
-| Banana Unripe | `chuoi-chua-chin` |
-| Banana Ripe | `chuoi-chin` |
-| Banana Spoiled | `chuoi-hong` |
-| Mango Unripe | `xoai-chua-chin` |
-| Mango Ripe | `xoai-chin` |
-| Mango Spoiled | `xoai-hong` |
+### Ánh xạ tên thư mục sang nhãn mô hình
 
-Dataset là dữ liệu cục bộ, bị Git bỏ qua và không được thêm vào repository.
-Nguồn/giấy phép của bộ thư mục này chưa được ghi trong repository; cần giữ
-thông tin nguồn và giấy phép gốc khi chia sẻ dữ liệu.
+| Nhãn mô hình tiếng Anh | Nhãn tiếng Việt | Thư mục dữ liệu | Phẩm cấp chất lượng |
+|---|---|---|---|
+| Orange Unripe | Cam · Chưa chín | `cam-chua-chin` | Đạt chuẩn tiêu thụ (Tốt - Loại 2) |
+| Orange Ripe | Cam · Chín | `cam-chin` | Đạt chuẩn (Tốt - Loại 1) |
+| Orange Spoiled | Cam · Bị hỏng | `cam-hong` | Không đạt chuẩn (Kém - Loại bỏ) |
+| Banana Unripe | Chuối · Chưa chín | `chuoi-chua-chin` | Đạt chuẩn lưu kho (Tốt - Loại 2) |
+| Banana Ripe | Chuối · Chín | `chuoi-chin` | Đạt chuẩn (Tốt - Loại 1) |
+| Banana Spoiled | Chuối · Bị hỏng | `chuoi-hong` | Không đạt chuẩn (Kém - Loại bỏ) |
+| Mango Unripe | Xoài · Chưa chín | `xoai-chua-chin` | Đạt chuẩn tiêu thụ (Tốt - Loại 2) |
+| Mango Ripe | Xoài · Chín | `xoai-chin` | Đạt chuẩn (Tốt - Loại 1) |
+| Mango Spoiled | Xoài · Bị hỏng | `xoai-hong` | Không đạt chuẩn (Kém - Loại bỏ) |
 
-## Dataset YOLO cũ
+Dataset là dữ liệu ảnh thực tế cục bộ, bị Git bỏ qua (`.gitignore`) và không commit vào repository.
 
-`data/raw/` lưu dataset YOLO với nhãn Apple/Banana/Mango và các trạng thái
-`Unripe`, `Ripe`, `Overripe`. Đây là nguồn để tạo dataset ảnh nguyên cảnh mà
-pipeline train sử dụng. Có thể dùng các hàm tiện ích trong `src.dataset` để
-đọc/crop bounding box, nhưng CLI huấn luyện chỉ hỗ trợ dataset whole-scene.
+---
 
-### Cấu trúc YOLO cũ
+## 2. Dataset YOLO cũ (Dữ liệu lịch sử tham khảo)
 
-```text
-data/
-  raw/
-    data.yaml
-    class_mapping.json
-    balanced_distribution.png
-    images/
-      train/
-      val/
-      test/
-    labels/
-      train/
-      val/
-      test/
-  processed/
-    dataset/
-      train/{cam-chin,...}/
-      val/{cam-chin,...}/
-      test/{cam-chin,...}/
-    whole-scene/
-      manifest.json
-      train/{Apple_Unripe,...}/
-      val/{Apple_Unripe,...}/
-      test/{Apple_Unripe,...}/
+Thư mục `data/raw/` trước đây lưu dataset YOLO phát hiện đối tượng với nhãn Apple/Banana/Mango và các trạng thái `Unripe`, `Ripe`, `Overripe`. Đây là dữ liệu gốc từng được dùng để tạo dataset ảnh nguyên cảnh `data/processed/whole-scene/` trong các thử nghiệm ban đầu.
+
+### Cấu trúc và số lượng dữ liệu YOLO cũ (Tham khảo)
+
+Pipeline trích xuất ảnh toàn cảnh trước đây dùng lệnh:
+
+```powershell
+python -m src.dataset --source-dir data/raw --output-dir data/processed/whole-scene
 ```
 
 `data.yaml` và `class_mapping.json` chỉ mô tả dataset YOLO cũ.

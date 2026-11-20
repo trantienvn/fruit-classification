@@ -16,10 +16,10 @@ data/processed/numeric/
 reports-whole-scene/
 models-gpu/
 reports-gpu/
-/reports/
+!/reports/
 !reports/program.md
-
+graphify-out
 # ── Deep Learning artifacts (src_dl/) ─────────────────────────────────────
 models_dl/
-reports_dl/
+!reports_dl/
 data/processed/dl_features/

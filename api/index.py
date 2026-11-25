@@ -8,7 +8,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# Thêm thư mục gốc của dự án vào sys.path để import các module app, src_dl
+# Thêm thư mục gốc của dự án vào sys.path để import các module app, src
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))

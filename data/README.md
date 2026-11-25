@@ -5,7 +5,7 @@
 Dataset phân loại chính của dự án được lưu tại `data/processed/dataset/{train,val,test}/`.
 Dataset gồm 9 lớp phân loại kết hợp giữa 3 loại quả (**Cam**, **Chuối**, **Xoài**) và 3 trạng thái độ chín/chất lượng (**Chưa chín / Xanh**, **Chín**, **Bị hỏng**). Các thư mục `*-hong` được xác nhận là trái cây hỏng (nấm mốc, thâm úng), không gộp vào nhãn quá chín.
 
-Đây là tập dữ liệu chính thức phục vụ toàn bộ pipeline Học Sâu (`src_dl/`) và suy luận trực tiếp trên trình duyệt Web qua ONNX Runtime Web.
+Đây là tập dữ liệu chính thức phục vụ toàn bộ pipeline Học Sâu (`src/`) và suy luận trực tiếp trên trình duyệt Web qua ONNX Runtime Web.
 
 ### Bảng phân bố số lượng ảnh theo lớp và tập dữ liệu
 

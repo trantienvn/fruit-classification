@@ -43,7 +43,7 @@ def model_info(request: Request) -> ModelInfoResponse:
         if hasattr(classifier, "get_info"):
             info.update(classifier.get_info())
 
-    # Đọc thông số thực nghiệm từ models_dl/config.json
+    # Đọc thông số thực nghiệm từ models/config.json
     config_path = settings.dl_model_dir / "config.json"
     if config_path.exists():
         try:
@@ -73,19 +73,19 @@ def model_info(request: Request) -> ModelInfoResponse:
     ]
 
     # Kiểm tra các biểu đồ báo cáo có sẵn
-    reports_dl_dir = settings.reports_dl_root
+    reports_dir = settings.reports_root
     reports = []
-    if (reports_dl_dir / "loss_curve.png").exists():
+    if (reports_dir / "loss_curve.png").exists():
         reports.append({
             "title": "Sơ đồ xu hướng Loss & Accuracy qua từng Epoch",
-            "url": "/reports_dl/loss_curve.png",
+            "url": "/reports/loss_curve.png",
             "type": "loss_curve",
             "description": "Đường cong Cross-Entropy Loss và Validation Accuracy theo từng chu kỳ huấn luyện.",
         })
-    if (reports_dl_dir / "epoch_training.png").exists():
+    if (reports_dir / "epoch_training.png").exists():
         reports.append({
             "title": "Biểu đồ đánh giá huấn luyện & Tốc độ hội tụ",
-            "url": "/reports_dl/epoch_training.png",
+            "url": "/reports/epoch_training.png",
             "type": "training_metrics",
             "description": "So sánh chi tiết tốc độ hội tụ và phân bố độ chính xác trên tập Train và Validation.",
         })

@@ -12,7 +12,16 @@ from PIL import Image
 
 from app.web.config import Settings
 from app.web.main import create_app
-from src.dataset import CLASS_NAMES
+
+# Nhãn stub khớp với DL classifier output
+_STUB_CLASS_NAMES = [
+    "cam-chin", "cam-chua-chin", "cam-hong",
+    "chuoi-chin", "chuoi-chua-chin", "chuoi-hong",
+    "xoai-chin", "xoai-chua-chin", "xoai-hong",
+]
+
+CLASS_NAMES = tuple(_STUB_CLASS_NAMES)
+
 
 class StubClassifier:
     """Thay classifier ở biên HTTP để kiểm thử độc lập artifact model."""
@@ -42,13 +51,13 @@ class StubClassifier:
 
     def predict_from_bytes(self, _image_bytes: bytes) -> dict:
         probabilities = {name: 0.0 for name in CLASS_NAMES}
-        probabilities["Banana Ripe"] = 0.75
-        probabilities["Banana Spoiled"] = 0.25
+        probabilities["chuoi-chin"] = 0.75
+        probabilities["chuoi-hong"] = 0.25
         return {
-            "class_id": 4,
-            "class_name": "Banana Ripe",
-            "fruit": "Banana",
-            "ripeness": "Ripe",
+            "class_id": 3,
+            "class_name": "chuoi-chin",
+            "fruit": "chuoi",
+            "ripeness": "chin",
             "confidence": 0.75,
             "probabilities": probabilities,
             "processing_time_ms": 4.2,
@@ -80,7 +89,7 @@ def test_health_and_frontend_pages_are_served(tmp_path: Path) -> None:
         assert health.json()["data"]["model_name"] == "SVM test stub"
 
         assert "Vườn chín" in client.get("/").text
-        assert "Chọn ảnh trái cây" in client.get("/pages/recognition.html").text
+        assert "Ảnh chụp trái cây" in client.get("/pages/recognition.html").text
         assert client.get("/static/css/main.css").status_code == 200
         assert client.get("/pages/not-allowed.html").status_code == 404
 
@@ -169,8 +178,8 @@ def test_predict_persists_metadata_only_and_updates_statistics(tmp_path: Path) -
         )
         assert response.status_code == 200
         prediction = response.json()["data"]
-        assert prediction["predicted_class"] == 4
-        assert prediction["fruit_type"] == "Banana"
+        assert prediction["predicted_class"] == 3
+        assert prediction["fruit_type"] == "chuoi"
         assert prediction["confidence"] == 0.75
         assert prediction["class_name_vi"] == "Chuối · Chín"
         assert "probabilities" in prediction
@@ -178,12 +187,12 @@ def test_predict_persists_metadata_only_and_updates_statistics(tmp_path: Path) -
 
         history = client.get("/api/history").json()["data"]
         assert history["total"] == 1
-        assert history["items"][0]["class_name"] == "Banana Ripe"
+        assert history["items"][0]["class_name"] == "chuoi-chin"
 
         statistics = client.get("/api/statistics").json()["data"]
         assert statistics["total_predictions"] == 1
         assert statistics["unique_classes"] == 1
-        assert next(row for row in statistics["by_class"] if row["class_name"] == "Banana Ripe")["count"] == 1
+        assert next(row for row in statistics["by_class"] if row["class_name"] == "chuoi-chin")["count"] == 1
         assert sum(row["count"] for row in statistics["by_day"]) == 1
 
         with sqlite3.connect(tmp_path / "history.sqlite3") as connection:
@@ -229,7 +238,7 @@ def test_history_filters_and_can_be_cleared(tmp_path: Path) -> None:
             )
             assert response.status_code == 200
 
-        filtered = client.get("/api/history", params={"q": "mango", "class_name": "Banana Ripe"}).json()["data"]
+        filtered = client.get("/api/history", params={"q": "mango", "class_name": "chuoi-chin"}).json()["data"]
         assert filtered["total"] == 1
         assert filtered["items"][0]["filename"] == "mango.png"
 
@@ -271,7 +280,7 @@ def test_missing_model_leaves_api_alive_and_reports_unavailable(tmp_path: Path) 
         )
         assert prediction.status_code == 503
         assert prediction.json()["error"]["code"] == "model_not_ready"
-        assert client.get("/api/model-info").status_code == 503
+        assert client.get("/api/model-info").status_code == 200
 
 
 def test_unavailable_probability_api_omits_confidence_and_probabilities(tmp_path: Path) -> None:

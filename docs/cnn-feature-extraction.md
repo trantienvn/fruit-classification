@@ -1,6 +1,6 @@
 # Lý thuyết và Đánh giá Rủi ro: Trích xuất Đặc trưng bằng CNN
 
-> **Trạng thái tài liệu:** Tài liệu phân tích lý thuyết và đánh giá rủi ro tham khảo. Nội dung dưới đây **chưa thay đổi mã nguồn hay pipeline huấn luyện hiện hành** của dự án.
+> **Trạng thái tài liệu:** Tài liệu phân tích lý thuyết lịch sử. Pipeline ML truyền thống đã được thay thế hoàn toàn bởi nhánh Deep Learning trong `src/`. Nội dung phần 1-2 mô tả trạng thái cũ trước khi migration; phần 3+ vẫn còn giá trị tham chiếu lý thuyết.
 
 ---
 

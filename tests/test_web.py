@@ -19,7 +19,7 @@ def create_sample_fruit_image() -> io.BytesIO:
     return buf
 
 
-def test_dl_web_app():
+def test_web_app():
     with TestClient(app) as client:
         # 1. Health check
         res_health = client.get("/api/health")
@@ -57,4 +57,4 @@ def test_dl_web_app():
 
 
 if __name__ == "__main__":
-    test_dl_web_app()
+    test_web_app()

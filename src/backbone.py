@@ -79,7 +79,7 @@ except ImportError:
     pass
 
 _INSTALL_MSG = (
-    "\n[src_dl] Lỗi: torch và/hoặc torchvision chưa được cài đặt.\n"
+    "\n[src] Lỗi: torch và/hoặc torchvision chưa được cài đặt.\n"
     "Vui lòng chạy lệnh sau để cài đặt:\n\n"
     "    pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128\n"
 )

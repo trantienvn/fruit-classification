@@ -11,10 +11,9 @@ Tài liệu hướng dẫn thiết lập môi trường phát triển cho đồ 
 - **Công cụ quản lý gói:** [`uv`](https://github.com/astral-sh/uv) (khuyến nghị) hoặc `pip`.
 - **Phần cứng:** CPU đa nhân; GPU NVIDIA chỉ cần cho backend CUDA tùy chọn.
 
-`requirements.txt` cài PyTorch CUDA 12.6 để hỗ trợ chế độ MLP tùy chọn. GPU NVIDIA
-và driver tương thích vẫn cần có sẵn trên máy.
-Không cần GPU để dùng pipeline scikit-learn CPU. Tham khảo
-[hướng dẫn huấn luyện GPU](training.md#6-huấn-luyện-tùy-chọn-trên-gpu-cuda).
+`requirements.txt` cài PyTorch CUDA 12.6 để hỗ trợ huấn luyện GPU. GPU NVIDIA
+và driver tương thích vẫn cần có sẵn trên máy nếu muốn dùng CUDA.
+Không cần GPU — pipeline hoạt động hoàn toàn trên CPU.
 
 ---
 
@@ -60,13 +59,11 @@ uv pip install -r requirements.txt
 
 Danh mục các thư viện chính:
 - `numpy`, `scipy`: Xử lý số học và ma trận.
-- `scikit-learn`: Các thuật toán học máy (KNN, Naive Bayes, Logistic Regression, SVM, Decision Tree, Random Forest, Gradient Boosting) và các công cụ tiền xử lý, đánh giá.
-- `torch`: Bộ phân loại MLP; cài wheel CUDA 12.6 cho GPU NVIDIA.
-- `scikit-image`: Trích xuất đặc trưng kết cấu (LBP, GLCM).
+- `scikit-learn`: Classifier trên embedding CNN và các công cụ tiền xử lý, đánh giá.
+- `torch`, `torchvision`: CNN backbone và huấn luyện MLP (GPU CUDA hoặc CPU).
 - `Pillow`: Đọc, cắt và tiền xử lý ảnh.
 - `matplotlib`, `seaborn`: Trực quan hóa và xuất biểu đồ thực nghiệm.
-- `streamlit`: Giao diện ứng dụng người dùng.
-- `joblib`: Đóng gói và tuần tự hóa mô hình (serialization).
+- `joblib`: Đóng gói và tuần tự hóa mô hình.
 - `pytest`: Kiểm thử tự động.
 
 ---

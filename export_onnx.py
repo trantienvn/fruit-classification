@@ -40,7 +40,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src_dl.backbone import (
+from src.backbone import (
     BACKBONE_SPECS,
     DEFAULT_BACKBONE,
     IMAGENET_MEAN,
@@ -172,12 +172,12 @@ def export_single_model(
 
 
 def export_all_models(
-    model_dir: Path = Path("models_dl"),
+    model_dir: Path = Path("models"),
     output_dir: Path = Path("frontend/models"),
-    reports_dir: Path = Path("reports_dl"),
+    reports_dir: Path = Path("reports"),
     opset_version: int = 17,
 ) -> dict[str, Path]:
-    """Xuất toàn bộ các mô hình có trong models_dl sang ONNX và đồng bộ file cấu hình."""
+    """Xuất toàn bộ các mô hình có trong models sang ONNX và đồng bộ file cấu hình."""
     logger.info("=== BẮT ĐẦU QUY TRÌNH XUẤT ĐA MÔ HÌNH ONNX ===")
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -195,8 +195,8 @@ def export_all_models(
         joblib_path = model_dir / f"classifier_{b_name}.joblib"
         if not joblib_path.exists():
             # Nếu chưa có file riêng, thử kiểm tra nếu đây là model_dl
-            if b_name == best_backbone and (model_dir / "classifier_dl.joblib").exists():
-                joblib_path = model_dir / "classifier_dl.joblib"
+            if b_name == best_backbone and (model_dir / "classifier.joblib").exists():
+                joblib_path = model_dir / "classifier.joblib"
             else:
                 logger.warning(f"Bỏ qua {b_name}: không tìm thấy {joblib_path}")
                 continue
@@ -211,8 +211,8 @@ def export_all_models(
         shutil.copy2(exported_paths[best_backbone], default_onnx)
         logger.info(f"✓ Đã đặt mô hình xuất sắc nhất ({BACKBONE_SPECS[best_backbone]['display_name']}) làm mặc định: {default_onnx}")
     else:
-        # Xuất trực tiếp từ classifier_dl.joblib
-        dl_path = model_dir / "classifier_dl.joblib"
+        # Xuất trực tiếp từ classifier.joblib
+        dl_path = model_dir / "classifier.joblib"
         if dl_path.exists():
             export_single_model(best_backbone, dl_path, default_onnx, opset_version=opset_version)
 
@@ -324,7 +324,7 @@ def verify_onnx(
 
 def main():
     parser = argparse.ArgumentParser(description="Xuất pipeline DL sang mô hình ONNX.")
-    parser.add_argument("--model-dir", type=Path, default=Path("models_dl"), help="Thư mục chứa weights")
+    parser.add_argument("--model-dir", type=Path, default=Path("models"), help="Thư mục chứa weights")
     parser.add_argument("--output-dir", type=Path, default=Path("frontend/models"), help="Thư mục xuất ONNX")
     parser.add_argument("--verify", action="store_true", default=True, help="Kiểm thử sai số sau khi xuất")
     parser.add_argument("--samples", type=int, default=25, help="Số ảnh kiểm thử")
@@ -337,7 +337,7 @@ def main():
         for b_name, onnx_path in exported.items():
             joblib_path = args.model_dir / f"classifier_{b_name}.joblib"
             if not joblib_path.exists():
-                joblib_path = args.model_dir / "classifier_dl.joblib"
+                joblib_path = args.model_dir / "classifier.joblib"
             ok = verify_onnx(onnx_path, b_name, joblib_path, num_samples=args.samples)
             if not ok:
                 all_passed = False

@@ -60,17 +60,17 @@ def create_app(
                 app.state.classifier = clf
                 app.state.class_names = getattr(clf, "class_names", DEFAULT_CLASSES)
             else:
-                from src_dl.predict_dl import FruitClassifierDL
-                dl_path = app_settings.dl_model_dir / "classifier_dl.joblib"
-                if dl_path.exists():
+                from src.predict import FruitClassifier
+                model_path = app_settings.dl_model_dir / "classifier.joblib"
+                if model_path.exists():
                     logger.info("Đang nạp mô hình Deep Learning từ %s", app_settings.dl_model_dir)
-                    clf_dl = FruitClassifierDL(app_settings.dl_model_dir)
-                    clf_dl.load()
-                    app.state.classifier = clf_dl
-                    app.state.class_names = clf_dl.class_names
-                    logger.info("Đã nạp thành công mô hình Deep Learning (%d lớp)", len(clf_dl.class_names))
+                    clf = FruitClassifier(app_settings.dl_model_dir)
+                    clf.load()
+                    app.state.classifier = clf
+                    app.state.class_names = clf.class_names
+                    logger.info("Đã nạp thành công mô hình Deep Learning (%d lớp)", len(clf.class_names))
                 else:
-                    logger.warning("Không tìm thấy mô hình tại: %s", dl_path)
+                    logger.warning("Không tìm thấy mô hình tại: %s", model_path)
         except Exception as error:
             logger.warning("Mô hình phân loại ảnh chưa sẵn sàng: %s", error)
             app.state.model_error = str(error)
@@ -147,11 +147,11 @@ def create_app(
             StaticFiles(directory=app_settings.reports_root, check_dir=True),
             name="reports",
         )
-    if app_settings.reports_dl_root.is_dir():
+    if app_settings.reports_root.is_dir():
         application.mount(
-            "/reports_dl",
-            StaticFiles(directory=app_settings.reports_dl_root, check_dir=True),
-            name="reports_dl",
+            "/reports",
+            StaticFiles(directory=app_settings.reports_root, check_dir=True),
+            name="reports",
         )
 
     @application.get("/", response_class=HTMLResponse, include_in_schema=False)

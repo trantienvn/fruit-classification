@@ -10,8 +10,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from src_dl.backbone import get_backbone, SUPPORTED_BACKBONES
-from src_dl.benchmark_reporter import (
+from src.backbone import get_backbone, SUPPORTED_BACKBONES
+from src.benchmark_reporter import (
     CLASS_NAMES_VI,
     count_model_flops_and_params,
     export_benchmark_csv,

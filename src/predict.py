@@ -1,282 +1,410 @@
-"""Pipeline inference — nhận ảnh, trả kết quả dự đoán.
+"""
+predict.py — Inference cho mô hình DL (CNN embedding + sklearn classifier).
 
-Sử dụng:
-  from src.predict import FruitClassifier
+Lớp FruitClassifierDL hoàn toàn độc lập với src/predict.py.
+Module độc lập trong src/.
 
-  clf = FruitClassifier()               # nạp model từ models/
-  result = clf.predict_from_file("anh.jpg")
-  # result = {
-  #   "class_id": 1,
-  #   "class_name": "Orange Ripe",
-  #   "fruit": "Orange",
-  #   "ripeness": "Ripe",
-  #   "confidence": 0.87,
-  #   "probabilities": {"Orange Unripe": 0.05, "Orange Ripe": 0.87, ...},
-  #   "processing_time_ms": 45.2,
-  # }
+Pipeline dự đoán:
+    PIL Image (bất kỳ kích thước)
+        → numpy RGB uint8
+        → CNN backbone (MobileNetV3-Small)
+        → embedding (576,)
+        → StandardScaler (+ PCA nếu được bật)
+        → sklearn classifier
+        → dict kết quả
+
+Chạy trực tiếp (CLI):
+    python -m src.predict <đường_dẫn_ảnh> [--model-dir PATH]
 """
 
 from __future__ import annotations
 
+import argparse
 import json
-import time
+import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
-import joblib
 import numpy as np
-from PIL import Image, UnidentifiedImageError
 
-from src.dataset import CLASS_NAMES
-from src.preprocess import (
-    PIXEL_CHANNELS,
-    PIXEL_IMAGE_SIZE,
-    REPRESENTATION_NAME,
-    image_to_numeric_vector,
-)
+logger = logging.getLogger(__name__)
 
-# Thư mục model mặc định
-DEFAULT_MODEL_DIR = Path("models")
+# ---------------------------------------------------------------------------
+# Hằng số mặc định
+# ---------------------------------------------------------------------------
+DEFAULT_MODEL_DIR: Path = Path("models")
 
-# Tên file trong model_dir
-CLASSIFIER_FILE = "classifier.joblib"
-SCALER_FILE = "scaler.joblib"
-PCA_FILE = "pca.joblib"
-CONFIG_FILE = "config.json"
+# ---------------------------------------------------------------------------
+# Ngoại lệ riêng (độc lập, không import từ src/)
+# ---------------------------------------------------------------------------
 
-# Kích thước ảnh tối đa cho phép upload (10 MB)
-MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024
-
-# Định dạng ảnh hỗ trợ
-SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
+class ModelNotReadyError(RuntimeError):
+    """Mô hình chưa được tải hoặc không tìm thấy."""
+    pass
 
 
-class ModelNotReadyError(Exception):
-    """Model chưa được huấn luyện hoặc chưa được lưu."""
+class InvalidImageError(ValueError):
+    """Ảnh đầu vào không hợp lệ hoặc không đọc được."""
+    pass
 
 
-class InvalidImageError(Exception):
-    """Ảnh đầu vào không hợp lệ."""
+# ---------------------------------------------------------------------------
+# Lớp FruitClassifierDL
+# ---------------------------------------------------------------------------
 
+class FruitClassifierDL:
+    """
+    Bộ phân loại trái cây dựa trên CNN embedding + sklearn classifier.
 
-class FruitClassifier:
-    """Pipeline inference phân loại trái cây.
+    Độc lập hoàn toàn với FruitClassifier trong src/predict.py.
 
-    Nạp một lần, dự đoán nhiều lần — không fit lại preprocessing.
+    Thuộc tính sau khi load():
+        model_dir       : Path đến thư mục mô hình
+        class_names     : list[str] — tên các lớp
+        feature_type    : str — phải bắt đầu bằng "cnn_"
+        backbone_name   : str — tên backbone (vd: "mobilenetv3_small")
+        embedding_dim   : int — chiều embedding (vd: 576)
+        pipeline        : sklearn Pipeline đã tải (scaler + pca + clf)
+
+    Sử dụng:
+        clf = FruitClassifierDL()
+        clf.load()
+        result = clf.predict_from_path("ảnh.jpg")
+        print(result["label"], result["confidence"])
     """
 
-    def __init__(self, model_dir: Path | str = DEFAULT_MODEL_DIR) -> None:
-        self.model_dir = Path(model_dir)
-        self._classifier = None
-        self._scaler = None
-        self._pca = None
-        self._config: dict[str, Any] = {}
-        self._class_names = list(CLASS_NAMES)
-        self._loaded = False
+    def __init__(self, model_dir: Path = DEFAULT_MODEL_DIR, device: str = "auto") -> None:
+        self.model_dir:     Path          = Path(model_dir)
+        self.device:        str           = device
+        self.class_names:   list[str]     = []
+        self.feature_type:  str           = ""
+        self.backbone_name: str           = ""
+        self.embedding_dim: int           = 0
+        self.pipeline:      Optional[Any] = None
+        self._loaded:       bool          = False
+        self._backbone      = None        # lazy-loaded CNNBackbone
 
-    # ── Nạp model ─────────────────────────────────────────────────────────────
+    # ------------------------------------------------------------------
+    # Tải mô hình
+    # ------------------------------------------------------------------
 
-    def load(self) -> "FruitClassifier":
-        """Nạp model, scaler và config từ model_dir. Gọi một lần."""
-        model_dir = self.model_dir
-        clf_path = model_dir / CLASSIFIER_FILE
-        scaler_path = model_dir / SCALER_FILE
-        config_path = model_dir / CONFIG_FILE
+    def load(self, model_dir: Optional[Path] = None) -> "FruitClassifierDL":
+        """
+        Tải pipeline sklearn và cấu hình từ model_dir.
 
-        for p in (clf_path, scaler_path, config_path):
-            if not p.is_file():
-                raise ModelNotReadyError(
-                    f"Thiếu file model: {p}\n"
-                    "Hãy chạy: python -m src.train để huấn luyện model trước."
-                )
+        Tham số:
+            model_dir: ghi đè thư mục mô hình (tùy chọn).
 
-        self._config = json.loads(config_path.read_text(encoding="utf-8"))
-        class_names = self._config.get("class_names", list(CLASS_NAMES))
-        if (
-            not isinstance(class_names, list)
-            or not class_names
-            or not all(isinstance(name, str) for name in class_names)
-        ):
-            raise ModelNotReadyError(f"Danh sách class_names trong {config_path} không hợp lệ.")
-        if self._config.get("n_classes", len(class_names)) != len(class_names):
-            raise ModelNotReadyError(f"Số lớp trong {config_path} không khớp class_names.")
+        Trả về:
+            self (hỗ trợ chaining: clf.load().predict(...))
 
-        crop_size = tuple(int(v) for v in self._config.get("crop_size", PIXEL_IMAGE_SIZE))
-        if len(crop_size) != 2 or crop_size[0] <= 0 or crop_size[1] <= 0:
-            raise ModelNotReadyError(f"crop_size trong {config_path} không hợp lệ.")
-        expected_features = crop_size[0] * crop_size[1] * PIXEL_CHANNELS
-        feature_type = self._config.get("feature_type")
-        if feature_type != REPRESENTATION_NAME or self._config.get("n_features") != expected_features:
+        Raise:
+            ModelNotReadyError nếu file không tồn tại hoặc feature_type không hợp lệ.
+        """
+        try:
+            import joblib
+        except ImportError:
+            from sklearn.externals import joblib  # type: ignore
+
+        if model_dir is not None:
+            self.model_dir = Path(model_dir)
+
+        clf_path    = self.model_dir / "classifier.joblib"
+        config_path = self.model_dir / "config.json"
+
+        # Kiểm tra file tồn tại
+        if not clf_path.exists():
             raise ModelNotReadyError(
-                f"Model trong {model_dir} dùng cấu hình đặc trưng cũ ({feature_type or 'handcrafted'}, "
-                f"n_features={self._config.get('n_features')}). "
-                "Hãy chạy lại `python -m src.train` để huấn luyện trên dữ liệu pixel số."
+                f"Không tìm thấy mô hình: {clf_path}\n"
+                "Hãy huấn luyện trước:\n\n"
+                "    python -m src.train\n"
+            )
+        if not config_path.exists():
+            raise ModelNotReadyError(
+                f"Không tìm thấy config: {config_path}"
             )
 
-        self._class_names = class_names
-        self._classifier = joblib.load(clf_path)
-        self._scaler = joblib.load(scaler_path)
+        # Đọc config
+        with open(config_path, "r", encoding="utf-8") as f:
+            config = json.load(f)
 
-        self._pca = None
-        pca_path = model_dir / PCA_FILE
-        if self._config.get("use_pca") and pca_path.is_file():
-            self._pca = joblib.load(pca_path)
+        feature_type = config.get("feature_type", "")
+        if not feature_type.startswith("cnn_"):
+            raise ModelNotReadyError(
+                f"feature_type không hợp lệ: '{feature_type}'. "
+                "Mô hình DL phải có feature_type bắt đầu bằng 'cnn_'.\n"
+                "Nếu muốn dùng mô hình ML truyền thống, hãy dùng src/predict.py."
+            )
 
-        self._loaded = True
+        self.feature_type  = feature_type
+        self.backbone_name = config.get("backbone", "mobilenetv3_small")
+        self.embedding_dim = config.get("embedding_dim", 576)
+        self.class_names   = config.get("class_names", [])
+
+        # Tải pipeline
+        self.pipeline = joblib.load(clf_path)
+        self._loaded  = True
+
+        logger.info(
+            f"[predict] Tải xong mô hình '{self.backbone_name}' "
+            f"| {len(self.class_names)} lớp | feature_type={self.feature_type}"
+        )
         return self
 
     @property
     def is_ready(self) -> bool:
-        """Kiểm tra model đã được nạp."""
-        return self._loaded
+        """Kiểm tra mô hình đã nạp và sẵn sàng dự đoán hay chưa."""
+        return self._loaded and self.pipeline is not None
 
-    @classmethod
-    def model_exists(cls, model_dir: Path | str = DEFAULT_MODEL_DIR) -> bool:
-        """Kiểm tra các file model cần thiết đã tồn tại."""
-        md = Path(model_dir)
-        return all((md / f).is_file() for f in (CLASSIFIER_FILE, SCALER_FILE, CONFIG_FILE))
+    def _ensure_loaded(self) -> None:
+        if not self._loaded or self.pipeline is None:
+            raise ModelNotReadyError(
+                "Mô hình chưa được tải. Hãy gọi clf.load() trước."
+            )
+
+    # ------------------------------------------------------------------
+    # Lấy backbone (lazy)
+    # ------------------------------------------------------------------
+
+    def _get_backbone(self):
+        if self._backbone is None:
+            from src.backbone import get_backbone
+            self._backbone = get_backbone(name=self.backbone_name, device=self.device)
+        return self._backbone
+
+    # ------------------------------------------------------------------
+    # Dự đoán
+    # ------------------------------------------------------------------
+
+    def predict(self, pil_image) -> dict:
+        """
+        Dự đoán lớp từ PIL Image.
+
+        Tham số:
+            pil_image: PIL.Image.Image (bất kỳ mode/kích thước).
+
+        Trả về:
+            dict với các khóa:
+                label       : str  — tên lớp dự đoán
+                label_index : int  — chỉ số lớp
+                confidence  : float — xác suất cao nhất [0, 1]
+                probabilities : dict[str, float] — xác suất tất cả lớp
+                feature_type : str
+                backbone     : str
+        """
+        self._ensure_loaded()
+
+        from PIL import Image
+        if not isinstance(pil_image, Image.Image):
+            raise InvalidImageError(
+                f"Đầu vào phải là PIL.Image.Image, nhận được {type(pil_image)}"
+            )
+
+        # Chuyển sang RGB nếu cần
+        if pil_image.mode != "RGB":
+            pil_image = pil_image.convert("RGB")
+
+        img_arr = np.array(pil_image, dtype=np.uint8)
+
+        # Trích xuất CNN embedding
+        try:
+            backbone = self._get_backbone()
+            embedding = backbone.extract(img_arr)       # (576,)
+        except RuntimeError as e:
+            raise InvalidImageError(f"Lỗi trích xuất embedding: {e}") from e
+
+        # Dự đoán qua sklearn pipeline
+        X = embedding.reshape(1, -1)                   # (1, 576)
+        label_idx = int(self.pipeline.predict(X)[0])
+
+        if hasattr(self.pipeline, "predict_proba"):
+            probs = self.pipeline.predict_proba(X)[0]  # (n_classes,)
+        else:
+            # Mô hình không hỗ trợ predict_proba → one-hot
+            probs = np.zeros(len(self.class_names), dtype=np.float32)
+            probs[label_idx] = 1.0
+
+        confidence = float(probs[label_idx])
+        label = (
+            self.class_names[label_idx]
+            if 0 <= label_idx < len(self.class_names)
+            else str(label_idx)
+        )
+
+        prob_dict = {
+            cls: round(float(p), 6)
+            for cls, p in zip(self.class_names, probs)
+        }
+
+        # Tách fruit và ripeness từ nhãn dạng <fruit>-<ripeness>
+        parts = label.split("-", 1)
+        fruit = parts[0] if parts else label
+        ripeness = parts[1] if len(parts) > 1 else ""
+
+        return {
+            "label":         label,
+            "class_name":    label,
+            "label_index":   label_idx,
+            "class_id":      label_idx,
+            "fruit":         fruit,
+            "ripeness":      ripeness,
+            "confidence":    round(confidence, 6),
+            "probabilities": prob_dict,
+            "feature_type":  self.feature_type,
+            "backbone":      self.backbone_name,
+        }
 
     def get_info(self) -> dict[str, Any]:
-        """Trả về thông tin model đang dùng."""
-        if not self._loaded:
-            return {"status": "Chưa nạp model"}
+        """Trả về thông tin cấu hình mô hình DL."""
         return {
-            "model_name": self._config.get("model_name", "unknown"),
-            "n_classes": self._config.get("n_classes", 9),
-            "class_names": self._class_names,
-            "n_features": self._config.get("n_features", 0),
-            "use_pca": self._config.get("use_pca", False),
-            "val_metrics": self._config.get("val_metrics", {}),
-            "test_metrics": self._config.get("test_metrics", {}),
-            "n_train": self._config.get("n_train", "N/A"),
-            "status": "Sẵn sàng",
+            "model_type":    "deep_learning",
+            "model_name":    f"CNN ({self.backbone_name}) + MLP",
+            "backbone":      self.backbone_name,
+            "feature_type":  self.feature_type,
+            "embedding_dim": self.embedding_dim,
+            "class_names":   self.class_names,
+            "n_classes":     len(self.class_names),
+            "loaded":        self._loaded,
         }
 
-    # ── Predict ───────────────────────────────────────────────────────────────
-
-    def _preprocess_image(self, img: Image.Image) -> np.ndarray:
-        """Chuyển PIL Image → ndarray uint8 RGB (crop_size)."""
-        img_rgb = img.convert("RGB")
-        crop_size = tuple(int(v) for v in self._config.get("crop_size", PIXEL_IMAGE_SIZE))
-        img_resized = img_rgb.resize(crop_size, Image.LANCZOS)  # type: ignore[arg-type]
-        return np.array(img_resized, dtype=np.uint8)
-
-    def _run_inference(self, arr: np.ndarray) -> dict[str, Any]:
-        """Chạy inference trên vector pixel số chuẩn hóa [0, 1]."""
-        crop_size = tuple(int(v) for v in self._config.get("crop_size", PIXEL_IMAGE_SIZE))
-        feat = image_to_numeric_vector(arr, image_size=crop_size).reshape(1, -1)
-        if self._config.get("pipeline_includes_preprocessing"):
-            model_input = feat
-        else:
-            model_input = self._scaler.transform(feat)  # type: ignore[union-attr]
-            if self._pca is not None:
-                model_input = self._pca.transform(model_input)
-
-        class_id = int(self._classifier.predict(model_input)[0])  # type: ignore[union-attr]
-        if not 0 <= class_id < len(self._class_names):
-            raise ModelNotReadyError(
-                f"Model dự đoán class_id={class_id}, ngoài phạm vi cấu hình."
-            )
-        class_name = self._class_names[class_id]
-
-        # Phân tách tên class thành fruit + ripeness
-        parts = class_name.split()
-        fruit = parts[0]
-        ripeness = parts[1] if len(parts) > 1 else "Unknown"
-
-        # Confidence và probabilities
-        probs: dict[str, float] = {}
-        confidence = 1.0
-        if hasattr(self._classifier, "predict_proba"):
-            prob_arr = self._classifier.predict_proba(model_input)[0]  # type: ignore[union-attr]
-            classes = self._class_names
-            if len(prob_arr) != len(classes):
-                raise ModelNotReadyError("Số xác suất model trả về không khớp cấu hình lớp.")
-            probs = {classes[i]: float(p) for i, p in enumerate(prob_arr)}
-            confidence = float(prob_arr[class_id])
-        elif hasattr(self._classifier, "decision_function"):
-            scores = self._classifier.decision_function(model_input)[0]  # type: ignore[union-attr]
-            exp_scores = np.exp(scores - np.max(scores))
-            prob_arr = exp_scores / exp_scores.sum()
-            classes = self._class_names
-            if len(prob_arr) != len(classes):
-                raise ModelNotReadyError("Số điểm model trả về không khớp cấu hình lớp.")
-            probs = {classes[i]: float(p) for i, p in enumerate(prob_arr)}
-            confidence = float(prob_arr[class_id])
-
-        return {
-            "class_id": class_id,
-            "class_name": class_name,
-            "fruit": fruit,
-            "ripeness": ripeness,
-            "confidence": confidence,
-            "probabilities": probs,
-        }
-
-    def predict(self, pil_image: Image.Image) -> dict[str, Any]:
-        """Dự đoán từ PIL Image. Gọi load() trước.
-
-        Trả về dict kết quả dự đoán với processing_time_ms.
+    def predict_from_path(self, image_path: str | Path) -> dict:
         """
-        if not self._loaded:
-            raise ModelNotReadyError("Hãy gọi .load() trước.")
+        Dự đoán từ đường dẫn file ảnh.
 
-        t0 = time.perf_counter()
-        arr = self._preprocess_image(pil_image)
-        result = self._run_inference(arr)
-        result["processing_time_ms"] = round((time.perf_counter() - t0) * 1000, 1)
-        return result
+        Tham số:
+            image_path: đường dẫn đến file ảnh (str hoặc Path).
 
-    def predict_from_path(self, image_path: Path | str) -> dict[str, Any]:
-        """Dự đoán từ đường dẫn file ảnh."""
+        Trả về:
+            Như predict().
+        """
+        from PIL import Image, UnidentifiedImageError
+
         path = Path(image_path)
-        if not path.is_file():
-            raise InvalidImageError(f"Không tìm thấy file: {path}")
-        if path.suffix.lower() not in SUPPORTED_EXTENSIONS:
-            raise InvalidImageError(f"Định dạng không hỗ trợ: {path.suffix}")
-        if path.stat().st_size > MAX_FILE_SIZE_BYTES:
-            raise InvalidImageError("File vượt quá 10 MB.")
-        try:
-            img = Image.open(path)
-        except (OSError, UnidentifiedImageError) as e:
-            raise InvalidImageError(f"Không thể đọc ảnh: {e}") from e
-        return self.predict(img)
+        if not path.exists():
+            raise InvalidImageError(f"File không tồn tại: {path}")
 
-    def predict_from_bytes(self, data: bytes) -> dict[str, Any]:
-        """Dự đoán từ bytes (từ Streamlit uploader)."""
+        try:
+            pil = Image.open(path)
+        except UnidentifiedImageError as e:
+            raise InvalidImageError(f"Không thể mở ảnh {path}: {e}") from e
+
+        return self.predict(pil)
+
+    def predict_from_bytes(self, image_bytes: bytes) -> dict:
+        """
+        Dự đoán từ dữ liệu ảnh dạng bytes (vd: upload từ web).
+
+        Tham số:
+            image_bytes: dữ liệu ảnh thô (JPEG/PNG/...).
+
+        Trả về:
+            Như predict().
+        """
         import io
-        if len(data) > MAX_FILE_SIZE_BYTES:
-            raise InvalidImageError("File vượt quá 10 MB.")
+        from PIL import Image, UnidentifiedImageError
+
         try:
-            img = Image.open(io.BytesIO(data))
-        except (OSError, UnidentifiedImageError) as e:
-            raise InvalidImageError(f"Không thể đọc ảnh: {e}") from e
-        return self.predict(img)
+            pil = Image.open(io.BytesIO(image_bytes))
+        except (UnidentifiedImageError, Exception) as e:
+            raise InvalidImageError(f"Không thể đọc ảnh từ bytes: {e}") from e
+
+        return self.predict(pil)
+
+    def __repr__(self) -> str:
+        status = "loaded" if self._loaded else "not loaded"
+        return (
+            f"FruitClassifierDL("
+            f"backbone={self.backbone_name!r}, "
+            f"classes={len(self.class_names)}, "
+            f"status={status})"
+        )
 
 
-# Singleton — nạp một lần, dùng nhiều lần trong Streamlit
-_classifier_instance: FruitClassifier | None = None
+# ---------------------------------------------------------------------------
+# Tiện ích nhanh
+# ---------------------------------------------------------------------------
+
+_default_classifier: Optional[FruitClassifierDL] = None
 
 
-def get_classifier(model_dir: Path | str = DEFAULT_MODEL_DIR) -> FruitClassifier:
-    """Trả về FruitClassifier đã nạp (singleton)."""
-    global _classifier_instance
-    if _classifier_instance is None or not _classifier_instance.is_ready:
-        _classifier_instance = FruitClassifier(model_dir)
-        _classifier_instance.load()
-    return _classifier_instance
+def get_classifier(model_dir: Path = DEFAULT_MODEL_DIR) -> FruitClassifierDL:
+    """Lấy (hoặc tạo) singleton FruitClassifierDL."""
+    global _default_classifier
+    if _default_classifier is None or not _default_classifier._loaded:
+        _default_classifier = FruitClassifierDL(model_dir).load()
+    return _default_classifier
 
 
-def predict(
-    image_path: Path | str,
-    model_dir: Path | str = DEFAULT_MODEL_DIR,
-) -> tuple[str, float]:
-    """Dự đoán nhanh từ đường dẫn ảnh, trả về (nhãn, xác suất lớp dự đoán)."""
-    classifier = FruitClassifier(model_dir).load()
-    result = classifier.predict_from_path(image_path)
-    return str(result["class_name"]), float(result["confidence"])
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+def _build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        description="Dự đoán lớp trái cây từ ảnh (CNN embedding + sklearn)"
+    )
+    p.add_argument(
+        "image",
+        type=Path,
+        nargs="?",
+        help="Đường dẫn đến file ảnh cần dự đoán",
+    )
+    p.add_argument(
+        "--model-dir", type=Path,
+        default=DEFAULT_MODEL_DIR,
+        help=f"Thư mục chứa mô hình (mặc định: {DEFAULT_MODEL_DIR})",
+    )
+    p.add_argument(
+        "--device", type=str, default="auto", choices=["auto", "cuda", "cpu"],
+        help="Thiết bị tính toán (mặc định: auto - dùng CUDA nếu có)",
+    )
+    p.add_argument(
+        "--verbose", "-v", action="store_true",
+        help="Bật logging chi tiết",
+    )
+    return p
 
 
-def checkpoint_available(path: str | Path = DEFAULT_MODEL_DIR) -> bool:
-    """Kiểm tra model đã sẵn sàng (tương thích ngược với code cũ)."""
-    return FruitClassifier.model_exists(path)
+def main() -> None:
+    parser = _build_parser()
+    args   = parser.parse_args()
+
+    logging.basicConfig(
+        level  = logging.DEBUG if args.verbose else logging.WARNING,
+        format = "%(asctime)s [%(levelname)s] %(message)s",
+    )
+
+    if args.image is None:
+        parser.print_help()
+        raise SystemExit(0)
+
+    try:
+        clf = FruitClassifierDL(args.model_dir, device=args.device)
+        clf.load()
+        result = clf.predict_from_path(args.image)
+
+        print(f"\nKết quả dự đoán cho: {args.image}")
+        print(f"  Lớp:        {result['label']}")
+        print(f"  Độ tin cậy: {result['confidence']:.2%}")
+        print(f"  Backbone:   {result['backbone']}")
+        print("\nXác suất tất cả lớp:")
+        for cls, prob in sorted(result["probabilities"].items(), key=lambda x: -x[1]):
+            bar = "█" * int(prob * 30)
+            print(f"  {cls:<30s} {prob:.4f}  {bar}")
+
+    except ModelNotReadyError as e:
+        print(f"\n✗ Mô hình chưa sẵn sàng:\n{e}")
+        raise SystemExit(1)
+    except InvalidImageError as e:
+        print(f"\n✗ Ảnh không hợp lệ:\n{e}")
+        raise SystemExit(1)
+    except RuntimeError as e:
+        # Lỗi thiếu torch/torchvision
+        print(f"\n✗ Lỗi runtime:\n{e}")
+        raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    main()
+
+FruitClassifier = FruitClassifierDL

@@ -19,7 +19,7 @@ reports-gpu/
 !/reports/
 !reports/program.md
 graphify-out
-# ── Deep Learning artifacts (src_dl/) ─────────────────────────────────────
-models_dl/
-!reports_dl/
+# ── Deep Learning artifacts ─────────────────────────────────────────────────
+models/
+!reports/
 data/processed/dl_features/

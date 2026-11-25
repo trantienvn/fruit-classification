@@ -1,28 +1,26 @@
-"""Chuyển đổi bộ ảnh thành dữ liệu dạng số (.npz) từ pixel RGB chuẩn hóa [0, 1].
+"""
+preprocess.py — Tiền xử lý ảnh và trích xuất CNN embedding (MobileNetV3-Small).
 
-Thay vì trích xuất 90 đặc trưng thủ công, mô-đun này resize từng ảnh về
-kích thước cố định (mặc định 64×64 RGB), chuẩn hóa giá trị pixel về miền
-[0.0, 1.0], làm phẳng thành vector số 12.288 chiều và lưu vào file .npz.
+Pipeline:
+    Ảnh gốc (H×W×3 uint8)
+        → [tăng cường dữ liệu trên ảnh — chỉ train]
+        → Resize 224×224
+        → Chuẩn hóa ImageNet
+        → CNN backbone (frozen)
+        → Embedding (576,)
+        → Lưu cache .npz
 
-Mỗi lần huấn luyện, `src.train` sẽ nạp trực tiếp bộ dữ liệu số đã tiền xử lý
-này mà không cần đọc lại ảnh gốc hay trích xuất đặc trưng thủ công.
+Lưu ý quan trọng:
+    Tăng cường (augmentation) phải thực hiện trên ẢNH GỐC trước khi trích xuất CNN.
+    Module DL — không thể tái tạo ảnh từ embedding CNN.
 
-Cách dùng:
+Hằng số:
+    DEFAULT_CACHE_DIR  = data/processed/dl_features/mobilenetv3_small
+    REPRESENTATION_NAME = "cnn_mobilenetv3_small"
+    CACHE_FILE         = dl_dataset.npz
 
-    # Bước 1: Chuyển đổi bộ ảnh sang dữ liệu số (chỉ chạy 1 lần hoặc khi đổi dữ liệu)
-    python -m src.preprocess
-
-    # Bước 2: Huấn luyện (tự động nạp dữ liệu số từ cache)
-    python -m src.train
-
-Cấu trúc file .npz lưu:
-    X_train, y_train  — ma trận pixel chuẩn hóa [0, 1] float32 (n, 12288) và nhãn
-    X_val,   y_val    — ma trận pixel chuẩn hóa [0, 1] float32 (n, 12288) và nhãn
-    X_test,  y_test   — ma trận pixel chuẩn hóa [0, 1] float32 (n, 12288) và nhãn
-    class_names       — danh sách tên lớp tương ứng với dataset
-    image_size        — kích thước [width, height], mặc định [64, 64]
-    representation    — định danh biểu diễn số ("pixels_rgb_0_1")
-    dataset_mode      — "folder" hoặc "whole-scene"
+Chạy trực tiếp:
+    python -m src.preprocess [--data-dir PATH] [--cache-dir PATH] [--force]
 """
 
 from __future__ import annotations
@@ -30,402 +28,438 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import sys
-import time
-from collections.abc import Callable
+import logging
+import random
 from pathlib import Path
-from typing import Any
-
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-if hasattr(sys.stderr, "reconfigure"):
-    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+from typing import Optional
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageEnhance
 
-from src.dataset import (
-    CLASS_FOLDER_NAMES,
-    CLASS_NAMES,
-    DATASET_CLASSIFICATION,
-    LEGACY_CLASS_NAMES,
-    deduplicate_splits,
-    load_classification_split,
-    load_scene_split,
+from src.backbone import (
+    BACKBONE_NAME,
+    DEFAULT_BACKBONE,
+    EMBEDDING_DIM,
+    SUPPORTED_BACKBONES,
+    get_backbone,
 )
 
-# Cấu hình chuyển đổi ảnh -> vector số mặc định
-PIXEL_IMAGE_SIZE: tuple[int, int] = (64, 64)  # (width, height)
-PIXEL_CHANNELS = 3
-N_PIXEL_FEATURES = PIXEL_IMAGE_SIZE[0] * PIXEL_IMAGE_SIZE[1] * PIXEL_CHANNELS
-REPRESENTATION_NAME = "pixels_rgb_0_1"
+logger = logging.getLogger(__name__)
 
-# Đường dẫn mặc định
-DEFAULT_DATA_DIR = DATASET_CLASSIFICATION
-DEFAULT_CACHE_DIR = Path("data/processed/numeric")
-DEFAULT_CACHE_FILE = "numeric_dataset.npz"
-MANIFEST_FILE = "manifest.json"
+# ---------------------------------------------------------------------------
+# Hằng số
+# ---------------------------------------------------------------------------
+DEFAULT_DATA_DIR: Path  = Path("data/processed/dataset")
+CACHE_BASE_DIR: Path    = Path("data/processed/dl_features")
+DEFAULT_CACHE_DIR: Path = CACHE_BASE_DIR / DEFAULT_BACKBONE
+CACHE_FILE: str         = "dl_dataset.npz"
+MANIFEST_FILE: str      = "manifest.json"
+REPRESENTATION_NAME: str = "cnn_features"
 
-SplitLoader = Callable[[Path, str, tuple[int, int]], tuple[list[np.ndarray], list[int]]]
-
-
-def detect_dataset_format(data_dir: Path) -> tuple[str, tuple[str, ...], SplitLoader]:
-    """Tự nhận diện cấu trúc dataset (folder Cam/Chuối/Xoài hoặc whole-scene)."""
-    train_dir = data_dir / "train"
-    if not train_dir.is_dir():
-        raise FileNotFoundError(f"Không tìm thấy thư mục split train trong: {data_dir}")
-
-    subfolders = {path.name for path in train_dir.iterdir() if path.is_dir()}
-    folder_expected = set(CLASS_FOLDER_NAMES.values())
-    scene_expected = {name.replace(" ", "_") for name in LEGACY_CLASS_NAMES}
-
-    if folder_expected <= subfolders:
-        return "folder", CLASS_NAMES, load_classification_split
-    if scene_expected <= subfolders:
-        return "whole-scene", LEGACY_CLASS_NAMES, load_scene_split
-
-    raise ValueError(
-        f"Cấu trúc thư mục trong {train_dir} không khớp dataset classification "
-        "hoặc whole-scene."
-    )
+def get_cache_dir_for_backbone(backbone_name: str) -> Path:
+    """Trả về thư mục cache riêng cho từng kiến trúc backbone."""
+    norm_name = backbone_name.lower().replace("-", "_").strip()
+    return CACHE_BASE_DIR / norm_name
 
 
-def pixel_feature_names(image_size: tuple[int, int] = PIXEL_IMAGE_SIZE) -> list[str]:
-    """Sinh danh sách tên tọa độ pixel (px_y{y}_x{x}_{c}) cho biểu đồ báo cáo."""
-    width, height = image_size
-    return [
-        f"px_y{y}_x{x}_{channel}"
-        for y in range(height)
-        for x in range(width)
-        for channel in ("r", "g", "b")
-    ]
+# Tham số tăng cường (chỉ áp dụng cho tập train)
+AUG_ROTATE_DEG: float = 15.0    # xoay ngẫu nhiên ±15°
+AUG_FLIP_PROB:  float = 0.5     # lật ngang 50% xác suất
+AUG_BRIGHT_RANGE: tuple[float, float] = (0.85, 1.15)  # độ sáng ±15%
+AUG_N_COPIES: int = 2           # số bản tăng cường thêm cho mỗi ảnh train
 
 
-def image_to_numeric_vector(
-    img_rgb: np.ndarray,
-    image_size: tuple[int, int] = PIXEL_IMAGE_SIZE,
-) -> np.ndarray:
-    """Chuyển ảnh RGB uint8 (H×W×3) thành vector số float32 chuẩn hóa [0, 1].
+# ---------------------------------------------------------------------------
+# Hàm tăng cường ảnh (trên PIL Image)
+# ---------------------------------------------------------------------------
 
-    Dùng nhất quán ở bước tiền xử lý, huấn luyện (augmentation) và dự đoán.
+def _augment_image(pil_img: Image.Image, rng: random.Random) -> Image.Image:
     """
-    if img_rgb.ndim != 3 or img_rgb.shape[2] != PIXEL_CHANNELS:
-        raise ValueError("Cần ảnh RGB 3 kênh với shape (H, W, 3).")
+    Áp dụng ngẫu nhiên: xoay, lật ngang, thay đổi độ sáng.
 
-    width, height = image_size
-    if img_rgb.shape[0] != height or img_rgb.shape[1] != width:
-        resized = Image.fromarray(img_rgb).resize((width, height), Image.LANCZOS)
-        arr = np.asarray(resized, dtype=np.float32)
-    else:
-        arr = img_rgb.astype(np.float32, copy=False)
+    Tham số:
+        pil_img: ảnh PIL gốc.
+        rng:     bộ sinh số ngẫu nhiên (để tái lập).
 
-    return (arr / np.float32(255.0)).reshape(-1)
+    Trả về:
+        Ảnh PIL đã biến đổi.
+    """
+    # Xoay ngẫu nhiên ±AUG_ROTATE_DEG độ
+    angle = rng.uniform(-AUG_ROTATE_DEG, AUG_ROTATE_DEG)
+    img = pil_img.rotate(angle, resample=Image.BILINEAR, expand=False)
 
+    # Lật ngang
+    if rng.random() < AUG_FLIP_PROB:
+        img = img.transpose(Image.FLIP_LEFT_RIGHT)
 
-def images_to_numeric_matrix(
-    images: list[np.ndarray],
-    image_size: tuple[int, int] = PIXEL_IMAGE_SIZE,
-) -> np.ndarray:
-    """Chuyển danh sách ảnh RGB thành ma trận số float32 shape (n_samples, W*H*3)."""
-    n_dims = image_size[0] * image_size[1] * PIXEL_CHANNELS
-    if not images:
-        return np.empty((0, n_dims), dtype=np.float32)
-    return np.vstack(
-        [image_to_numeric_vector(img, image_size=image_size) for img in images]
-    ).astype(np.float32, copy=False)
+    # Thay đổi độ sáng
+    factor = rng.uniform(*AUG_BRIGHT_RANGE)
+    img = ImageEnhance.Brightness(img).enhance(factor)
+
+    return img
 
 
-def numeric_vectors_to_images(
-    X: np.ndarray,
-    image_size: tuple[int, int] = PIXEL_IMAGE_SIZE,
-) -> list[np.ndarray]:
-    """Khôi phục danh sách ảnh uint8 (H, W, 3) từ ma trận số chuẩn hóa [0, 1]."""
-    width, height = image_size
-    expected_dims = width * height * PIXEL_CHANNELS
-    arr = np.asarray(X, dtype=np.float32)
-    if arr.ndim != 2 or arr.shape[1] != expected_dims:
-        raise ValueError(
-            f"Ma trận số phải có shape (n, {expected_dims}), nhận được {arr.shape}."
-        )
-    pixels = np.rint(np.clip(arr, 0.0, 1.0) * 255.0).astype(np.uint8)
-    reshaped = pixels.reshape(-1, height, width, PIXEL_CHANNELS)
-    return [reshaped[i] for i in range(len(reshaped))]
-
-
-def augment_training_images(
-    images: list[np.ndarray],
-    labels: list[int] | np.ndarray,
-    random_state: int = 42,
+def _load_split_images(
+    data_dir: Path,
+    split: str,                       # "train" | "val" | "test"
+    class_names: list[str],
 ) -> tuple[list[np.ndarray], list[int]]:
-    """Tạo một ảnh xoay/lật/đổi sáng cho mỗi mẫu train; không nhận val/test."""
-    try:
-        import cv2
-    except ImportError:
-        cv2 = None
+    """
+    Tải ảnh từ thư mục theo cấu trúc:
+        data_dir / split / class_name / *.jpg|*.png|*.jpeg|*.webp
 
-    rng = np.random.default_rng(random_state)
-    augmented_images = list(images)
-    augmented_labels = [int(label) for label in labels]
-    for image, label in zip(images, labels):
-        height, width = image.shape[:2]
-        if cv2 is not None:
-            angle = float(rng.uniform(-15, 15))
-            matrix = cv2.getRotationMatrix2D((width / 2, height / 2), angle, 1.0)
-            variant = cv2.warpAffine(
-                image,
-                matrix,
-                (width, height),
-                flags=cv2.INTER_LINEAR,
-                borderMode=cv2.BORDER_REFLECT_101,
-            )
-        else:
-            # Fallback PIL nếu không có OpenCV
-            pil_img = Image.fromarray(image)
-            angle = float(rng.uniform(-15, 15))
-            variant = np.array(pil_img.rotate(angle, resample=Image.BILINEAR))
-        if rng.random() < 0.5:
-            variant = cv2.flip(variant, 1)
-        factor = float(rng.uniform(0.85, 1.15))
-        offset = float(rng.uniform(-12, 12))
-        variant = np.clip(variant.astype(np.float32) * factor + offset, 0, 255).astype(
-            np.uint8
-        )
-        augmented_images.append(variant)
-        augmented_labels.append(int(label))
-    return augmented_images, augmented_labels
+    Trả về:
+        images: danh sách numpy array (H, W, 3) uint8.
+        labels: danh sách nhãn (int).
+    """
+    images: list[np.ndarray] = []
+    labels: list[int]        = []
+    split_dir = data_dir / split
 
+    if not split_dir.exists():
+        logger.warning(f"[preprocess] Thư mục {split_dir} không tồn tại, bỏ qua.")
+        return images, labels
 
-def _compute_dataset_hash(data_dir: Path) -> str:
-    """Tính hash của dataset dựa trên đường dẫn tương đối, kích thước và mtime."""
-    hasher = hashlib.sha256()
-    for split in ("train", "val", "test"):
-        split_dir = data_dir / split
-        if not split_dir.is_dir():
+    for idx, cls in enumerate(class_names):
+        cls_dir = split_dir / cls
+        if not cls_dir.exists():
+            logger.warning(f"[preprocess] Lớp '{cls}' không tìm thấy trong {split_dir}")
             continue
-        for path in sorted(split_dir.rglob("*")):
-            if path.is_file():
-                hasher.update(path.relative_to(data_dir).as_posix().encode("utf-8"))
-                stat = path.stat()
-                hasher.update(str(stat.st_size).encode("utf-8"))
-                hasher.update(str(int(stat.st_mtime)).encode("utf-8"))
-    return hasher.hexdigest()[:16]
+
+        exts = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
+        img_paths = sorted(
+            p for p in cls_dir.iterdir() if p.suffix.lower() in exts
+        )
+
+        for path in img_paths:
+            try:
+                pil = Image.open(path).convert("RGB")
+                images.append(np.array(pil, dtype=np.uint8))
+                labels.append(idx)
+            except Exception as exc:
+                logger.warning(f"[preprocess] Bỏ qua ảnh lỗi {path}: {exc}")
+
+    logger.info(f"[preprocess] Split '{split}': tải {len(images)} ảnh, {len(set(labels))} lớp")
+    return images, labels
 
 
-def preprocess(
-    data_dir: Path | None = None,
-    cache_dir: Path | None = None,
-    image_size: tuple[int, int] = PIXEL_IMAGE_SIZE,
-    force: bool = False,
-) -> Path:
-    """Chuyển đổi bộ dữ liệu ảnh sang ma trận số chuẩn hóa [0, 1] và lưu .npz."""
-    if data_dir is None:
-        data_dir = DEFAULT_DATA_DIR
-    if cache_dir is None:
-        cache_dir = DEFAULT_CACHE_DIR
+def _augment_train_set(
+    images: list[np.ndarray],
+    labels: list[int],
+    n_copies: int = AUG_N_COPIES,
+    seed: int = 42,
+) -> tuple[list[np.ndarray], list[int]]:
+    """
+    Tạo thêm n_copies bản tăng cường cho mỗi ảnh train.
 
-    width, height = int(image_size[0]), int(image_size[1])
-    if width <= 0 or height <= 0:
-        raise ValueError("image_size phải có chiều rộng và chiều cao dương.")
-    normalized_size = (width, height)
+    Trả về danh sách kết hợp ảnh gốc + ảnh tăng cường.
+    """
+    rng = random.Random(seed)
+    aug_images: list[np.ndarray] = list(images)
+    aug_labels: list[int]        = list(labels)
 
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    cache_path = cache_dir / DEFAULT_CACHE_FILE
-    manifest_path = cache_dir / MANIFEST_FILE
+    for img, lbl in zip(images, labels):
+        pil = Image.fromarray(img, mode="RGB")
+        for _ in range(n_copies):
+            aug = _augment_image(pil, rng)
+            aug_images.append(np.array(aug, dtype=np.uint8))
+            aug_labels.append(lbl)
 
-    dataset_hash = _compute_dataset_hash(data_dir)
-    if not force and cache_is_valid(
-        data_dir=data_dir, cache_dir=cache_dir, image_size=normalized_size
-    ):
-        print(f"Cache dữ liệu số hợp lệ, bỏ qua tiền xử lý: {cache_path}")
-        return cache_path
-
-    dataset_mode, class_names, split_loader = detect_dataset_format(data_dir)
-
-    print("=" * 60)
-    print("TIỀN XỬ LÝ — CHUYỂN ĐỔI ẢNH SANG DỮ LIỆU SỐ (PIXEL RGB [0, 1])")
-    print(f"Dataset   : {data_dir} ({dataset_mode})")
-    print(f"Kích thước: {width}x{height}x{PIXEL_CHANNELS} = {width * height * PIXEL_CHANNELS} chiều")
-    print(f"Lưu tại   : {cache_path}")
-    print("=" * 60)
-
-    print("\nĐang nạp tập train...")
-    t0 = time.perf_counter()
-    train_imgs, y_train = split_loader(data_dir, "train", normalized_size)
-    print(f"  {len(y_train)} mẫu — {time.perf_counter() - t0:.1f}s")
-
-    print("Đang nạp tập val...")
-    t0 = time.perf_counter()
-    val_imgs, y_val = split_loader(data_dir, "val", normalized_size)
-    print(f"  {len(y_val)} mẫu — {time.perf_counter() - t0:.1f}s")
-
-    print("Đang nạp tập test...")
-    t0 = time.perf_counter()
-    test_imgs, y_test = split_loader(data_dir, "test", normalized_size)
-    print(f"  {len(y_test)} mẫu — {time.perf_counter() - t0:.1f}s")
-
-    (train_imgs, y_train), (val_imgs, y_val), (test_imgs, y_test), duplicates = (
-        deduplicate_splits(train_imgs, y_train, val_imgs, y_val, test_imgs, y_test)
+    logger.info(
+        f"[preprocess] Tăng cường: {len(images)} → {len(aug_images)} ảnh train"
     )
-    dropped = sum(duplicates.values())
-    if dropped:
-        print(f"  Loại {dropped} ảnh trùng chính xác (test > val > train): {duplicates}")
+    return aug_images, aug_labels
 
-    print("\nChuyển đổi ảnh sang ma trận số chuẩn hóa [0, 1]...")
-    t0 = time.perf_counter()
-    X_train = images_to_numeric_matrix(train_imgs, image_size=normalized_size)
-    X_val = images_to_numeric_matrix(val_imgs, image_size=normalized_size)
-    X_test = images_to_numeric_matrix(test_imgs, image_size=normalized_size)
-    print(f"  Xong — {time.perf_counter() - t0:.1f}s")
-    print(f"  Train : {X_train.shape} ({X_train.dtype})")
-    print(f"  Val   : {X_val.shape} ({X_val.dtype})")
-    print(f"  Test  : {X_test.shape} ({X_test.dtype})")
 
-    print(f"\nĐang lưu dữ liệu số vào {cache_path}...")
-    t0 = time.perf_counter()
-    np.savez_compressed(
-        cache_path,
-        X_train=X_train,
-        y_train=np.asarray(y_train, dtype=np.int64),
-        X_val=X_val,
-        y_val=np.asarray(y_val, dtype=np.int64),
-        X_test=X_test,
-        y_test=np.asarray(y_test, dtype=np.int64),
-        class_names=np.asarray(list(class_names)),
-        image_size=np.asarray([width, height], dtype=np.int64),
-        representation=np.asarray([REPRESENTATION_NAME]),
-        dataset_mode=np.asarray([dataset_mode]),
-    )
-    file_size_mb = cache_path.stat().st_size / (1024 * 1024)
-    print(f"  Xong — {time.perf_counter() - t0:.1f}s | {file_size_mb:.2f} MB")
+# ---------------------------------------------------------------------------
+# Tạo manifest (hash)
+# ---------------------------------------------------------------------------
 
-    n_features = int(X_train.shape[1]) if X_train.ndim == 2 else width * height * PIXEL_CHANNELS
-    manifest = {
-        "dataset_hash": dataset_hash,
-        "data_dir": str(data_dir),
-        "dataset_mode": dataset_mode,
-        "representation": REPRESENTATION_NAME,
-        "image_size": [width, height],
-        "n_features": n_features,
-        "n_train": len(y_train),
-        "n_val": len(y_val),
-        "n_test": len(y_test),
-        "class_names": list(class_names),
-        "duplicates_dropped": duplicates,
+def _compute_manifest(data_dir: Path, backbone_name: str) -> dict:
+    """Tạo manifest dict mô tả cache (dùng để kiểm tra tính hợp lệ)."""
+    h = hashlib.md5(str(data_dir.resolve()).encode()).hexdigest()[:8]
+    return {
+        "backbone": backbone_name,
+        "representation": f"cnn_{backbone_name}",
+        "data_dir_hash": h,
+        "aug_copies": AUG_N_COPIES,
+        "aug_rotate_deg": AUG_ROTATE_DEG,
+        "aug_flip_prob": AUG_FLIP_PROB,
     }
-    manifest_path.write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-
-    print("\nTiền xử lý hoàn tất. Chạy huấn luyện bằng:")
-    print("  python -m src.train")
-    return cache_path
 
 
-def load_preprocessed(cache_dir: Path | None = None) -> dict[str, Any]:
-    """Nạp dữ liệu số đã tiền xử lý từ file .npz (kèm metadata manifest nếu có)."""
-    if cache_dir is None:
-        cache_dir = DEFAULT_CACHE_DIR
-    cache_path = cache_dir / DEFAULT_CACHE_FILE
-    manifest_path = cache_dir / MANIFEST_FILE
-    if not cache_path.is_file():
-        raise FileNotFoundError(
-            f"Chưa có dữ liệu số đã tiền xử lý tại {cache_path}.\n"
-            "Hãy chạy: python -m src.preprocess"
-        )
+def cache_is_valid(cache_dir: Path, data_dir: Path, backbone_name: str) -> bool:
+    """
+    Kiểm tra xem cache .npz có hợp lệ không (tồn tại + manifest khớp).
 
-    print(f"Nạp dữ liệu số từ {cache_path}...")
-    t0 = time.perf_counter()
-    with np.load(cache_path, allow_pickle=False) as archive:
-        data: dict[str, Any] = {key: archive[key] for key in archive.files}
-
-    if manifest_path.is_file():
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            data["duplicates_dropped"] = manifest.get(
-                "duplicates_dropped", {"train": 0, "val": 0, "test": 0}
-            )
-        except (json.JSONDecodeError, OSError):
-            data["duplicates_dropped"] = {"train": 0, "val": 0, "test": 0}
-    else:
-        data["duplicates_dropped"] = {"train": 0, "val": 0, "test": 0}
-
-    print(
-        f"  Xong — {time.perf_counter() - t0:.2f}s | "
-        f"train={data['X_train'].shape}, "
-        f"val={data['X_val'].shape}, "
-        f"test={data['X_test'].shape}"
-    )
-    return data
-
-
-def cache_is_valid(
-    data_dir: Path | None = None,
-    cache_dir: Path | None = None,
-    image_size: tuple[int, int] = PIXEL_IMAGE_SIZE,
-) -> bool:
-    """Kiểm tra file .npz đã tồn tại và khớp dataset, kích thước ảnh, biểu diễn số."""
-    if data_dir is None:
-        data_dir = DEFAULT_DATA_DIR
-    if cache_dir is None:
-        cache_dir = DEFAULT_CACHE_DIR
-    cache_path = cache_dir / DEFAULT_CACHE_FILE
+    Trả về True nếu có thể dùng lại cache.
+    """
+    npz_path      = cache_dir / CACHE_FILE
     manifest_path = cache_dir / MANIFEST_FILE
 
-    if not cache_path.is_file() or not manifest_path.is_file():
+    if not npz_path.exists() or not manifest_path.exists():
         return False
+
     try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        return (
-            manifest.get("dataset_hash") == _compute_dataset_hash(data_dir)
-            and manifest.get("representation") == REPRESENTATION_NAME
-            and manifest.get("image_size") == [int(image_size[0]), int(image_size[1])]
-        )
-    except (json.JSONDecodeError, KeyError, OSError):
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            saved = json.load(f)
+        expected = _compute_manifest(data_dir, backbone_name)
+        return all(saved.get(k) == v for k, v in expected.items())
+    except Exception:
         return False
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Chuyển đổi bộ ảnh sang dữ liệu số chuẩn hóa [0, 1] (.npz)."
+# ---------------------------------------------------------------------------
+# Hàm chính: trích xuất và lưu cache
+# ---------------------------------------------------------------------------
+
+def extract_and_cache(
+    data_dir: Path      = DEFAULT_DATA_DIR,
+    cache_dir: Path | None = None,
+    backbone_name: str  = DEFAULT_BACKBONE,
+    force: bool         = False,
+    batch_size: int | None = None,
+    seed: int           = 42,
+    dataset_mode: str   = "dataset",
+    device: str         = "auto",
+) -> Path:
+    """
+    Trích xuất CNN embedding cho toàn bộ dataset và lưu vào .npz.
+
+    Tham số:
+        data_dir:      thư mục chứa train/val/test.
+        cache_dir:     nơi lưu dl_dataset.npz (mặc định tự chọn theo backbone).
+        backbone_name: mobilenetv3_small | mobilenetv2 | resnet18.
+        force:         bỏ qua cache cũ, trích xuất lại.
+        batch_size:    kích thước batch cho backbone (None = tự động: 64 trên CUDA, 32 trên CPU).
+        seed:          hạt giống ngẫu nhiên cho augmentation.
+        dataset_mode:  "dataset" | "whole-scene" (ghi vào manifest).
+        device:        thiết bị tính toán ("auto" | "cuda" | "cpu").
+
+    Trả về:
+        Path đến file .npz đã lưu.
+    """
+    from src.backbone import get_backbone  # lazy import
+
+    norm_backbone = backbone_name.lower().replace("-", "_").strip()
+    if cache_dir is None:
+        cache_dir = get_cache_dir_for_backbone(norm_backbone)
+    else:
+        cache_dir = Path(cache_dir)
+    data_dir  = Path(data_dir)
+    npz_path  = cache_dir / CACHE_FILE
+
+    # Kiểm tra cache
+    if not force and cache_is_valid(cache_dir, data_dir, norm_backbone):
+        logger.info(f"[preprocess] Cache hợp lệ tại {npz_path}, bỏ qua trích xuất.")
+        return npz_path
+
+    logger.info("[preprocess] Bắt đầu trích xuất CNN embedding...")
+    logger.info(f"  data_dir  = {data_dir}")
+    logger.info(f"  cache_dir = {cache_dir}")
+    logger.info(f"  backbone  = {norm_backbone}")
+    logger.info(f"  device    = {device}")
+
+    # Lấy danh sách lớp từ thư mục train
+    train_dir = data_dir / "train"
+    if not train_dir.exists():
+        raise FileNotFoundError(
+            f"Không tìm thấy thư mục train: {train_dir}\n"
+            "Hãy đảm bảo dataset đã được giải nén vào data/processed/dataset/"
+        )
+
+    class_names = sorted(
+        d.name for d in train_dir.iterdir() if d.is_dir() and not d.name.startswith(".")
     )
-    parser.add_argument(
+    if not class_names:
+        raise ValueError(f"Không tìm thấy lớp nào trong {train_dir}")
+
+    logger.info(f"[preprocess] Lớp ({len(class_names)}): {class_names}")
+
+    # Khởi tạo backbone với tên và device (CUDA / CPU)
+    backbone = get_backbone(name=norm_backbone, device=device)
+    emb_dim  = backbone.embedding_dim
+
+    result: dict[str, np.ndarray | list] = {}
+
+    for split in ["train", "val", "test"]:
+        images, labels = _load_split_images(data_dir, split, class_names)
+
+        if not images:
+            # Tạo mảng rỗng để tránh lỗi khi lưu .npz
+            result[f"X_{split}"] = np.empty((0, emb_dim), dtype=np.float32)
+            result[f"y_{split}"] = np.empty((0,), dtype=np.int32)
+            continue
+
+        # Chỉ tăng cường tập train
+        if split == "train":
+            images, labels = _augment_train_set(images, labels, seed=seed)
+
+        logger.info(f"[preprocess] Trích xuất embedding cho '{split}' ({len(images)} ảnh) bằng {norm_backbone}...")
+        embeddings = backbone.extract_batch(images, batch_size=batch_size)
+
+        result[f"X_{split}"] = embeddings.astype(np.float32)
+        result[f"y_{split}"] = np.array(labels, dtype=np.int32)
+
+        logger.info(
+            f"[preprocess] Split '{split}': X shape = {result[f'X_{split}'].shape}"
+        )
+
+    # Lưu .npz
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    np.savez_compressed(
+        npz_path,
+        X_train     = result["X_train"],
+        y_train     = result["y_train"],
+        X_val       = result.get("X_val",  np.empty((0, emb_dim), dtype=np.float32)),
+        y_val       = result.get("y_val",  np.empty((0,), dtype=np.int32)),
+        X_test      = result.get("X_test", np.empty((0, emb_dim), dtype=np.float32)),
+        y_test      = result.get("y_test", np.empty((0,), dtype=np.int32)),
+        class_names = np.array(class_names),
+    )
+
+    # Lưu manifest
+    manifest = _compute_manifest(data_dir, norm_backbone)
+    manifest.update({
+        "embedding_dim": emb_dim,
+        "dataset_mode":  dataset_mode,
+        "n_train":       int(result["X_train"].shape[0]),
+        "n_val":         int(result.get("X_val",  np.empty((0,))).shape[0]),
+        "n_test":        int(result.get("X_test", np.empty((0,))).shape[0]),
+        "n_classes":     len(class_names),
+        "class_names":   class_names,
+    })
+
+    with open(cache_dir / MANIFEST_FILE, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, ensure_ascii=False, indent=2)
+
+    logger.info(f"[preprocess] Đã lưu cache tại {npz_path}")
+    return npz_path
+
+
+def load_cached_features(cache_dir: Path = DEFAULT_CACHE_DIR) -> dict:
+    """
+    Tải CNN embedding từ cache .npz.
+
+    Trả về dict với các khóa:
+        X_train, y_train, X_val, y_val, X_test, y_test, class_names
+    """
+    npz_path = Path(cache_dir) / CACHE_FILE
+    if not npz_path.exists():
+        raise FileNotFoundError(
+            f"Không tìm thấy cache tại {npz_path}.\n"
+            "Hãy chạy trước:\n\n"
+            "    python -m src.preprocess\n"
+        )
+
+    data = np.load(npz_path, allow_pickle=True)
+    return {
+        "X_train":     data["X_train"],
+        "y_train":     data["y_train"],
+        "X_val":       data["X_val"],
+        "y_val":       data["y_val"],
+        "X_test":      data["X_test"],
+        "y_test":      data["y_test"],
+        "class_names": list(data["class_names"]),
+    }
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+def _build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        description="Trích xuất CNN embedding (MobileNetV3-Small) và lưu cache .npz"
+    )
+    p.add_argument(
         "--data-dir",
         type=Path,
-        default=None,
-        help="Thư mục chứa dataset ảnh (mặc định: data/processed/dataset)",
+        default=DEFAULT_DATA_DIR,
+        help=f"Thư mục dataset (mặc định: {DEFAULT_DATA_DIR})",
     )
-    parser.add_argument(
+    p.add_argument(
         "--cache-dir",
         type=Path,
         default=None,
-        help="Thư mục lưu file .npz (mặc định: data/processed/numeric)",
+        help="Nơi lưu cache (mặc định: data/processed/dl_features/<backbone>)",
     )
-    parser.add_argument(
-        "--size",
+    p.add_argument(
+        "--backbone",
+        type=str,
+        default=DEFAULT_BACKBONE,
+        choices=SUPPORTED_BACKBONES,
+        help=f"Backbone CNN (mặc định: {DEFAULT_BACKBONE}, hỗ trợ: {', '.join(SUPPORTED_BACKBONES)})",
+    )
+    p.add_argument(
+        "--batch-size",
         type=int,
-        default=PIXEL_IMAGE_SIZE[0],
-        help="Kích thước cạnh ảnh vuông (mặc định: 64 -> 64x64x3 = 12288 chiều)",
+        default=None,
+        help="Batch size cho backbone (mặc định: tự động 64 trên CUDA, 32 trên CPU)",
     )
-    parser.add_argument(
+    p.add_argument(
+        "--device",
+        type=str,
+        default="auto",
+        choices=["auto", "cuda", "cpu"],
+        help="Thiết bị tính toán cho CNN backbone (mặc định: auto - tự động dùng CUDA nếu có)",
+    )
+    p.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Hạt giống ngẫu nhiên (mặc định: 42)",
+    )
+    p.add_argument(
         "--force",
         action="store_true",
-        help="Xử lý lại ngay cả khi cache đã hợp lệ",
+        help="Bỏ qua cache cũ, trích xuất lại từ đầu",
     )
-    args = parser.parse_args(argv)
+    p.add_argument(
+        "--dataset-mode",
+        type=str,
+        default="dataset",
+        choices=["dataset", "whole-scene"],
+        help="Chế độ dataset (mặc định: dataset)",
+    )
+    p.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Bật logging chi tiết (DEBUG)",
+    )
+    return p
+
+
+def main() -> None:
+    parser = _build_parser()
+    args   = parser.parse_args()
+
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+    )
 
     try:
-        preprocess(
-            data_dir=args.data_dir,
-            cache_dir=args.cache_dir,
-            image_size=(args.size, args.size),
-            force=args.force,
+        npz_path = extract_and_cache(
+            data_dir     = args.data_dir,
+            cache_dir    = args.cache_dir,
+            backbone_name= args.backbone,
+            force        = args.force,
+            batch_size   = args.batch_size,
+            seed         = args.seed,
+            dataset_mode = args.dataset_mode,
+            device       = args.device,
         )
-    except (FileNotFoundError, ValueError, OSError) as exc:
-        print(f"LỖI: {exc}")
-        return 2
-
-    return 0
+        print(f"\n✓ Trích xuất hoàn tất. Cache lưu tại:\n  {npz_path.resolve()}")
+    except RuntimeError as e:
+        # Lỗi thiếu torch/torchvision
+        print(str(e))
+        raise SystemExit(1)
+    except FileNotFoundError as e:
+        print(f"\n✗ Lỗi: {e}")
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()

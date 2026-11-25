@@ -1,5 +1,5 @@
 ======================================================================
-BÁO CÁO HUẤN LUYỆN — src_dl (CNN Embedding + PyTorch / sklearn)
+BÁO CÁO HUẤN LUYỆN — src (CNN Embedding + PyTorch / sklearn)
 ======================================================================
 Backbone: mobilenetv3_small | Embedding dim: 576
 Feature type: cnn_mobilenetv3_small

@@ -11,7 +11,7 @@ Hệ thống ứng dụng mạng nơ-ron tích chập (**Convolutional Neural Ne
 1. **Phân loại Chủng loại & Độ chín (9 phân lớp)**: Nhận diện chính xác 3 loại trái cây phổ biến (*Cam, Chuối, Xoài*) qua 3 giai đoạn sinh trưởng (*Chưa chín / Xanh*, *Chín*, *Bị hỏng / Thối*).
 2. **Đánh giá Phẩm cấp Thương phẩm & An toàn Thực phẩm**: Tự động xếp hạng thương phẩm thành 3 cấp độ (*Đạt chuẩn Loại 1*, *Lưu kho / Chế biến Loại 2*, *Kém chất lượng / Loại bỏ*) kèm khuyến nghị bảo quản và cảnh báo vi sinh vật, nấm mốc.
 
-> 💡 **Ghi chú chuyển đổi kiến trúc:** Hệ thống hiện tại sử dụng toàn bộ pipeline Học Sâu thế hệ mới trong thư mục [`src_dl/`](src_dl/) và kiến trúc Edge Inference trên trình duyệt [`frontend/`](frontend/). Tài liệu và mã nguồn học máy truyền thống cũ (Handcrafted Features / Raw Pixels + scikit-learn) đã được lưu trữ tham khảo tại [`README_ml.md`](README_ml.md) và thư mục [`src/`](src/).
+> 💡 **Ghi chú:** Hệ thống sử dụng toàn bộ pipeline Học Sâu thế hệ mới trong thư mục [`src/`](src/) và kiến trúc Edge Inference trên trình duyệt [`frontend/`](frontend/).
 
 ---
 
@@ -22,7 +22,7 @@ Hệ thống ứng dụng mạng nơ-ron tích chập (**Convolutional Neural Ne
 3. [Tập Dữ Liệu Thực Nghiệm (Dataset)](#-tập-dữ-liệu-thực-nghiệm-dataset)
 4. [Cấu Trúc Thư Mục Dự Án](#-cấu-trúc-thư-mục-dự-án)
 5. [Cài Đặt & Môi Trường](#-cài-đặt--môi-trường)
-6. [Huấn Luyện & Tối Ưu Mô Hình (`src_dl/`)](#-huấn-luyện--tối-ưu-mô-hình-src_dl)
+6. [Huấn Luyện & Tối Ưu Mô Hình (`src/`)](#-huấn-luyện--tối-ưu-mô-hình-src)
 7. [Xuất Khẩu ONNX & Suy Luận Trên Trình Duyệt](#-xuất-khẩu-onnx--suy-luận-trên-trình-duyệt)
 8. [Khởi Chạy Ứng Dụng Web & API](#-khởi-chạy-ứng-dụng-web--api)
 9. [Báo Cáo & Kết Quả Thực Nghiệm](#-báo-cáo--kết-quả-thực-nghiệm)
@@ -50,7 +50,7 @@ Hệ thống hoạt động theo quy trình khép kín từ tiền xử lý, tă
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────┐
-│                            PIPELINE HỌC SÂU (src_dl/)                            │
+│                            PIPELINE HỌC SÂU (src/)                               │
 │                                                                                  │
 │  Ảnh gốc (RGB)                                                                   │
 │       │                                                                          │
@@ -81,7 +81,7 @@ Hệ thống hoạt động theo quy trình khép kín từ tiền xử lý, tă
 │  [Huấn luyện & Báo cáo]                 [Triển khai Suy luận Client/Server]     │
 │  • Huấn luyện GPU CUDA (RTX 3050) / CPU • Đóng gói end-to-end: export_onnx.py    │
 │  • Tự động sinh 6 biểu đồ & chỉ số      • Chạy cục bộ bằng ONNX Runtime Web     │
-│  • Lưu checkpoint: models_dl/           • Hoặc REST API backend: app/web/        │
+│  • Lưu checkpoint: models/           • Hoặc REST API backend: app/web/        │
 └──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -141,17 +141,16 @@ fruit-classification/
 ├── data/
 │   ├── README.md               # Đặc tả chi tiết tập dữ liệu và báo cáo kiểm toán audit
 │   └── processed/dataset/      # 1.800 ảnh train / val / test phân bổ 9 lớp
-├── models_dl/                  # Trọng số mô hình đã huấn luyện (classifier_dl.joblib, config.json)
-├── reports_dl/                 # Báo cáo thực nghiệm: metrics, confusion matrix, ROC curves, loss
-├── src_dl/                     # Mã nguồn cốt lõi nhánh Học Sâu (Deep Learning)
+├── models/                  # Trọng số mô hình đã huấn luyện (classifier.joblib, config.json)
+├── reports/                 # Báo cáo thực nghiệm: metrics, confusion matrix, ROC curves, loss
+├── src/                        # Mã nguồn cốt lõi nhánh Học Sâu (Deep Learning)
 │   ├── backbone.py             # Quản lý các CNN Backbone (MobileNetV3, MobileNetV2, ResNet18)
-│   ├── preprocess_dl.py        # Tiền xử lý, chuẩn hóa ImageNet, Data Augmentation
+│   ├── preprocess.py        # Tiền xử lý, chuẩn hóa ImageNet, Data Augmentation
 │   ├── torch_classifier.py     # Kiến trúc PyTorch MLP Head & bộ theo dõi LossTracker
 │   ├── benchmark_reporter.py   # Đo đạc FLOPs, số tham số, độ trễ và xuất báo cáo học thuật
-│   ├── train_dl.py             # Quy trình huấn luyện tự động với GPU CUDA / CPU
-│   └── predict_dl.py           # Bộ suy luận độc lập FruitClassifierDL
+│   ├── train.py             # Quy trình huấn luyện tự động với GPU CUDA / CPU
+│   └── predict.py           # Bộ suy luận độc lập FruitClassifierDL
 ├── export_onnx.py              # Script xuất toàn bộ pipeline sang định dạng ONNX
-├── README_ml.md                # Tài liệu lưu trữ nhánh học máy truyền thống cũ (src/)
 ├── requirements.txt            # Danh mục thư viện Python sản xuất
 └── vercel.json                 # Cấu hình triển khai Serverless Vercel
 ```
@@ -183,23 +182,23 @@ pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
 
 ---
 
-## 🚀 Huấn Luyện & Tối Ưu Mô Hình (`src_dl/`)
+## 🚀 Huấn Luyện & Tối Ưu Mô Hình (`src/`)
 
-Quy trình huấn luyện trong `src_dl/train_dl.py` tự động tích hợp: trích xuất đặc trưng sâu, chuẩn hóa, huấn luyện MLP Head và xuất đầy đủ biểu đồ đánh giá.
+Quy trình huấn luyện trong `src/train.py` tự động tích hợp: trích xuất đặc trưng sâu, chuẩn hóa, huấn luyện MLP Head và xuất đầy đủ biểu đồ đánh giá.
 
 ### Huấn luyện mô hình mặc định (MobileNetV3-Small trên GPU CUDA/CPU):
 ```powershell
-python -m src_dl.train_dl --backbone mobilenetv3_small --epochs 15 --device auto
+python -m src.train --backbone mobilenetv3_small --epochs 15 --device auto
 ```
 
 ### Huấn luyện và so sánh cùng lúc cả 3 kiến trúc:
 ```powershell
-python -m src_dl.train_dl --backbone all --epochs 15 --device auto
+python -m src.train --backbone all --epochs 15 --device auto
 ```
 
 ### Huấn luyện nối tiếp từ checkpoint đã lưu (`--resume`):
 ```powershell
-python -m src_dl.train_dl --resume --epochs 10
+python -m src.train --resume --epochs 10
 ```
 
 ### Các cờ tùy chọn nâng cao:
@@ -250,7 +249,7 @@ python -m app.web
 
 ## 📈 Báo Cáo & Kết Quả Thực Nghiệm
 
-Sau mỗi phiên huấn luyện, hệ thống tự động xuất 6 tài liệu học thuật theo chuẩn nghiên cứu vào thư mục [`reports_dl/`](reports_dl/):
+Sau mỗi phiên huấn luyện, hệ thống tự động xuất 6 tài liệu học thuật theo chuẩn nghiên cứu vào thư mục [`reports/`](reports/):
 
 1. **`metrics.json`**: Thống kê chi tiết điểm số `Accuracy`, `Macro F1`, `Weighted F1`, `Precision`, `Recall` trên từng tập dữ liệu.
 2. **`confusion_matrix.png`**: Ma trận nhầm lẫn kích thước $9 \times 9$ biểu diễn trực quan độ chính xác giữa nhãn thực tế và nhãn dự đoán.

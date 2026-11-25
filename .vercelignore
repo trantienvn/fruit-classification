@@ -3,11 +3,10 @@
 api/
 app/
 src/
-src_dl/
 /data/
-models_dl/
+models/
 reports/
-reports_dl/
+reports/
 tests/
 export_onnx.py
 requirements.txt

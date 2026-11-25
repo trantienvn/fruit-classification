@@ -1,10 +1,10 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Vườn chín API",
-    "summary": "API phân loại độ chín trái cây bằng model học máy hiện có.",
-    "description": "Nhận ảnh JPG, PNG, BMP hoặc WEBP; dùng trực tiếp FruitClassifier. Lịch sử chỉ lưu metadata, không lưu ảnh tải lên.",
-    "version": "1.0.0"
+    "title": "Hệ Thống Phân Loại & Đánh Giá Chất Lượng Trái Cây bằng Học Sâu",
+    "summary": "Ứng dụng thị giác máy tính nhận diện chủng loại, độ chín và đánh giá chất lượng trái cây bằng Deep Learning (MobileNetV3 + PyTorch CUDA).",
+    "description": "Hệ thống tự động trích xuất đặc trưng sâu từ ảnh RGB (224x224), phân loại đồng thời 2 thuộc tính: Độ chín (Chín, Chưa chín, Hỏng) và Chất lượng thương phẩm (Đạt chuẩn Loại 1, Loại 2 hoặc Kém).",
+    "version": "3.0.0"
   },
   "paths": {
     "/api/health": {
@@ -104,7 +104,7 @@
         "tags": [
           "model"
         ],
-        "summary": "Thông tin model hiện tại",
+        "summary": "Thông tin mô hình học sâu Deep Learning",
         "operationId": "model_info_api_model_info_get",
         "responses": {
           "200": {
@@ -381,6 +381,33 @@
               }
             ],
             "title": "Model Name"
+          },
+          "backbone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backbone"
+          },
+          "device": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device"
+          },
+          "n_classes": {
+            "type": "integer",
+            "title": "N Classes",
+            "default": 9
           }
         },
         "type": "object",
@@ -489,9 +516,39 @@
             "type": "string",
             "title": "Fruit Type"
           },
+          "fruit_type_vi": {
+            "type": "string",
+            "title": "Fruit Type Vi",
+            "description": "Tên tiếng Việt loại trái cây (Cam, Chuối, Xoài)",
+            "default": ""
+          },
           "ripeness": {
             "type": "string",
             "title": "Ripeness"
+          },
+          "ripeness_vi": {
+            "type": "string",
+            "title": "Ripeness Vi",
+            "description": "Độ chín tiếng Việt (Chín, Chưa chín, Hỏng)",
+            "default": ""
+          },
+          "quality": {
+            "type": "string",
+            "title": "Quality",
+            "description": "Đánh giá chất lượng thương phẩm (Đạt chuẩn / Kém)",
+            "default": ""
+          },
+          "quality_code": {
+            "type": "string",
+            "title": "Quality Code",
+            "description": "'good', 'unripe', hoặc 'bad'",
+            "default": "good"
+          },
+          "recommendation": {
+            "type": "string",
+            "title": "Recommendation",
+            "description": "Lời khuyên bảo quản và tiêu dùng",
+            "default": ""
           },
           "predicted_class": {
             "type": "integer",
@@ -504,7 +561,7 @@
           "class_name_vi": {
             "type": "string",
             "title": "Class Name Vi",
-            "description": "Tên lớp đầy đủ bằng tiếng Việt, ví dụ: Cam · Hỏng."
+            "description": "Tên lớp đầy đủ bằng tiếng Việt, ví dụ: Cam · Chín."
           },
           "confidence": {
             "anyOf": [
@@ -516,7 +573,7 @@
               }
             ],
             "title": "Confidence",
-            "description": "Chỉ có khi model cung cấp xác suất dự đoán thật."
+            "description": "Độ tin cậy xác suất dự đoán cao nhất (0.0 - 1.0)."
           },
           "processing_time_ms": {
             "type": "number",
@@ -535,7 +592,7 @@
               }
             ],
             "title": "Probabilities",
-            "description": "Chỉ có khi classifier hỗ trợ predict_proba."
+            "description": "Phân bố xác suất trên toàn bộ 9 lớp."
           },
           "created_at": {
             "type": "string",

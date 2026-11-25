@@ -29,6 +29,46 @@ function getModelUrl(fileName) {
   }
 }
 
+const CACHE_NAME = "fruit-models-cache-v1";
+const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 ngày
+
+async function getModelBuffer(modelUrl) {
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    const cachedResponse = await cache.match(modelUrl);
+
+    if (cachedResponse) {
+      const cachedTime = cachedResponse.headers.get("x-cache-time");
+      const now = Date.now();
+      if (cachedTime && (now - Number(cachedTime) < MAX_AGE_MS)) {
+        return await cachedResponse.arrayBuffer();
+      }
+    }
+
+    const response = await fetch(modelUrl);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const blob = await response.blob();
+
+    const headers = new Headers(response.headers);
+    headers.set("x-cache-time", Date.now().toString());
+    const cacheResponse = new Response(blob, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: headers
+    });
+
+    await cache.put(modelUrl, cacheResponse.clone());
+    return await cacheResponse.arrayBuffer();
+  } catch (err) {
+    const cache = await caches.open(CACHE_NAME);
+    const cachedResponse = await cache.match(modelUrl);
+    if (cachedResponse) {
+      return await cachedResponse.arrayBuffer();
+    }
+    throw err;
+  }
+}
+
 async function initSession(modelFile = currentModelFile) {
   currentModelFile = modelFile;
   const modelUrl = getModelUrl(modelFile);
@@ -36,12 +76,13 @@ async function initSession(modelFile = currentModelFile) {
   self.postMessage({
     type: "status",
     status: "loading_model",
-    message: `Đang nạp mô hình ${modelFile} vào bộ nhớ Wasm...`,
+    message: `Đang nạp mô hình ${modelFile} (kiểm tra cache client 7 ngày)...`,
   });
 
   sessionPromise = (async () => {
     try {
-      const sess = await ort.InferenceSession.create(modelUrl, {
+      const modelBuffer = await getModelBuffer(modelUrl);
+      const sess = await ort.InferenceSession.create(modelBuffer, {
         executionProviders: ["wasm"],
         graphOptimizationLevel: "all",
       });

@@ -12,7 +12,11 @@ const RIPENESS_THEMES = new Map([
   ["Spoiled", "spoiled"],
   ["chin", "ripe"],
   ["chua-chin", "unripe"],
+  ["chua_chin", "unripe"],
   ["hong", "spoiled"],
+  ["Chín", "ripe"],
+  ["Chưa chín", "unripe"],
+  ["Hỏng", "spoiled"],
 ]);
 
 let selectedFile = null;

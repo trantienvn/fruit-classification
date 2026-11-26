@@ -1,26 +1,101 @@
 import { get } from "../api.js";
 import { classLabel, escapeHtml, number, percent } from "../utils.js";
 
-const DEFAULT_REPORTS = [
+const ALL_REPORTS = [
   {
-    title: "1. So sánh hiệu năng giữa các kiến trúc học sâu (Mục 3.6 Đề cương)",
-    file: "model_comparison.png",
-    desc: "Biểu đồ so sánh 4 chiều: Độ chính xác / F1, Kích thước file ONNX, Tốc độ suy luận (ms), và Số phép tính FLOPs giữa MobileNetV3-Small, MobileNetV2 và ResNet-18.",
+    title: "1. Sơ đồ kiến trúc pipeline tổng thể",
+    file: "pipeline_architecture.png",
+    desc: "Sơ đồ khối luồng xử lý từ ảnh đầu vào, trích xuất đặc trưng CNN, PCA đến bộ phân loại MLP.",
   },
   {
-    title: "2. Ma trận nhầm lẫn tổng thể — Confusion Matrix (Mục 1.5.1 Đề cương)",
+    title: "2. Kiến trúc Web Worker & ONNX Runtime",
+    file: "web_worker_architecture.png",
+    desc: "Sơ đồ mô hình suy luận bất đồng bộ trên trình duyệt qua WebAssembly.",
+  },
+  {
+    title: "3. Minh họa mẫu tập dữ liệu 9 lớp",
+    file: "dataset_9classes_samples.png",
+    desc: "Ảnh đại diện cho 9 lớp phân loại (Cam, Chuối, Xoài ở các trạng thái chưa chín, chín, hỏng).",
+  },
+  {
+    title: "4. Minh họa tăng cường dữ liệu (Data Augmentation)",
+    file: "data_augmentation_demo.png",
+    desc: "Các phép biến đổi góc xoay, lật ngang và điều chỉnh độ sáng mở rộng tập train.",
+  },
+  {
+    title: "5. Sơ đồ xu hướng Loss theo Epoch (Train vs Val)",
+    file: "loss_curve.png",
+    desc: "Đường cong Cross-Entropy Loss qua các Epoch, kiểm soát hiện tượng Overfitting/Underfitting.",
+  },
+  {
+    title: "6. Tiến trình huấn luyện & Tốc độ hội tụ (Loss & Accuracy)",
+    file: "epoch_training.png",
+    desc: "Đánh giá chi tiết sự tương quan giữa hàm mất mát và độ chính xác phân loại theo từng chu kỳ.",
+  },
+  {
+    title: "7. Lịch sử huấn luyện toàn cục",
+    file: "training_history.png",
+    desc: "Tổng hợp tiến trình huấn luyện qua các kiến trúc mạng CNN.",
+  },
+  {
+    title: "8. Tiến trình huấn luyện MobileNetV2",
+    file: "training_history_mobilenetv2.png",
+    desc: "Biểu đồ Loss và Accuracy chi tiết của mô hình MobileNetV2.",
+  },
+  {
+    title: "9. Tiến trình huấn luyện MobileNetV3-Small",
+    file: "training_history_mobilenetv3_small.png",
+    desc: "Biểu đồ Loss và Accuracy chi tiết của mô hình MobileNetV3-Small.",
+  },
+  {
+    title: "10. Tiến trình huấn luyện ResNet-18",
+    file: "training_history_resnet18.png",
+    desc: "Biểu đồ Loss và Accuracy chi tiết của mô hình ResNet-18.",
+  },
+  {
+    title: "11. So sánh các kiến trúc CNN",
+    file: "model_comparison.png",
+    desc: "Biểu đồ so sánh độ chính xác, kích thước và tốc độ giữa các mô hình.",
+  },
+  {
+    title: "12. Đường cong ROC và chỉ số AUC (Đa lớp)",
+    file: "roc_curve.png",
+    desc: "Đánh giá khả năng phân loại One-vs-Rest trên 9 lớp.",
+  },
+  {
+    title: "13. ROC & AUC - MobileNetV2",
+    file: "roc_curve_mobilenetv2.png",
+    desc: "Đường cong ROC chi tiết của MobileNetV2.",
+  },
+  {
+    title: "14. ROC & AUC - MobileNetV3-Small",
+    file: "roc_curve_mobilenetv3_small.png",
+    desc: "Đường cong ROC chi tiết của MobileNetV3-Small.",
+  },
+  {
+    title: "15. ROC & AUC - ResNet-18",
+    file: "roc_curve_resnet18.png",
+    desc: "Đường cong ROC chi tiết của mô hình ResNet-18 xuất sắc nhất.",
+  },
+  {
+    title: "16. Ma trận nhầm lẫn tổng hợp (Confusion Matrix)",
     file: "confusion_matrix.png",
     desc: "Đánh giá chi tiết các trường hợp dự đoán đúng và các ca nhầm lẫn giữa 9 lớp quả - độ chín - hư hỏng trên 270 ảnh tập kiểm thử độc lập.",
   },
   {
-    title: "3. Đường cong ROC đa lớp One-vs-Rest & Chỉ số AUC (Mục 1.5.2 Đề cương)",
-    file: "roc_curve.png",
-    desc: "Đánh giá khả năng phân tách nhãn của mô hình ở mọi ngưỡng quyết định. Macro-average AUC đạt > 0.999 minh chứng cho độ tin cậy vượt trội.",
+    title: "17. Ma trận nhầm lẫn - MobileNetV2",
+    file: "confusion_matrix_mobilenetv2.png",
+    desc: "Ma trận nhầm lẫn 9x9 của MobileNetV2.",
   },
   {
-    title: "4. Lịch sử hàm mất mát & Độ chính xác qua các Epoch",
-    file: "training_history.png",
-    desc: "Đường cong Cross-Entropy Loss và Accuracy (Train vs Validation) qua 10 Epochs trên GPU RTX 3050, thể hiện tốc độ hội tụ nhanh và ổn định.",
+    title: "18. Ma trận nhầm lẫn - MobileNetV3-Small",
+    file: "confusion_matrix_mobilenetv3_small.png",
+    desc: "Ma trận nhầm lẫn 9x9 của MobileNetV3-Small.",
+  },
+  {
+    title: "19. Ma trận nhầm lẫn - ResNet-18",
+    file: "confusion_matrix_resnet18.png",
+    desc: "Ma trận nhầm lẫn 9x9 của ResNet-18.",
   },
 ];
 
@@ -28,7 +103,7 @@ function renderReports() {
   const container = document.querySelector("#model-reports");
   if (!container) return;
 
-  container.innerHTML = DEFAULT_REPORTS.map((r) => `
+  container.innerHTML = ALL_REPORTS.map((r) => `
     <article class="report-card">
       <div class="report-card-header">
         <h3>${escapeHtml(r.title)}</h3>
@@ -36,7 +111,7 @@ function renderReports() {
       </div>
       <div class="report-img-wrap">
         <img src="static/img/${encodeURIComponent(r.file)}" alt="${escapeHtml(r.title)}" loading="lazy">
-        <div class="report-missing is-hidden">Chưa có biểu đồ trong static/img/.</div>
+        <div class="report-missing is-hidden">Chưa có ảnh báo cáo tương ứng.</div>
       </div>
     </article>
   `).join("");

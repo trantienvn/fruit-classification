@@ -1,7 +1,27 @@
 import { get } from "../api.js";
 import { classLabel, escapeHtml, number, percent } from "../utils.js";
 
-const DEFAULT_REPORTS = [
+const ALL_REPORTS = [
+  {
+    title: "Sơ đồ kiến trúc pipeline tổng thể",
+    file: "pipeline_architecture.png",
+    desc: "Sơ đồ khối luồng xử lý từ ảnh đầu vào, trích xuất đặc trưng CNN, PCA đến bộ phân loại MLP.",
+  },
+  {
+    title: "Kiến trúc Web Worker & ONNX Runtime",
+    file: "web_worker_architecture.png",
+    desc: "Sơ đồ mô hình suy luận bất đồng bộ trên trình duyệt qua WebAssembly.",
+  },
+  {
+    title: "Minh họa mẫu tập dữ liệu 9 lớp",
+    file: "dataset_9classes_samples.png",
+    desc: "Ảnh đại diện cho 9 lớp phân loại (Cam, Chuối, Xoài ở các trạng thái chưa chín, chín, hỏng).",
+  },
+  {
+    title: "Minh họa tăng cường dữ liệu (Data Augmentation)",
+    file: "data_augmentation_demo.png",
+    desc: "Các phép biến đổi góc xoay, lật ngang và điều chỉnh độ sáng mở rộng tập train.",
+  },
   {
     title: "Sơ đồ xu hướng Loss theo Epoch (Train vs Val)",
     file: "loss_curve.png",
@@ -12,21 +32,86 @@ const DEFAULT_REPORTS = [
     file: "epoch_training.png",
     desc: "Đánh giá chi tiết sự tương quan giữa hàm mất mát và độ chính xác phân loại theo từng chu kỳ.",
   },
+  {
+    title: "Lịch sử huấn luyện toàn cục",
+    file: "training_history.png",
+    desc: "Tổng hợp tiến trình huấn luyện qua các kiến trúc mạng CNN.",
+  },
+  {
+    title: "Tiến trình huấn luyện MobileNetV2",
+    file: "training_history_mobilenetv2.png",
+    desc: "Biểu đồ Loss và Accuracy chi tiết của mô hình MobileNetV2.",
+  },
+  {
+    title: "Tiến trình huấn luyện MobileNetV3-Small",
+    file: "training_history_mobilenetv3_small.png",
+    desc: "Biểu đồ Loss và Accuracy chi tiết của mô hình MobileNetV3-Small.",
+  },
+  {
+    title: "Tiến trình huấn luyện ResNet-18",
+    file: "training_history_resnet18.png",
+    desc: "Biểu đồ Loss và Accuracy chi tiết của mô hình ResNet-18.",
+  },
+  {
+    title: "So sánh các kiến trúc CNN",
+    file: "model_comparison.png",
+    desc: "Biểu đồ so sánh độ chính xác, kích thước và tốc độ giữa các mô hình.",
+  },
+  {
+    title: "Đường cong ROC và chỉ số AUC (Đa lớp)",
+    file: "roc_curve.png",
+    desc: "Đánh giá khả năng phân loại One-vs-Rest trên 9 lớp.",
+  },
+  {
+    title: "ROC & AUC - MobileNetV2",
+    file: "roc_curve_mobilenetv2.png",
+    desc: "Đường cong ROC chi tiết của MobileNetV2.",
+  },
+  {
+    title: "ROC & AUC - MobileNetV3-Small",
+    file: "roc_curve_mobilenetv3_small.png",
+    desc: "Đường cong ROC chi tiết của MobileNetV3-Small.",
+  },
+  {
+    title: "ROC & AUC - ResNet-18",
+    file: "roc_curve_resnet18.png",
+    desc: "Đường cong ROC chi tiết của mô hình ResNet-18 xuất sắc nhất.",
+  },
+  {
+    title: "Ma trận nhầm lẫn tổng hợp (Confusion Matrix)",
+    file: "confusion_matrix.png",
+    desc: "Ma trận nhầm lẫn 9x9 đánh giá chi tiết trên tập kiểm thử.",
+  },
+  {
+    title: "Ma trận nhầm lẫn - MobileNetV2",
+    file: "confusion_matrix_mobilenetv2.png",
+    desc: "Ma trận nhầm lẫn 9x9 của MobileNetV2.",
+  },
+  {
+    title: "Ma trận nhầm lẫn - MobileNetV3-Small",
+    file: "confusion_matrix_mobilenetv3_small.png",
+    desc: "Ma trận nhầm lẫn 9x9 của MobileNetV3-Small.",
+  },
+  {
+    title: "Ma trận nhầm lẫn - ResNet-18",
+    file: "confusion_matrix_resnet18.png",
+    desc: "Ma trận nhầm lẫn 9x9 của ResNet-18.",
+  },
 ];
 
 function renderReports() {
   const container = document.querySelector("#model-reports");
   if (!container) return;
 
-  container.innerHTML = DEFAULT_REPORTS.map((r) => `
+  container.innerHTML = ALL_REPORTS.map((r) => `
     <article class="report-card">
       <div class="report-card-header">
         <h3>${escapeHtml(r.title)}</h3>
         <p class="report-desc">${escapeHtml(r.desc)}</p>
       </div>
       <div class="report-img-wrap">
-        <img src="/reports_dl/${encodeURIComponent(r.file)}" alt="${escapeHtml(r.title)}" loading="lazy">
-        <div class="report-missing is-hidden">Chưa có biểu đồ trong reports_dl/.</div>
+        <img src="/reports/${encodeURIComponent(r.file)}" alt="${escapeHtml(r.title)}" loading="lazy">
+        <div class="report-missing is-hidden">Chưa có ảnh báo cáo tương ứng.</div>
       </div>
     </article>
   `).join("");
@@ -34,9 +119,9 @@ function renderReports() {
   container.querySelectorAll("img").forEach((image) => {
     image.addEventListener("error", () => {
       const currentSrc = image.getAttribute("src") || "";
-      if (currentSrc.startsWith("/reports_dl/")) {
-        const fileName = currentSrc.replace("/reports_dl/", "");
-        image.src = `/reports/${fileName}`;
+      if (currentSrc.startsWith("/reports/")) {
+        const fileName = currentSrc.replace("/reports/", "");
+        image.src = `/reports_dl/${fileName}`;
       } else {
         image.classList.add("is-hidden");
         const missing = image.nextElementSibling;
